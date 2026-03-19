@@ -240,10 +240,26 @@ func (b *Bot) handleRevoke(c telebot.Context) error {
 		return c.Respond(&telebot.CallbackResponse{Text: "Ошибка при удалении"})
 	}
 
-	originalText := c.Message().Text
-	_, _ = b.bot.Edit(c.Message(), originalText+"\n\n🚫 Доступ удалён", telebot.ModeMarkdown)
+	name := extractNameFromAllowedUsers(c.Message().Text)
+
+	_ = b.bot.Delete(c.Message())
+	_, _ = b.bot.Send(c.Message().Chat, "🚫 Отозван доступ для пользователя "+name)
 
 	return c.Respond()
+}
+
+// extractNameFromAllowedUsers extracts the user name from the /allowed_users list message.
+// Message format: "✅ NAME (@username)\nID: `12345`"
+func extractNameFromAllowedUsers(text string) string {
+	line := strings.SplitN(text, "\n", 2)[0]
+	line = strings.TrimPrefix(line, "✅ ")
+	if idx := strings.Index(line, " (@"); idx != -1 {
+		line = line[:idx]
+	}
+	if line == "" {
+		return "пользователь"
+	}
+	return line
 }
 
 // extractNameFromNotification extracts the user name from the admin notification message.

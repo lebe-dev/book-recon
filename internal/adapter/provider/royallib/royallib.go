@@ -330,12 +330,13 @@ func extractBookPath(bookURL string) string {
 // ---------------------------------------------------------------------------
 
 // filenameFromDisposition extracts the filename from a Content-Disposition header.
+// The resulting string is guaranteed to be valid UTF-8.
 func filenameFromDisposition(cd string) string {
 	if cd == "" {
 		return ""
 	}
 
-	// Try filename*= (RFC 5987) first.
+	// Try filename*= (RFC 5987) first — always UTF-8 by spec.
 	if idx := strings.Index(cd, "filename*="); idx != -1 {
 		val := cd[idx+len("filename*="):]
 		if i := strings.IndexByte(val, ';'); i != -1 {
@@ -357,7 +358,8 @@ func filenameFromDisposition(cd string) string {
 		val = strings.TrimSpace(val)
 		val = strings.Trim(val, `"`)
 		if decoded, err := url.PathUnescape(val); err == nil {
-			return decoded
+			// Percent-decoded bytes may be UTF-8 or a legacy 8-bit encoding.
+			return toUTF8(decoded, charmap.Windows1251, charmap.CodePage866)
 		}
 		return val
 	}
@@ -365,17 +367,47 @@ func filenameFromDisposition(cd string) string {
 	return ""
 }
 
-// decodeFilename ensures the filename is valid UTF-8.
-// ZIP archives created on Windows often store filenames in CP1251.
+// decodeFilename ensures a ZIP entry name is valid UTF-8.
+// ZIP archives without the UTF-8 flag (NonUTF8=true) store names in the local
+// OEM code page — CP866 for Russian Windows/DOS tools.
 func decodeFilename(s string) string {
+	return toUTF8(s, charmap.CodePage866, charmap.Windows1251)
+}
+
+// toUTF8 returns s if it is already valid UTF-8. Otherwise it tries each
+// candidate encoding and returns the decode with the most Cyrillic characters.
+// Falls back to the original string if no candidate improves it.
+func toUTF8(s string, candidates ...*charmap.Charmap) string {
 	if utf8.ValidString(s) {
 		return s
 	}
-	decoded, err := charmap.Windows1251.NewDecoder().String(s)
-	if err != nil {
-		return s
+
+	best := s
+	bestScore := 0
+
+	for _, enc := range candidates {
+		decoded, err := enc.NewDecoder().String(s)
+		if err != nil {
+			continue
+		}
+		if score := cyrillicCount(decoded); score > bestScore {
+			bestScore = score
+			best = decoded
+		}
 	}
-	return decoded
+
+	return best
+}
+
+// cyrillicCount counts the number of Cyrillic characters (U+0400–U+04FF) in s.
+func cyrillicCount(s string) int {
+	n := 0
+	for _, r := range s {
+		if r >= 0x0400 && r <= 0x04FF {
+			n++
+		}
+	}
+	return n
 }
 
 // fallbackFilename builds a filename when the zip entry name is empty.

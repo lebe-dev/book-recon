@@ -223,14 +223,14 @@ func TestDownload_EPUBIsZip(t *testing.T) {
 
 // TestDownload_CP1251Filename verifies that zip entry names encoded in CP1251
 // are decoded to valid UTF-8.
-func TestDownload_CP1251Filename(t *testing.T) {
-	// "Книга.fb2" in CP1251 bytes.
-	// К=0xCA н=0xED и=0xE8 г=0xE3 а=0xE0
-	cp1251Name := "\xca\xed\xe8\xe3\xe0.fb2"
+func TestDownload_CP866Filename(t *testing.T) {
+	// "Книга.fb2" in CP866 bytes (DOS OEM Russian).
+	// К=0x8A н=0xAD и=0xA8 г=0xA3 а=0xA0
+	cp866Name := "\x8a\xad\xa8\xa3\xa0.fb2"
 
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	if _, err := zw.CreateHeader(&zip.FileHeader{Name: cp1251Name}); err != nil {
+	if _, err := zw.CreateHeader(&zip.FileHeader{Name: cp866Name}); err != nil {
 		t.Fatal(err)
 	}
 	if err := zw.Close(); err != nil {
@@ -286,16 +286,25 @@ func TestFilenameFromDisposition(t *testing.T) {
 		input string
 		want  string
 	}{
+		// UTF-8 percent-encoded (modern servers)
 		{
 			input: `attachment; filename="%D0%9A%D1%83%D0%BF%D1%86%D0%BE%D0%B2.epub"`,
 			want:  "Купцов.epub",
 		},
+		// Plain ASCII filename
 		{
 			input: `attachment; filename="plain.fb2.zip"`,
 			want:  "plain.fb2.zip",
 		},
+		// RFC 5987 filename*= (always UTF-8 by spec)
 		{
 			input: `attachment; filename*=UTF-8''%D0%9A%D1%83%D0%BF%D1%86%D0%BE%D0%B2.epub`,
+			want:  "Купцов.epub",
+		},
+		// CP1251 percent-encoded (old Windows/IIS servers)
+		// "Купцов.epub" in CP1251: К=0xCA у=0xF3 п=0xEF ц=0xF6 о=0xEE в=0xE2
+		{
+			input: `attachment; filename="%CA%F3%EF%F6%EE%E2.epub"`,
 			want:  "Купцов.epub",
 		},
 		{input: "", want: ""},

@@ -18,18 +18,18 @@ import (
 func opdsEntryXML(bookID int, title, author string, formats []Format) string {
 	var sb strings.Builder
 	sb.WriteString("<entry>\n")
-	sb.WriteString(fmt.Sprintf("  <updated>2026-01-01T00:00:00+00:00</updated>\n"))
-	sb.WriteString(fmt.Sprintf("  <title>%s</title>\n", title))
-	sb.WriteString(fmt.Sprintf("  <id>tag:book:%d</id>\n", bookID))
-	sb.WriteString(fmt.Sprintf("  <author><name>%s</name><uri>/a/%d</uri></author>\n", author, bookID))
-	sb.WriteString(fmt.Sprintf("  <category label=\"Fiction\" term=\"fiction\"/>\n"))
-	sb.WriteString(fmt.Sprintf("  <dc:language>ru</dc:language>\n"))
+	sb.WriteString("  <updated>2026-01-01T00:00:00+00:00</updated>\n")
+	fmt.Fprintf(&sb, "  <title>%s</title>\n", title)
+	fmt.Fprintf(&sb, "  <id>tag:book:%d</id>\n", bookID)
+	fmt.Fprintf(&sb, "  <author><name>%s</name><uri>/a/%d</uri></author>\n", author, bookID)
+	sb.WriteString("  <category label=\"Fiction\" term=\"fiction\"/>\n")
+	sb.WriteString("  <dc:language>ru</dc:language>\n")
 
 	for _, f := range formats {
 		mime := formatToMIME(f)
-		sb.WriteString(fmt.Sprintf(`  <link rel="http://opds-spec.org/acquisition/open-access" type="%s" href="/b/%d/%s"/>`+"\n", mime, bookID, f))
+		fmt.Fprintf(&sb, `  <link rel="http://opds-spec.org/acquisition/open-access" type="%s" href="/b/%d/%s"/>`+"\n", mime, bookID, f)
 	}
-	sb.WriteString(fmt.Sprintf(`  <link rel="alternate" type="text/html" href="/b/%d"/>`+"\n", bookID))
+	fmt.Fprintf(&sb, `  <link rel="alternate" type="text/html" href="/b/%d"/>`+"\n", bookID)
 	sb.WriteString("</entry>\n")
 	return sb.String()
 }
@@ -72,12 +72,12 @@ func newTestServer(t *testing.T, pages map[int][]testBook) *httptest.Server {
 		case strings.HasPrefix(r.URL.Path, "/opds/opensearch"):
 			page := 0
 			if p := r.URL.Query().Get("pageNumber"); p != "" {
-				fmt.Sscanf(p, "%d", &page)
+				_, _ = fmt.Sscanf(p, "%d", &page)
 			}
 			books, ok := pages[page]
 			if !ok || len(books) == 0 {
 				w.Header().Set("Content-Type", "application/atom+xml")
-				fmt.Fprint(w, opdsFeedXML("", ""))
+				_, _ = fmt.Fprint(w, opdsFeedXML("", ""))
 				return
 			}
 			var entriesXML strings.Builder
@@ -89,7 +89,7 @@ func newTestServer(t *testing.T, pages map[int][]testBook) *httptest.Server {
 				nextHref = fmt.Sprintf("/opds/opensearch?searchType=books&searchTerm=test&pageNumber=%d", page+1)
 			}
 			w.Header().Set("Content-Type", "application/atom+xml")
-			fmt.Fprint(w, opdsFeedXML(entriesXML.String(), nextHref))
+			_, _ = fmt.Fprint(w, opdsFeedXML(entriesXML.String(), nextHref))
 
 		case strings.HasPrefix(r.URL.Path, "/b/"):
 			parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/b/"), "/")
@@ -102,7 +102,7 @@ func newTestServer(t *testing.T, pages map[int][]testBook) *httptest.Server {
 			w.Header().Set("Content-Disposition",
 				fmt.Sprintf(`attachment; filename="book_%s.%s"`, bookID, format))
 			w.Header().Set("Content-Type", "application/octet-stream")
-			fmt.Fprintf(w, "fake-content-for-%s-%s", bookID, format)
+			_, _ = fmt.Fprintf(w, "fake-content-for-%s-%s", bookID, format)
 
 		default:
 			http.NotFound(w, r)
@@ -266,7 +266,7 @@ func TestSearch_ServerError(t *testing.T) {
 func TestSearch_MalformedXML(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/atom+xml")
-		fmt.Fprint(w, "this is not xml at all <><><>")
+		_, _ = fmt.Fprint(w, "this is not xml at all <><><>")
 	}))
 	defer srv.Close()
 
@@ -299,7 +299,7 @@ func TestDownload_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	data, _ := io.ReadAll(body)
 	if string(data) != "fake-content-for-42-fb2" {
@@ -326,7 +326,7 @@ func TestDownload_EPUB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	if filename != "book_99.epub" {
 		t.Errorf("expected 'book_99.epub', got %q", filename)
@@ -396,7 +396,7 @@ func TestDownload_ContextCanceled(t *testing.T) {
 func TestDownload_ContentDispositionFilename(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Disposition", `attachment; filename="custom_name.fb2.zip"`)
-		fmt.Fprint(w, "data")
+		_, _ = fmt.Fprint(w, "data")
 	}))
 	defer srv.Close()
 
@@ -407,7 +407,7 @@ func TestDownload_ContentDispositionFilename(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	if filename != "custom_name.fb2.zip" {
 		t.Errorf("expected 'custom_name.fb2.zip', got %q", filename)
@@ -417,7 +417,7 @@ func TestDownload_ContentDispositionFilename(t *testing.T) {
 func TestDownload_FallbackFilename(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// No Content-Disposition header.
-		fmt.Fprint(w, "data")
+		_, _ = fmt.Fprint(w, "data")
 	}))
 	defer srv.Close()
 
@@ -428,7 +428,7 @@ func TestDownload_FallbackFilename(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	if filename != "My Great Book!.epub" {
 		t.Errorf("expected 'My Great Book!.epub', got %q", filename)
@@ -437,7 +437,7 @@ func TestDownload_FallbackFilename(t *testing.T) {
 
 func TestDownload_FallbackFilenameEmptyTitle(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "data")
+		_, _ = fmt.Fprint(w, "data")
 	}))
 	defer srv.Close()
 
@@ -448,7 +448,7 @@ func TestDownload_FallbackFilenameEmptyTitle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	if filename != "book_7.fb2.zip" {
 		t.Errorf("expected 'book_7.fb2.zip', got %q", filename)

@@ -218,7 +218,7 @@ func (p *Provider) Download(ctx context.Context, result SearchResult, format For
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		p.logger.Error("download bad status", "book_id", result.ID, "format", format, "status", resp.StatusCode)
 		return nil, "", fmt.Errorf("flibusta: download returned status %d", resp.StatusCode)
 	}
@@ -257,7 +257,7 @@ func (p *Provider) fetchSearchPage(ctx context.Context, query string, page int) 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
@@ -372,9 +372,8 @@ func extractFilenameFromCD(cd string) string {
 // sanitizeFilename removes or replaces characters that are unsafe in filenames.
 func sanitizeFilename(s string) string {
 	s = strings.Map(func(r rune) rune {
-		switch {
-		case r == '/' || r == '\\' || r == ':' || r == '*' ||
-			r == '?' || r == '"' || r == '<' || r == '>' || r == '|':
+		switch r {
+		case '/', '\\', ':', '*', '?', '"', '<', '>', '|':
 			return '_'
 		default:
 			return r

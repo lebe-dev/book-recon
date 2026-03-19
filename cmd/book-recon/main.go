@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/lebe-dev/book-recon/internal/adapter/config"
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/flibusta"
+	"github.com/lebe-dev/book-recon/internal/adapter/provider/flibustav2"
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/royallib"
 	"github.com/lebe-dev/book-recon/internal/adapter/storage"
 	"github.com/lebe-dev/book-recon/internal/adapter/telegram"
@@ -51,7 +52,14 @@ func main() {
 	searchCache := storage.NewSearchCacheRepo(db)
 
 	royallibProvider := royallib.New(cfg.RoyallibBaseURL, cfg.UserAgent, logger)
-	flibustaProvider := flibusta.New(cfg.FlibustaBaseURL, cfg.UserAgent, logger)
+
+	var flibustaProvider domain.BookProvider
+	if cfg.FlibustaEngine == "v2" {
+		logger.Info("using flibusta engine v2 (OPDS)")
+		flibustaProvider = flibustav2.NewDomainProvider(cfg.FlibustaBaseURL)
+	} else {
+		flibustaProvider = flibusta.New(cfg.FlibustaBaseURL, cfg.UserAgent, logger)
+	}
 
 	providers := []domain.BookProvider{royallibProvider, flibustaProvider}
 

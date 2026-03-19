@@ -16,6 +16,7 @@ type Config struct {
 	UserAgent       string   `env:"USER_AGENT" envDefault:"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"`
 	RoyallibBaseURL string   `env:"ROYALLIB_BASE_URL" envDefault:"https://royallib.com"`
 	FlibustaBaseURL string   `env:"FLIBUSTA_BASE_URL" envDefault:"https://flibusta.is"`
+	FlibustaEngine  string   `env:"FLIBUSTA_ENGINE" envDefault:"default"`
 }
 
 func Load() (*Config, error) {

@@ -21,7 +21,7 @@ const (
 )
 
 func TestIntegration_Search(t *testing.T) {
-	p := New("", log.Default())
+	p := New("", "", log.Default())
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -48,7 +48,7 @@ func TestIntegration_Search(t *testing.T) {
 }
 
 func TestIntegration_Download(t *testing.T) {
-	p := New("", log.Default())
+	p := New("", "", log.Default())
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 

@@ -284,7 +284,7 @@ func TestDownload_EmptyZip(t *testing.T) {
 }
 
 func TestName(t *testing.T) {
-	p := New("", log.Default())
+	p := New("", "", log.Default())
 	if p.Name() != providerName {
 		t.Errorf("Name() = %q", p.Name())
 	}

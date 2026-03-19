@@ -50,8 +50,8 @@ func main() {
 	userRegistry := storage.NewUserRegistryRepo(db)
 	searchCache := storage.NewSearchCacheRepo(db)
 
-	royallibProvider := royallib.New(cfg.UserAgent, logger)
-	flibustaProvider := flibusta.New(cfg.UserAgent, logger)
+	royallibProvider := royallib.New(cfg.RoyallibBaseURL, cfg.UserAgent, logger)
+	flibustaProvider := flibusta.New(cfg.FlibustaBaseURL, cfg.UserAgent, logger)
 
 	providers := []domain.BookProvider{royallibProvider, flibustaProvider}
 

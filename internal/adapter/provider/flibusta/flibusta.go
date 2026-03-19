@@ -34,10 +34,13 @@ type Provider struct {
 }
 
 // New creates a new flibusta provider with default HTTP client.
-func New(userAgent string, logger *log.Logger) *Provider {
+func New(baseURL, userAgent string, logger *log.Logger) *Provider {
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
 	return &Provider{
 		client:    http.DefaultClient,
-		baseURL:   defaultBaseURL,
+		baseURL:   baseURL,
 		userAgent: userAgent,
 		logger:    logger,
 	}

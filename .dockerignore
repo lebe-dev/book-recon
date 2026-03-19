@@ -3,3 +3,4 @@
 .env
 *.md
 /book-recon
+/flibusta-engine

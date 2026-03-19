@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/lebe-dev/book-recon/internal/adapter/config"
+	"github.com/lebe-dev/book-recon/internal/adapter/provider/flibusta"
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/royallib"
 	"github.com/lebe-dev/book-recon/internal/adapter/storage"
 	"github.com/lebe-dev/book-recon/internal/adapter/telegram"
@@ -50,8 +51,9 @@ func main() {
 	searchCache := storage.NewSearchCacheRepo(db)
 
 	royallibProvider := royallib.New(cfg.UserAgent, logger)
+	flibustaProvider := flibusta.New(cfg.UserAgent, logger)
 
-	providers := []domain.BookProvider{royallibProvider}
+	providers := []domain.BookProvider{royallibProvider, flibustaProvider}
 
 	bookService := usecase.NewBookService(providers, userRepo, searchCache, logger)
 

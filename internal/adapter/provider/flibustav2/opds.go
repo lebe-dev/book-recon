@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/charmbracelet/log"
 )
 
 // Format represents a book file format.
@@ -107,6 +109,7 @@ var bookIDRe = regexp.MustCompile(`/b/(\d+)`)
 type Provider struct {
 	baseURL    string
 	httpClient *http.Client
+	logger     *log.Logger
 }
 
 // Option configures the Provider.
@@ -122,11 +125,17 @@ func WithHTTPClient(c *http.Client) Option {
 	return func(p *Provider) { p.httpClient = c }
 }
 
+// WithLogger sets a logger for the provider.
+func WithLogger(l *log.Logger) Option {
+	return func(p *Provider) { p.logger = l }
+}
+
 // New creates a new Flibusta OPDS BookProvider.
 func New(opts ...Option) *Provider {
 	p := &Provider{
 		baseURL:    defaultBaseURL,
 		httpClient: http.DefaultClient,
+		logger:     log.Default(),
 	}
 	for _, o := range opts {
 		o(p)
@@ -144,12 +153,15 @@ func (p *Provider) Search(ctx context.Context, query string, limit int) ([]Searc
 		return nil, nil
 	}
 
+	p.logger.Debug("search started", "query", query, "limit", limit)
+
 	var results []SearchResult
 	page := 0
 
 	for len(results) < limit {
 		feed, err := p.fetchSearchPage(ctx, query, page)
 		if err != nil {
+			p.logger.Error("search page fetch failed", "query", query, "page", page, "error", err)
 			return results, fmt.Errorf("flibusta: search page %d: %w", page, err)
 		}
 		if len(feed.Entries) == 0 {
@@ -162,7 +174,8 @@ func (p *Provider) Search(ctx context.Context, query string, limit int) ([]Searc
 			}
 			sr, err := parseEntry(entry)
 			if err != nil {
-				continue // skip unparseable entries
+				p.logger.Debug("skipping unparseable entry", "title", entry.Title, "error", err)
+				continue
 			}
 			results = append(results, sr)
 		}
@@ -174,6 +187,7 @@ func (p *Provider) Search(ctx context.Context, query string, limit int) ([]Searc
 		page++
 	}
 
+	p.logger.Info("search completed", "query", query, "results", len(results))
 	return results, nil
 }
 
@@ -188,6 +202,8 @@ func (p *Provider) Download(ctx context.Context, result SearchResult, format For
 		return nil, "", fmt.Errorf("flibusta: format %s is not available for book %d", format, result.ID)
 	}
 
+	p.logger.Debug("downloading book", "book_id", result.ID, "format", format)
+
 	dlURL := fmt.Sprintf("%s/b/%d/%s", p.baseURL, result.ID, format)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dlURL, nil)
@@ -197,15 +213,18 @@ func (p *Provider) Download(ctx context.Context, result SearchResult, format For
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
+		p.logger.Error("download request failed", "book_id", result.ID, "format", format, "error", err)
 		return nil, "", fmt.Errorf("flibusta: download: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
+		p.logger.Error("download bad status", "book_id", result.ID, "format", format, "status", resp.StatusCode)
 		return nil, "", fmt.Errorf("flibusta: download returned status %d", resp.StatusCode)
 	}
 
 	filename := buildFilename(result, format, resp)
+	p.logger.Info("download ready", "book_id", result.ID, "format", format, "filename", filename)
 	return resp.Body, filename, nil
 }
 
@@ -337,7 +356,7 @@ func buildFilename(sr SearchResult, format Format, resp *http.Response) string {
 }
 
 // extractFilenameFromCD tries to pull a filename from a Content-Disposition header.
-// Handles both filename="..." and filename*=UTF-8''... forms.
+// Handles both filename="..." and filename*=UTF-8”... forms.
 func extractFilenameFromCD(cd string) string {
 	re := regexp.MustCompile(`filename\*?=(?:UTF-8''|"?)([^";]+)"?`)
 	if m := re.FindStringSubmatch(cd); len(m) == 2 {

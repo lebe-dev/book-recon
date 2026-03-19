@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/log"
 	"github.com/lebe-dev/book-recon/internal/domain"
 )
 
@@ -18,8 +19,8 @@ type DomainProvider struct {
 }
 
 // NewDomainProvider creates a domain.BookProvider backed by the OPDS engine.
-func NewDomainProvider(baseURL string) *DomainProvider {
-	opts := []Option{}
+func NewDomainProvider(baseURL string, logger *log.Logger) *DomainProvider {
+	opts := []Option{WithLogger(logger)}
 	if baseURL != "" {
 		opts = append(opts, WithBaseURL(baseURL))
 	}

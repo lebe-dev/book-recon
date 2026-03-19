@@ -56,7 +56,7 @@ func main() {
 	var flibustaProvider domain.BookProvider
 	if cfg.FlibustaEngine == "v2" {
 		logger.Info("using flibusta engine v2 (OPDS)")
-		flibustaProvider = flibustav2.NewDomainProvider(cfg.FlibustaBaseURL)
+		flibustaProvider = flibustav2.NewDomainProvider(cfg.FlibustaBaseURL, logger)
 	} else {
 		flibustaProvider = flibusta.New(cfg.FlibustaBaseURL, cfg.UserAgent, logger)
 	}

@@ -23,10 +23,10 @@ func (b *Bot) handleSearch(c telebot.Context) error {
 		return b.handleError(c, err)
 	}
 
-	_, hasMore, _ := b.service.GetPage(c.Get("ctx").(contextKey).ctx, c.Sender().ID, 0)
+	_, hasMore, total, _ := b.service.GetPage(c.Get("ctx").(contextKey).ctx, c.Sender().ID, 0)
 
-	text := fmt.Sprintf("🔍 Результаты поиска по запросу: *%s*\nВыберите книгу для скачивания:", escapeMarkdown(query))
-	return c.Send(text, buildResultsKeyboard(results, 0, hasMore), telebot.ModeMarkdown)
+	text := fmt.Sprintf("🔍 *%s*\n\n%s. Выберите книгу для скачивания:", escapeMarkdown(query), foundText(total))
+	return c.Send(text, buildResultsKeyboard(results, 0, hasMore, total), telebot.ModeMarkdown)
 }
 
 func (b *Bot) handleDownload(c telebot.Context) error {
@@ -35,15 +35,26 @@ func (b *Bot) handleDownload(c telebot.Context) error {
 		return nil
 	}
 
+	ctx := c.Get("ctx").(contextKey).ctx
 	b.logger.Debug("download request", "username", c.Sender().Username, "result_id", resultID)
+
+	result, err := b.service.GetResult(ctx, c.Sender().ID, resultID)
+	if err != nil {
+		return b.handleError(c, err)
+	}
+
+	var sourceURL string
+	if result != nil {
+		sourceURL = result.Book.SourceURL
+	}
 
 	if err := c.Notify(telebot.UploadingDocument); err != nil {
 		b.logger.Warn("failed to send typing action", "error", err)
 	}
 
-	tmpPath, filename, err := b.service.Download(c.Get("ctx").(contextKey).ctx, c.Sender().ID, resultID)
+	tmpPath, filename, err := b.service.Download(ctx, c.Sender().ID, resultID)
 	if err != nil {
-		return b.handleError(c, err)
+		return b.handleDownloadError(c, err, sourceURL)
 	}
 	defer func() { _ = os.Remove(tmpPath) }()
 
@@ -72,12 +83,12 @@ func (b *Bot) handlePage(c telebot.Context) error {
 
 	b.logger.Debug("page request", "username", c.Sender().Username, "offset", offset)
 
-	results, hasMore, err := b.service.GetPage(c.Get("ctx").(contextKey).ctx, c.Sender().ID, offset)
+	results, hasMore, total, err := b.service.GetPage(c.Get("ctx").(contextKey).ctx, c.Sender().ID, offset)
 	if err != nil {
 		return b.handleError(c, err)
 	}
 
-	return c.Edit(buildResultsKeyboard(results, offset, hasMore))
+	return c.Edit(buildResultsKeyboard(results, offset, hasMore, total))
 }
 
 func (b *Bot) handleError(c telebot.Context, err error) error {
@@ -88,24 +99,51 @@ func (b *Bot) handleError(c telebot.Context, err error) error {
 	}
 
 	b.logger.Debug("domain error", "username", c.Sender().Username, "code", code, "error", err)
+	return c.Send(errorMessage(code))
+}
+
+func (b *Bot) handleDownloadError(c telebot.Context, err error, sourceURL string) error {
+	code, ok := domain.ErrorCodeFrom(err)
+	if !ok {
+		b.logger.Error("unhandled error", "username", c.Sender().Username, "error", err)
+		return c.Send("Произошла непредвиденная ошибка. Попробуйте позже.")
+	}
+
+	b.logger.Debug("domain error", "username", c.Sender().Username, "code", code, "error", err)
 	msg := errorMessage(code)
+	if sourceURL != "" {
+		msg += "\n\nИсточник: " + sourceURL
+	}
 	return c.Send(msg)
 }
 
 func errorMessage(code domain.ErrorCode) string {
 	switch code {
 	case domain.ErrCodeNotFound:
-		return "Книга не найдена. Попробуйте новый поиск."
+		return "📭 Книги не найдены. Попробуйте другой запрос или проверьте написание."
 	case domain.ErrCodeFormatNA:
-		return "Формат недоступен для этой книги."
+		return "📄 Этот формат недоступен для книги. Измените формат в /settings."
 	case domain.ErrCodeFileTooLarge:
-		return "Файл слишком большой (>50 MB)."
+		return "📦 Файл слишком большой (>50 МБ) — Telegram не принимает такие файлы."
 	case domain.ErrCodeTimeout:
-		return "Источник не отвечает. Попробуйте позже."
+		return "⏱ Источник не отвечает. Попробуйте через несколько минут."
 	case domain.ErrCodeProviderError:
-		return "Ошибка при обращении к источнику."
+		return "⚠️ Ошибка при обращении к источнику. Попробуйте позже."
+	case domain.ErrCodeBookUnavailable:
+		return "🚫 Книга недоступна для скачивания (удалена по жалобе правообладателя)."
 	default:
-		return "Произошла ошибка. Попробуйте позже."
+		return "⚠️ Непредвиденная ошибка. Попробуйте позже."
+	}
+}
+
+func foundText(n int) string {
+	switch {
+	case n == 1:
+		return "Найдена 1 книга"
+	case n >= 2 && n <= 4:
+		return fmt.Sprintf("Найдено %d книги", n)
+	default:
+		return fmt.Sprintf("Найдено %d книг", n)
 	}
 }
 

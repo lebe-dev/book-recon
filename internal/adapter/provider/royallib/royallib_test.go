@@ -281,8 +281,49 @@ func TestDownload_EmptyZip(t *testing.T) {
 	}
 }
 
+func TestDownload_UnavailableBook(t *testing.T) {
+	const unavailableHTML = `<html><body>
+<p>Данная книга недоступна в связи с жалобой правообладателя.</p>
+</body></html>`
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/book/"):
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = io.WriteString(w, unavailableHTML)
+		default:
+			// tiny invalid response on the download URL
+			_, _ = io.WriteString(w, "not found")
+		}
+	}))
+	defer srv.Close()
+
+	p := newWithBaseURL(srv.URL, srv.Client(), log.Default())
+	p.minBookSize = 100
+
+	sr := domain.NewSearchResult(domain.Book{
+		Title:     "Недоступная книга",
+		Author:    "Некий Автор",
+		Provider:  providerName,
+		SourceURL: srv.URL + "/book/nekiy_avtor/nedostupnaya_kniga.html",
+	})
+
+	_, _, err := p.Download(context.Background(), sr, domain.FormatEPUB)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	code, ok := domain.ErrorCodeFrom(err)
+	if !ok {
+		t.Fatalf("expected DomainError, got %T: %v", err, err)
+	}
+	if code != domain.ErrCodeBookUnavailable {
+		t.Errorf("error code = %q, want %q", code, domain.ErrCodeBookUnavailable)
+	}
+}
+
 func TestName(t *testing.T) {
-	p := New("", "", log.Default())
+	p := New("", "", 0, log.Default())
 	if p.Name() != providerName {
 		t.Errorf("Name() = %q", p.Name())
 	}

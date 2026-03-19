@@ -76,6 +76,7 @@ func (b *Bot) setupRoutes() {
 	b.bot.Handle(&telebot.Btn{Unique: "dl"}, b.handleDownload)
 	b.bot.Handle(&telebot.Btn{Unique: "page"}, b.handlePage)
 	b.bot.Handle(&telebot.Btn{Unique: "fmt"}, b.handleSetFormat)
+	b.bot.Handle(&telebot.Btn{Unique: "noop"}, func(c telebot.Context) error { return c.Respond() })
 }
 
 func (b *Bot) accessMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
@@ -116,12 +117,13 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		return c.Send(fmt.Sprintf("📚 *Book Recon* `%s`", b.version), telebot.ModeMarkdown)
 	}
 
+	name := sender.FirstName
+	if name == "" {
+		name = sender.Username
+	}
+
 	return c.Send(
-		"📚 *Book Recon*\n\n"+
-			"Отправьте название книги или имя автора — я найду и скачаю книгу.\n\n"+
-			"Команды:\n"+
-			"/settings — настройки формата\n"+
-			"/help — справка",
+		fmt.Sprintf("📚 *Book Recon*\n\nПривет, %s! Напишите название книги или имя автора — я найду и скачаю книгу.\n\nКоманды:\n/settings — настройки формата\n/help — справка", escapeMarkdown(name)),
 		telebot.ModeMarkdown,
 	)
 }
@@ -129,9 +131,12 @@ func (b *Bot) handleStart(c telebot.Context) error {
 func (b *Bot) handleHelp(c telebot.Context) error {
 	return c.Send(
 		"📖 *Справка*\n\n"+
-			"Просто напишите название книги или имя автора.\n"+
-			"Я найду книги и предложу скачать в нужном формате.\n\n"+
-			"Поддерживаемые форматы: EPUB, FB2\n\n"+
+			"Напишите название книги или имя автора — бот найдёт и предложит скачать.\n\n"+
+			"*Советы:*\n"+
+			"• Поиск идёт одновременно по нескольким источникам\n"+
+			"• Результаты выводятся по 5, листайте кнопками\n"+
+			"• На кнопках видно, какие форматы доступны\n\n"+
+			"Форматы: EPUB, FB2\n\n"+
 			"/settings — выбрать предпочитаемый формат",
 		telebot.ModeMarkdown,
 	)

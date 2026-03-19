@@ -5,12 +5,13 @@ import "fmt"
 type ErrorCode string
 
 const (
-	ErrCodeNotFound      ErrorCode = "NOT_FOUND"
-	ErrCodeFormatNA      ErrorCode = "FORMAT_NOT_AVAILABLE"
-	ErrCodeProviderError ErrorCode = "PROVIDER_ERROR"
-	ErrCodeFileTooLarge  ErrorCode = "FILE_TOO_LARGE"
-	ErrCodeTimeout       ErrorCode = "TIMEOUT"
-	ErrCodeValidation    ErrorCode = "VALIDATION_ERROR"
+	ErrCodeNotFound        ErrorCode = "NOT_FOUND"
+	ErrCodeFormatNA        ErrorCode = "FORMAT_NOT_AVAILABLE"
+	ErrCodeProviderError   ErrorCode = "PROVIDER_ERROR"
+	ErrCodeFileTooLarge    ErrorCode = "FILE_TOO_LARGE"
+	ErrCodeTimeout         ErrorCode = "TIMEOUT"
+	ErrCodeValidation      ErrorCode = "VALIDATION_ERROR"
+	ErrCodeBookUnavailable ErrorCode = "BOOK_UNAVAILABLE"
 )
 
 // DomainError is the base error type for all domain-level errors.

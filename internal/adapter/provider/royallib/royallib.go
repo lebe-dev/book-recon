@@ -28,22 +28,24 @@ var bookPathRe = regexp.MustCompile(`/book/(.+)\.html`)
 
 // Provider implements domain.BookProvider for royallib.com.
 type Provider struct {
-	client    *http.Client
-	baseURL   string
-	userAgent string
-	logger    *log.Logger
+	client      *http.Client
+	baseURL     string
+	userAgent   string
+	minBookSize int64
+	logger      *log.Logger
 }
 
 // New creates a new royallib provider with default HTTP client.
-func New(baseURL, userAgent string, logger *log.Logger) *Provider {
+func New(baseURL, userAgent string, minBookSize int64, logger *log.Logger) *Provider {
 	if baseURL == "" {
 		baseURL = defaultBaseURL
 	}
 	return &Provider{
-		client:    http.DefaultClient,
-		baseURL:   baseURL,
-		userAgent: userAgent,
-		logger:    logger,
+		client:      http.DefaultClient,
+		baseURL:     baseURL,
+		userAgent:   userAgent,
+		minBookSize: minBookSize,
+		logger:      logger,
 	}
 }
 
@@ -146,9 +148,24 @@ func (p *Provider) Download(ctx context.Context, result domain.SearchResult, for
 		return nil, "", domain.WrapError(domain.ErrCodeProviderError, "read response body", err)
 	}
 
+	if int64(len(data)) < p.minBookSize {
+		if err := p.checkAvailability(ctx, result.Book.SourceURL); err != nil {
+			return nil, "", err
+		}
+		return nil, "", domain.NewError(domain.ErrCodeProviderError,
+			fmt.Sprintf("response too small (%d bytes), not a valid book file", len(data)))
+	}
+
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
-		return nil, "", domain.WrapError(domain.ErrCodeProviderError, "open zip archive", err)
+		// Server may return the file directly without a zip wrapper.
+		// Reject HTML responses (error pages); accept anything else.
+		if looksLikeHTML(data) {
+			return nil, "", domain.WrapError(domain.ErrCodeProviderError, "open zip archive", err)
+		}
+		filename := fallbackFilename(result.Book.Author, result.Book.Title, string(format))
+		p.logger.Info("download ready (direct)", "provider", providerName, "filename", filename)
+		return io.NopCloser(bytes.NewReader(data)), filename, nil
 	}
 	if len(zr.File) == 0 {
 		return nil, "", domain.NewError(domain.ErrCodeProviderError, "zip archive is empty")
@@ -325,6 +342,50 @@ func extractBookPath(bookURL string) string {
 		return m[1]
 	}
 	return ""
+}
+
+// checkAvailability fetches the book page and returns ErrCodeBookUnavailable
+// if it contains a copyright takedown notice. Any network or parse error is
+// treated as "unknown" and nil is returned so the caller can surface its own
+// download-failure error instead.
+func (p *Provider) checkAvailability(ctx context.Context, bookURL string) error {
+	if bookURL == "" {
+		return nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, bookURL, nil)
+	if err != nil {
+		return nil
+	}
+	p.setHeaders(req)
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	if err != nil {
+		return nil
+	}
+
+	if bytes.Contains(data, []byte("недоступна в связи с жалобой")) {
+		return domain.NewError(domain.ErrCodeBookUnavailable, "book unavailable due to copyright complaint")
+	}
+	return nil
+}
+
+// looksLikeHTML returns true when data appears to be an HTML page (e.g. an
+// error page returned with HTTP 200). Used to distinguish real files from
+// server error responses.
+func looksLikeHTML(data []byte) bool {
+	prefix := bytes.ToLower(bytes.TrimSpace(data))
+	return bytes.HasPrefix(prefix, []byte("<!doctype")) ||
+		bytes.HasPrefix(prefix, []byte("<html"))
 }
 
 // fallbackFilename builds a filename when the zip entry name is empty.

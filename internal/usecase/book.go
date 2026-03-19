@@ -123,19 +123,19 @@ func (s *BookService) Search(ctx context.Context, telegramID int64, query string
 	return allResults[:end], nil
 }
 
-// GetPage returns a slice of results for pagination.
-func (s *BookService) GetPage(ctx context.Context, telegramID int64, offset int) (results []domain.SearchResult, hasMore bool, err error) {
+// GetPage returns a slice of results for pagination, plus the total result count.
+func (s *BookService) GetPage(ctx context.Context, telegramID int64, offset int) (results []domain.SearchResult, hasMore bool, total int, err error) {
 	session, err := s.searchCache.Get(ctx, telegramID)
 	if err != nil {
-		return nil, false, err
+		return nil, false, 0, err
 	}
 	if session == nil {
-		return nil, false, domain.NewError(domain.ErrCodeNotFound, "no search session found")
+		return nil, false, 0, domain.NewError(domain.ErrCodeNotFound, "no search session found")
 	}
 
-	total := len(session.Results)
+	total = len(session.Results)
 	if offset >= total {
-		return nil, false, nil
+		return nil, false, total, nil
 	}
 
 	end := offset + PageSize
@@ -143,7 +143,7 @@ func (s *BookService) GetPage(ctx context.Context, telegramID int64, offset int)
 		end = total
 	}
 
-	return session.Results[offset:end], end < total, nil
+	return session.Results[offset:end], end < total, total, nil
 }
 
 // Download fetches a book to a temp file, checking size limits.
@@ -211,6 +211,11 @@ func (s *BookService) Download(ctx context.Context, telegramID int64, resultID s
 
 	s.logger.Info("download completed", "telegram_id", telegramID, "filename", filename, "size", written)
 	return tmpFile.Name(), filename, nil
+}
+
+// GetResult returns a cached search result by ID, or nil if not found.
+func (s *BookService) GetResult(ctx context.Context, telegramID int64, resultID string) (*domain.SearchResult, error) {
+	return s.searchCache.FindResult(ctx, telegramID, resultID)
 }
 
 // GetSettings returns user settings (or defaults).

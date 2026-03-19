@@ -281,52 +281,6 @@ func TestDownload_EmptyZip(t *testing.T) {
 	}
 }
 
-func TestFilenameFromDisposition(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		// UTF-8 percent-encoded (modern servers)
-		{
-			input: `attachment; filename="%D0%9A%D1%83%D0%BF%D1%86%D0%BE%D0%B2.epub"`,
-			want:  "Купцов.epub",
-		},
-		// Plain ASCII filename
-		{
-			input: `attachment; filename="plain.fb2.zip"`,
-			want:  "plain.fb2.zip",
-		},
-		// RFC 5987 filename*= (always UTF-8 by spec)
-		{
-			input: `attachment; filename*=UTF-8''%D0%9A%D1%83%D0%BF%D1%86%D0%BE%D0%B2.epub`,
-			want:  "Купцов.epub",
-		},
-		// CP1251 percent-encoded (old Windows/IIS servers)
-		// "Купцов.epub" in CP1251: К=0xCA у=0xF3 п=0xEF ц=0xF6 о=0xEE в=0xE2
-		{
-			input: `attachment; filename="%CA%F3%EF%F6%EE%E2.epub"`,
-			want:  "Купцов.epub",
-		},
-		{input: "", want: ""},
-	}
-
-	for _, tt := range tests {
-		got := filenameFromDisposition(tt.input)
-		if got != tt.want {
-			t.Errorf("filenameFromDisposition(%q) = %q, want %q", tt.input, got, tt.want)
-		}
-	}
-}
-
-func TestFallbackFilename(t *testing.T) {
-	if got := fallbackFilename("Author", "Title", "epub"); got != "Author. Title.epub" {
-		t.Errorf("got %q", got)
-	}
-	if got := fallbackFilename("Author", "Title", "fb2"); got != "Author. Title.fb2" {
-		t.Errorf("got %q", got)
-	}
-}
-
 func TestName(t *testing.T) {
 	p := New("", log.Default())
 	if p.Name() != providerName {

@@ -10,12 +10,11 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/charmbracelet/log"
 	"github.com/lebe-dev/book-recon/internal/domain"
+	"github.com/lebe-dev/book-recon/internal/encoding"
 	"golang.org/x/net/html"
-	"golang.org/x/text/encoding/charmap"
 )
 
 const (
@@ -167,7 +166,7 @@ func (p *Provider) Download(ctx context.Context, result domain.SearchResult, for
 		return nil, "", domain.WrapError(domain.ErrCodeProviderError, "open file in zip", err)
 	}
 
-	filename := decodeFilename(f.Name)
+	filename := encoding.DecodeZipFilename(f.Name)
 	if filename == "" {
 		filename = fallbackFilename(result.Book.Author, result.Book.Title, string(format))
 	}
@@ -323,91 +322,6 @@ func extractBookPath(bookURL string) string {
 		return m[1]
 	}
 	return ""
-}
-
-// ---------------------------------------------------------------------------
-// Filename helpers
-// ---------------------------------------------------------------------------
-
-// filenameFromDisposition extracts the filename from a Content-Disposition header.
-// The resulting string is guaranteed to be valid UTF-8.
-func filenameFromDisposition(cd string) string {
-	if cd == "" {
-		return ""
-	}
-
-	// Try filename*= (RFC 5987) first — always UTF-8 by spec.
-	if idx := strings.Index(cd, "filename*="); idx != -1 {
-		val := cd[idx+len("filename*="):]
-		if i := strings.IndexByte(val, ';'); i != -1 {
-			val = val[:i]
-		}
-		val = strings.TrimSpace(val)
-		if parts := strings.SplitN(val, "''", 2); len(parts) == 2 {
-			if decoded, err := url.PathUnescape(parts[1]); err == nil {
-				return decoded
-			}
-		}
-	}
-
-	if idx := strings.Index(cd, "filename="); idx != -1 {
-		val := cd[idx+len("filename="):]
-		if i := strings.IndexByte(val, ';'); i != -1 {
-			val = val[:i]
-		}
-		val = strings.TrimSpace(val)
-		val = strings.Trim(val, `"`)
-		if decoded, err := url.PathUnescape(val); err == nil {
-			// Percent-decoded bytes may be UTF-8 or a legacy 8-bit encoding.
-			return toUTF8(decoded, charmap.Windows1251, charmap.CodePage866)
-		}
-		return val
-	}
-
-	return ""
-}
-
-// decodeFilename ensures a ZIP entry name is valid UTF-8.
-// ZIP archives without the UTF-8 flag (NonUTF8=true) store names in the local
-// OEM code page — CP866 for Russian Windows/DOS tools.
-func decodeFilename(s string) string {
-	return toUTF8(s, charmap.CodePage866, charmap.Windows1251)
-}
-
-// toUTF8 returns s if it is already valid UTF-8. Otherwise it tries each
-// candidate encoding and returns the decode with the most Cyrillic characters.
-// Falls back to the original string if no candidate improves it.
-func toUTF8(s string, candidates ...*charmap.Charmap) string {
-	if utf8.ValidString(s) {
-		return s
-	}
-
-	best := s
-	bestScore := 0
-
-	for _, enc := range candidates {
-		decoded, err := enc.NewDecoder().String(s)
-		if err != nil {
-			continue
-		}
-		if score := cyrillicCount(decoded); score > bestScore {
-			bestScore = score
-			best = decoded
-		}
-	}
-
-	return best
-}
-
-// cyrillicCount counts the number of Cyrillic characters (U+0400–U+04FF) in s.
-func cyrillicCount(s string) int {
-	n := 0
-	for _, r := range s {
-		if r >= 0x0400 && r <= 0x04FF {
-			n++
-		}
-	}
-	return n
 }
 
 // fallbackFilename builds a filename when the zip entry name is empty.

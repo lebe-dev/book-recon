@@ -16,8 +16,19 @@ func NewUserRegistryRepo(db *sql.DB) *UserRegistryRepo {
 func (r *UserRegistryRepo) Register(ctx context.Context, telegramID int64, username string) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO users (telegram_id, username) VALUES (?, ?)
-		 ON CONFLICT(telegram_id) DO NOTHING`,
+		 ON CONFLICT(telegram_id) DO UPDATE SET username = excluded.username`,
 		telegramID, username,
 	)
 	return err
+}
+
+func (r *UserRegistryRepo) GetIDByUsername(ctx context.Context, username string) (int64, error) {
+	var id int64
+	err := r.db.QueryRowContext(ctx,
+		`SELECT telegram_id FROM users WHERE LOWER(username) = LOWER(?)`, username,
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
 }

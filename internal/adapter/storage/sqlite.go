@@ -46,6 +46,14 @@ func migrate(db *sql.DB) error {
 			username TEXT NOT NULL DEFAULT '',
 			first_seen TEXT NOT NULL DEFAULT (datetime('now'))
 		)`,
+		`CREATE TABLE IF NOT EXISTS access_requests (
+			telegram_id INTEGER PRIMARY KEY,
+			username TEXT NOT NULL DEFAULT '',
+			first_name TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'pending',
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+		)`,
 	}
 
 	for _, q := range queries {

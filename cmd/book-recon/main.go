@@ -16,7 +16,7 @@ import (
 	"github.com/lebe-dev/book-recon/internal/usecase"
 )
 
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 func main() {
 	logger := log.NewWithOptions(os.Stderr, log.Options{
@@ -36,10 +36,6 @@ func main() {
 	logger.SetLevel(level)
 	logger.Debug("config loaded", "db_path", cfg.DBPath, "log_level", cfg.LogLevel, "allowed_users", len(cfg.AllowedUsers), "admin_users", len(cfg.AdminUsers))
 
-	if len(cfg.AllowedUsers) == 0 {
-		logger.Warn("no allowed users configured, bot will deny all requests")
-	}
-
 	db, err := storage.NewDB(cfg.DBPath)
 	if err != nil {
 		logger.Fatal("failed to open database", "error", err)
@@ -50,6 +46,7 @@ func main() {
 	userRepo := storage.NewUserSettingsRepo(db)
 	userRegistry := storage.NewUserRegistryRepo(db)
 	searchCache := storage.NewSearchCacheRepo(db)
+	accessRepo := storage.NewAccessRepo(db)
 
 	royallibProvider := royallib.New(cfg.RoyallibBaseURL, cfg.UserAgent, cfg.BookSizeThreshold, logger)
 
@@ -64,8 +61,9 @@ func main() {
 	providers := []domain.BookProvider{royallibProvider, flibustaProvider}
 
 	bookService := usecase.NewBookService(providers, userRepo, searchCache, logger)
+	accessService := usecase.NewAccessService(accessRepo, userRegistry, logger)
 
-	bot, err := telegram.New(cfg.TelegramToken, bookService, userRegistry, cfg.AllowedUsers, cfg.AdminUsers, Version, logger)
+	bot, err := telegram.New(cfg.TelegramToken, bookService, accessService, userRegistry, cfg.AllowedUsers, cfg.AdminUsers, Version, logger)
 	if err != nil {
 		logger.Fatal("failed to create telegram bot", "error", err)
 	}

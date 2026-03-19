@@ -20,16 +20,17 @@ type contextKey struct {
 }
 
 type Bot struct {
-	bot          *telebot.Bot
-	service      *usecase.BookService
-	userRepo     domain.UserRepository
-	allowedUsers []string
-	adminUsers   []string
-	version      string
-	logger       *log.Logger
+	bot           *telebot.Bot
+	service       *usecase.BookService
+	accessService *usecase.AccessService
+	userRepo      domain.UserRepository
+	allowedUsers  []string
+	adminUsers    []string
+	version       string
+	logger        *log.Logger
 }
 
-func New(token string, service *usecase.BookService, userRepo domain.UserRepository, allowedUsers, adminUsers []string, version string, logger *log.Logger) (*Bot, error) {
+func New(token string, service *usecase.BookService, accessService *usecase.AccessService, userRepo domain.UserRepository, allowedUsers, adminUsers []string, version string, logger *log.Logger) (*Bot, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -41,13 +42,14 @@ func New(token string, service *usecase.BookService, userRepo domain.UserReposit
 	}
 
 	b := &Bot{
-		bot:          bot,
-		service:      service,
-		userRepo:     userRepo,
-		allowedUsers: allowedUsers,
-		adminUsers:   adminUsers,
-		version:      version,
-		logger:       logger,
+		bot:           bot,
+		service:       service,
+		accessService: accessService,
+		userRepo:      userRepo,
+		allowedUsers:  allowedUsers,
+		adminUsers:    adminUsers,
+		version:       version,
+		logger:        logger,
 	}
 
 	b.setupRoutes()
@@ -71,29 +73,74 @@ func (b *Bot) setupRoutes() {
 	b.bot.Handle("/start", b.handleStart)
 	b.bot.Handle("/help", b.handleHelp)
 	b.bot.Handle("/settings", b.handleSettings)
+	b.bot.Handle("/blocked_users", b.handleBlockedUsers)
+	b.bot.Handle("/allowed_users", b.handleAllowedUsers)
 	b.bot.Handle(telebot.OnText, b.handleSearch)
 
 	b.bot.Handle(&telebot.Btn{Unique: "dl"}, b.handleDownload)
 	b.bot.Handle(&telebot.Btn{Unique: "page"}, b.handlePage)
 	b.bot.Handle(&telebot.Btn{Unique: "fmt"}, b.handleSetFormat)
+	b.bot.Handle(&telebot.Btn{Unique: "approve"}, b.handleApprove)
+	b.bot.Handle(&telebot.Btn{Unique: "deny"}, b.handleDeny)
+	b.bot.Handle(&telebot.Btn{Unique: "unblock"}, b.handleUnblock)
+	b.bot.Handle(&telebot.Btn{Unique: "revoke"}, b.handleRevoke)
 	b.bot.Handle(&telebot.Btn{Unique: "noop"}, func(c telebot.Context) error { return c.Respond() })
 }
 
 func (b *Bot) accessMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 	return func(c telebot.Context) error {
-		if len(b.allowedUsers) == 0 {
-			b.logger.Warn("access denied: no allowed users configured", "username", c.Sender().Username)
+		sender := c.Sender()
+		username := strings.ToLower(sender.Username)
+
+		// Static allowlist
+		if slices.Contains(b.allowedUsers, username) {
+			b.logger.Debug("access granted via allowlist", "username", username)
+			return next(c)
+		}
+
+		// Admin list
+		if b.isAdmin(username) {
+			b.logger.Debug("access granted via admin list", "username", username)
+			return next(c)
+		}
+
+		// Check DB status
+		ctx := context.Background()
+		status, err := b.accessService.CheckAccess(ctx, sender.ID)
+		if err != nil {
+			b.logger.Error("failed to check access", "telegram_id", sender.ID, "error", err)
 			return nil
 		}
 
-		username := strings.ToLower(c.Sender().Username)
-		if !slices.Contains(b.allowedUsers, username) {
-			b.logger.Warn("access denied", "username", username)
+		switch status {
+		case domain.AccessStatusApproved:
+			b.logger.Debug("access granted via approval", "telegram_id", sender.ID)
+			return next(c)
+		case domain.AccessStatusPending:
+			return c.Send("⏳ Ваш запрос на доступ ожидает рассмотрения.")
+		case domain.AccessStatusDenied:
+			b.logger.Debug("access denied (denied status)", "telegram_id", sender.ID)
 			return nil
 		}
 
-		b.logger.Debug("access granted", "username", username)
-		return next(c)
+		// No record — create pending request and notify admins
+		created, err := b.accessService.RequestAccess(ctx, domain.AccessRequest{
+			TelegramID: sender.ID,
+			Username:   sender.Username,
+			FirstName:  sender.FirstName,
+		})
+		if err != nil {
+			b.logger.Error("failed to create access request", "telegram_id", sender.ID, "error", err)
+			return nil
+		}
+
+		if created {
+			b.logger.Info("new access request", "telegram_id", sender.ID, "username", sender.Username)
+			go b.notifyAdminsAboutRequest(ctx, sender)
+			return c.Send("📨 Запрос на доступ отправлен администраторам. Ожидайте.")
+		}
+
+		return c.Send("⏳ Ваш запрос на доступ ожидает рассмотрения.")
 	}
 }
 
@@ -129,15 +176,21 @@ func (b *Bot) handleStart(c telebot.Context) error {
 }
 
 func (b *Bot) handleHelp(c telebot.Context) error {
-	return c.Send(
-		"📖 *Справка*\n\n"+
-			"Напишите название книги или имя автора — бот найдёт и предложит скачать.\n\n"+
-			"*Советы:*\n"+
-			"• Поиск идёт одновременно по нескольким источникам\n"+
-			"• Результаты выводятся по 5, листайте кнопками\n"+
-			"• На кнопках видно, какие форматы доступны\n\n"+
-			"Форматы: EPUB, FB2\n\n"+
-			"/settings — выбрать предпочитаемый формат",
-		telebot.ModeMarkdown,
-	)
+	text := "📖 *Справка*\n\n" +
+		"Напишите название книги или имя автора — бот найдёт и предложит скачать.\n\n" +
+		"*Советы:*\n" +
+		"• Поиск идёт одновременно по нескольким источникам\n" +
+		"• Результаты выводятся по 5, листайте кнопками\n" +
+		"• На кнопках видно, какие форматы доступны\n\n" +
+		"Форматы: EPUB, FB2\n\n" +
+		"/settings — выбрать предпочитаемый формат"
+
+	username := strings.ToLower(c.Sender().Username)
+	if b.isAdmin(username) {
+		text += "\n\n*Администрирование:*\n" +
+			"/allowed\\_users — одобренные пользователи\n" +
+			"/blocked\\_users — заблокированные пользователи"
+	}
+
+	return c.Send(text, telebot.ModeMarkdown)
 }

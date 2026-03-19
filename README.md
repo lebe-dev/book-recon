@@ -11,4 +11,11 @@ Book recon is a service to find books via Telegram Bot.
 
 ## Quick start
 
-?
+```bash
+cp .env.example .env
+
+# edit .env
+
+# run
+docker compose up -d
+```

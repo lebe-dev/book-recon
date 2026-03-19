@@ -1,0 +1,8 @@
+*.md
+!README.md
+!DEV.md
+
+.env
+*.db
+
+/book-recon

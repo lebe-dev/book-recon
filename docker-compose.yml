@@ -7,3 +7,8 @@ services:
       DB_PATH: /app/data/book-recon.db
     volumes:
       - ./data:/app/data
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 128M

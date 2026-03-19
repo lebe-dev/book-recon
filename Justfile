@@ -47,14 +47,15 @@ run: build
 
 # --- Image ---
 build-image: test lint
-    docker build --progress=plain --platform linux/amd64 -t {{ imageName }}:{{ version }} .
+    docker build --progress=plain --platform linux/amd64 -t {{ imageName }}:{{ version }} -t {{ imageName }}:latest .
 
 push-image:
     docker push {{ imageName }}:{{ version }}
+    docker push {{ imageName }}:latest
 
 release-image: build-image push-image
 
 release: release-image
 
 deploy:
-    ssh kaiman 'cd /opt/book-recon && docker compose pull && docker compose down && docker compose up -d'
+    ssh kaiman 'cd /opt/book-recon && docker compose pull && docker compose down && IMAGE_TAG={{ version }} docker compose up -d'

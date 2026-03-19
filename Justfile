@@ -27,6 +27,9 @@ lint: format
 test *ARGS:
     go test ./... {{ ARGS }}
 
+integration-tests:
+    go test -tags integration -v ./internal/adapter/provider/royallib/...
+
 # --- Coverage ---
 coverage:
     go test ./... -coverprofile=coverage.out
@@ -37,7 +40,6 @@ coverage:
 # --- Format ---
 format:
     go fmt ./...
-    goimports -w .
 
 # --- Development ---
 run: build
@@ -53,3 +55,6 @@ push-image:
 release-image: build-image push-image
 
 release: release-image
+
+deploy:
+    ssh kaiman 'cd /opt/book-recon && docker compose pull && docker compose down && docker compose up -d'

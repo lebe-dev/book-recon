@@ -2,11 +2,13 @@ package telegram
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/lebe-dev/book-recon/internal/domain"
 	"github.com/lebe-dev/book-recon/internal/usecase"
 	"gopkg.in/telebot.v4"
 )
@@ -20,12 +22,14 @@ type contextKey struct {
 type Bot struct {
 	bot          *telebot.Bot
 	service      *usecase.BookService
+	userRepo     domain.UserRepository
 	allowedUsers []string
 	adminUsers   []string
+	version      string
 	logger       *log.Logger
 }
 
-func New(token string, service *usecase.BookService, allowedUsers, adminUsers []string, logger *log.Logger) (*Bot, error) {
+func New(token string, service *usecase.BookService, userRepo domain.UserRepository, allowedUsers, adminUsers []string, version string, logger *log.Logger) (*Bot, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -39,8 +43,10 @@ func New(token string, service *usecase.BookService, allowedUsers, adminUsers []
 	b := &Bot{
 		bot:          bot,
 		service:      service,
+		userRepo:     userRepo,
 		allowedUsers: allowedUsers,
 		adminUsers:   adminUsers,
+		version:      version,
 		logger:       logger,
 	}
 
@@ -49,10 +55,12 @@ func New(token string, service *usecase.BookService, allowedUsers, adminUsers []
 }
 
 func (b *Bot) Start() {
+	b.logger.Info("telegram bot starting")
 	b.bot.Start()
 }
 
 func (b *Bot) Stop() {
+	b.logger.Info("telegram bot stopping")
 	b.bot.Stop()
 }
 
@@ -83,6 +91,7 @@ func (b *Bot) accessMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 			return nil
 		}
 
+		b.logger.Debug("access granted", "username", username)
 		return next(c)
 	}
 }
@@ -95,6 +104,18 @@ func (b *Bot) contextMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 }
 
 func (b *Bot) handleStart(c telebot.Context) error {
+	ctx := c.Get("ctx").(contextKey).ctx
+	sender := c.Sender()
+
+	if err := b.userRepo.Register(ctx, sender.ID, sender.Username); err != nil {
+		b.logger.Error("failed to register user", "id", sender.ID, "username", sender.Username, "error", err)
+	}
+
+	username := strings.ToLower(sender.Username)
+	if slices.Contains(b.adminUsers, username) {
+		return c.Send(fmt.Sprintf("📚 *Book Recon* `%s`", b.version), telebot.ModeMarkdown)
+	}
+
 	return c.Send(
 		"📚 *Book Recon*\n\n"+
 			"Отправьте название книги или имя автора — я найду и скачаю книгу.\n\n"+

@@ -8,6 +8,8 @@ import (
 )
 
 func (b *Bot) handleSettings(c telebot.Context) error {
+	b.logger.Debug("settings request", "username", c.Sender().Username)
+
 	settings, err := b.service.GetSettings(c.Get("ctx").(contextKey).ctx, c.Sender().ID)
 	if err != nil {
 		return b.handleError(c, err)
@@ -19,6 +21,7 @@ func (b *Bot) handleSettings(c telebot.Context) error {
 
 func (b *Bot) handleSetFormat(c telebot.Context) error {
 	formatStr := c.Data()
+	b.logger.Debug("set format request", "username", c.Sender().Username, "format", formatStr)
 
 	var format domain.Format
 	switch domain.Format(formatStr) {

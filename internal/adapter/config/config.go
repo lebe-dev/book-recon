@@ -13,6 +13,7 @@ type Config struct {
 	AdminUsers    []string `env:"ADMIN_USERS" envSeparator:","`
 	DBPath        string   `env:"DB_PATH" envDefault:"book-recon.db"`
 	LogLevel      string   `env:"LOG_LEVEL" envDefault:"info"`
+	UserAgent     string   `env:"USER_AGENT" envDefault:"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"`
 }
 
 func Load() (*Config, error) {

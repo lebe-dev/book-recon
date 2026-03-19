@@ -16,6 +16,8 @@ func (b *Bot) handleSearch(c telebot.Context) error {
 		return c.Send("Введите название книги или имя автора для поиска.")
 	}
 
+	b.logger.Debug("search request", "username", c.Sender().Username, "query", query)
+
 	results, err := b.service.Search(c.Get("ctx").(contextKey).ctx, c.Sender().ID, query)
 	if err != nil {
 		return b.handleError(c, err)
@@ -32,6 +34,8 @@ func (b *Bot) handleDownload(c telebot.Context) error {
 	if resultID == "" {
 		return nil
 	}
+
+	b.logger.Debug("download request", "username", c.Sender().Username, "result_id", resultID)
 
 	if err := c.Notify(telebot.UploadingDocument); err != nil {
 		b.logger.Warn("failed to send typing action", "error", err)
@@ -54,6 +58,7 @@ func (b *Bot) handleDownload(c telebot.Context) error {
 		FileName: filename,
 	}
 
+	b.logger.Debug("sending document", "username", c.Sender().Username, "filename", filename)
 	return c.Send(doc)
 }
 
@@ -64,6 +69,8 @@ func (b *Bot) handlePage(c telebot.Context) error {
 		b.logger.Warn("invalid page offset", "data", offsetStr)
 		return nil
 	}
+
+	b.logger.Debug("page request", "username", c.Sender().Username, "offset", offset)
 
 	results, hasMore, err := b.service.GetPage(c.Get("ctx").(contextKey).ctx, c.Sender().ID, offset)
 	if err != nil {
@@ -76,10 +83,11 @@ func (b *Bot) handlePage(c telebot.Context) error {
 func (b *Bot) handleError(c telebot.Context, err error) error {
 	code, ok := domain.ErrorCodeFrom(err)
 	if !ok {
-		b.logger.Error("unhandled error", "error", err)
+		b.logger.Error("unhandled error", "username", c.Sender().Username, "error", err)
 		return c.Send("Произошла непредвиденная ошибка. Попробуйте позже.")
 	}
 
+	b.logger.Debug("domain error", "username", c.Sender().Username, "code", code, "error", err)
 	msg := errorMessage(code)
 	return c.Send(msg)
 }

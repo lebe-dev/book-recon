@@ -6,3 +6,4 @@
 *.db
 
 /book-recon
+/bin/book-recon

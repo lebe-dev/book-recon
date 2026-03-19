@@ -10,6 +10,10 @@ type UserSettingsRepository interface {
 	Save(ctx context.Context, settings *UserSettings) error
 }
 
+type UserRepository interface {
+	Register(ctx context.Context, telegramID int64, username string) error
+}
+
 // SearchCacheRepository stores search results for pagination and download.
 type SearchCacheRepository interface {
 	// Save stores search results. Overwrites previous results for the user.

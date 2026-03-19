@@ -32,6 +32,7 @@ func main() {
 		level = log.InfoLevel
 	}
 	logger.SetLevel(level)
+	logger.Debug("config loaded", "db_path", cfg.DBPath, "log_level", cfg.LogLevel, "allowed_users", len(cfg.AllowedUsers), "admin_users", len(cfg.AdminUsers))
 
 	if len(cfg.AllowedUsers) == 0 {
 		logger.Warn("no allowed users configured, bot will deny all requests")
@@ -42,17 +43,19 @@ func main() {
 		logger.Fatal("failed to open database", "error", err)
 	}
 	defer func() { _ = db.Close() }()
+	logger.Debug("database opened", "path", cfg.DBPath)
 
 	userRepo := storage.NewUserSettingsRepo(db)
+	userRegistry := storage.NewUserRegistryRepo(db)
 	searchCache := storage.NewSearchCacheRepo(db)
 
-	royallibProvider := royallib.New(logger)
+	royallibProvider := royallib.New(cfg.UserAgent, logger)
 
 	providers := []domain.BookProvider{royallibProvider}
 
 	bookService := usecase.NewBookService(providers, userRepo, searchCache, logger)
 
-	bot, err := telegram.New(cfg.TelegramToken, bookService, cfg.AllowedUsers, cfg.AdminUsers, logger)
+	bot, err := telegram.New(cfg.TelegramToken, bookService, userRegistry, cfg.AllowedUsers, cfg.AdminUsers, Version, logger)
 	if err != nil {
 		logger.Fatal("failed to create telegram bot", "error", err)
 	}

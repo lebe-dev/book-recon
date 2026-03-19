@@ -50,7 +50,10 @@ func NewBookService(
 
 // Search queries all providers in parallel, caches results, returns first page.
 func (s *BookService) Search(ctx context.Context, telegramID int64, query string) ([]domain.SearchResult, error) {
+	s.logger.Info("search started", "telegram_id", telegramID, "query", query)
+
 	if len(query) > MaxQueryLength {
+		s.logger.Debug("query truncated", "original_len", len(query), "max", MaxQueryLength)
 		query = query[:MaxQueryLength]
 	}
 
@@ -88,10 +91,12 @@ func (s *BookService) Search(ctx context.Context, telegramID int64, query string
 
 	var allResults []domain.SearchResult
 	for pr := range ch {
+		s.logger.Debug("provider results collected", "provider", pr.name, "count", len(pr.results))
 		allResults = append(allResults, pr.results...)
 	}
 
 	if len(allResults) == 0 {
+		s.logger.Info("search returned no results", "telegram_id", telegramID, "query", query)
 		return nil, domain.NewError(domain.ErrCodeNotFound, "no results found")
 	}
 
@@ -113,6 +118,8 @@ func (s *BookService) Search(ctx context.Context, telegramID int64, query string
 	if end > len(allResults) {
 		end = len(allResults)
 	}
+
+	s.logger.Info("search completed", "telegram_id", telegramID, "total", len(allResults))
 	return allResults[:end], nil
 }
 
@@ -143,11 +150,14 @@ func (s *BookService) GetPage(ctx context.Context, telegramID int64, offset int)
 // Returns path to the temp file and the filename for sending.
 // The caller is responsible for removing the temp file.
 func (s *BookService) Download(ctx context.Context, telegramID int64, resultID string) (string, string, error) {
+	s.logger.Info("download started", "telegram_id", telegramID, "result_id", resultID)
+
 	result, err := s.searchCache.FindResult(ctx, telegramID, resultID)
 	if err != nil {
 		return "", "", err
 	}
 	if result == nil {
+		s.logger.Debug("result not found in cache", "telegram_id", telegramID, "result_id", resultID)
 		return "", "", domain.NewError(domain.ErrCodeNotFound, "result not found in cache")
 	}
 
@@ -161,6 +171,7 @@ func (s *BookService) Download(ctx context.Context, telegramID int64, resultID s
 		if len(result.Book.Formats) == 0 {
 			return "", "", domain.NewError(domain.ErrCodeFormatNA, "no formats available")
 		}
+		s.logger.Debug("preferred format unavailable, using fallback", "preferred", userSettings.PreferredFormat, "fallback", result.Book.Formats[0])
 		format = result.Book.Formats[0]
 	}
 
@@ -194,9 +205,11 @@ func (s *BookService) Download(ctx context.Context, telegramID int64, resultID s
 
 	if written > MaxFileSize {
 		_ = os.Remove(tmpFile.Name())
+		s.logger.Warn("file too large", "telegram_id", telegramID, "size", written)
 		return "", "", domain.NewError(domain.ErrCodeFileTooLarge, "file exceeds 50 MB limit")
 	}
 
+	s.logger.Info("download completed", "telegram_id", telegramID, "filename", filename, "size", written)
 	return tmpFile.Name(), filename, nil
 }
 
@@ -217,6 +230,7 @@ func (s *BookService) GetSettings(ctx context.Context, telegramID int64) (*domai
 
 // SetFormat sets the user's preferred format.
 func (s *BookService) SetFormat(ctx context.Context, telegramID int64, format domain.Format) error {
+	s.logger.Info("format changed", "telegram_id", telegramID, "format", format)
 	settings, err := s.GetSettings(ctx, telegramID)
 	if err != nil {
 		return err

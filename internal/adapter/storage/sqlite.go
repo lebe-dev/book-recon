@@ -41,6 +41,11 @@ func migrate(db *sql.DB) error {
 			results_json TEXT NOT NULL,
 			created_at TEXT NOT NULL DEFAULT (datetime('now'))
 		)`,
+		`CREATE TABLE IF NOT EXISTS users (
+			telegram_id INTEGER PRIMARY KEY,
+			username TEXT NOT NULL DEFAULT '',
+			first_seen TEXT NOT NULL DEFAULT (datetime('now'))
+		)`,
 	}
 
 	for _, q := range queries {

@@ -16,7 +16,7 @@ import (
 	"github.com/lebe-dev/book-recon/internal/usecase"
 )
 
-const Version = "0.2.0"
+const Version = "0.2.1"
 
 func main() {
 	logger := log.NewWithOptions(os.Stderr, log.Options{

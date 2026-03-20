@@ -8,25 +8,46 @@ import (
 	"gopkg.in/telebot.v4"
 )
 
+func buildResultsText(query string, results []domain.SearchResult, offset, total int) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "🔍 *%s*\n\n", escapeMarkdown(query))
+	sb.WriteString(foundText(total))
+	sb.WriteString(". Выберите книгу для скачивания:\n")
+
+	for i, r := range results {
+		num := offset + i + 1
+		title := escapeMarkdown(r.Book.Title)
+		author := escapeMarkdown(r.Book.Author)
+
+		sb.WriteString("\n")
+		if author != "" {
+			fmt.Fprintf(&sb, "*%d.* %s — %s\n", num, title, author)
+		} else {
+			fmt.Fprintf(&sb, "*%d.* %s\n", num, title)
+		}
+
+		formats := formatList(r.Book.Formats)
+		provider := escapeMarkdown(r.Book.Provider)
+		fmt.Fprintf(&sb, "      📄 %s · %s", formats, provider)
+	}
+
+	return sb.String()
+}
+
 func buildResultsKeyboard(results []domain.SearchResult, offset int, hasMore bool, total int) *telebot.ReplyMarkup {
 	markup := &telebot.ReplyMarkup{}
 
 	var rows []telebot.Row
-	for _, r := range results {
-		label := r.Book.Title
-		if r.Book.Author != "" {
-			label = fmt.Sprintf("%s — %s", r.Book.Title, r.Book.Author)
-		}
-		badge := formatBadge(r.Book.Formats)
-		maxLen := 57 - len(badge)
-		if len(label) > maxLen {
-			label = label[:maxLen] + "..."
-		}
-		label = label + badge
 
-		rows = append(rows, markup.Row(
-			markup.Data(label, "dl", r.ID),
-		))
+	var dlBtns []telebot.Btn
+	for i, r := range results {
+		num := offset + i + 1
+		dlBtns = append(dlBtns, markup.Data(fmt.Sprintf("%d", num), "dl", r.ID))
+	}
+	if len(dlBtns) > 0 {
+		row := make(telebot.Row, len(dlBtns))
+		copy(row, dlBtns)
+		rows = append(rows, row)
 	}
 
 	var navBtns []telebot.Btn
@@ -72,7 +93,7 @@ func buildSettingsKeyboard(current domain.Format) *telebot.ReplyMarkup {
 	return markup
 }
 
-func formatBadge(formats []domain.Format) string {
+func formatList(formats []domain.Format) string {
 	if len(formats) == 0 {
 		return ""
 	}
@@ -80,5 +101,5 @@ func formatBadge(formats []domain.Format) string {
 	for _, f := range formats {
 		parts = append(parts, strings.ToUpper(string(f)))
 	}
-	return " [" + strings.Join(parts, ", ") + "]"
+	return strings.Join(parts, ", ")
 }

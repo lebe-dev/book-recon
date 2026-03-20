@@ -25,7 +25,7 @@ func (b *Bot) handleSearch(c telebot.Context) error {
 
 	_, hasMore, total, _ := b.service.GetPage(c.Get("ctx").(contextKey).ctx, c.Sender().ID, 0)
 
-	text := fmt.Sprintf("🔍 *%s*\n\n%s. Выберите книгу для скачивания:", escapeMarkdown(query), foundText(total))
+	text := buildResultsText(query, results, 0, total)
 	return c.Send(text, buildResultsKeyboard(results, 0, hasMore, total), telebot.ModeMarkdown)
 }
 
@@ -88,7 +88,14 @@ func (b *Bot) handlePage(c telebot.Context) error {
 		return b.handleError(c, err)
 	}
 
-	return c.Edit(buildResultsKeyboard(results, offset, hasMore, total))
+	query := extractQuery(c.Message().Text)
+	text := buildResultsText(query, results, offset, total)
+	return c.Edit(text, buildResultsKeyboard(results, offset, hasMore, total), telebot.ModeMarkdown)
+}
+
+func extractQuery(text string) string {
+	firstLine, _, _ := strings.Cut(text, "\n")
+	return strings.TrimPrefix(firstLine, "🔍 ")
 }
 
 func (b *Bot) handleError(c telebot.Context, err error) error {

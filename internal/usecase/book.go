@@ -171,8 +171,8 @@ func (s *BookService) Download(ctx context.Context, telegramID int64, resultID s
 		if len(result.Book.Formats) == 0 {
 			return "", "", domain.NewError(domain.ErrCodeFormatNA, "no formats available")
 		}
-		s.logger.Debug("preferred format unavailable, using fallback", "preferred", userSettings.PreferredFormat, "fallback", result.Book.Formats[0])
-		format = result.Book.Formats[0]
+		format = pickBestFormat(result.Book.Formats)
+		s.logger.Debug("preferred format unavailable, using fallback", "preferred", userSettings.PreferredFormat, "fallback", format)
 	}
 
 	provider, ok := s.providerMap[result.Book.Provider]
@@ -231,6 +231,22 @@ func (s *BookService) GetSettings(ctx context.Context, telegramID int64) (*domai
 		}, nil
 	}
 	return settings, nil
+}
+
+// formatPriority defines the fallback order when the user's preferred format is unavailable.
+var formatPriority = []domain.Format{domain.FormatEPUB, domain.FormatFB2, domain.FormatMOBI}
+
+// pickBestFormat returns the highest-priority format available in the list.
+// Falls back to the first element if none of the prioritised formats match.
+func pickBestFormat(available []domain.Format) domain.Format {
+	for _, pf := range formatPriority {
+		for _, af := range available {
+			if pf == af {
+				return pf
+			}
+		}
+	}
+	return available[0]
 }
 
 // SetFormat sets the user's preferred format.

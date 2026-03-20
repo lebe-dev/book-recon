@@ -96,7 +96,7 @@ func (p *Provider) Search(ctx context.Context, query string, limit int) ([]domai
 		book := domain.Book{
 			Title:     r.title,
 			Author:    r.author,
-			Formats:   []domain.Format{domain.FormatFB2, domain.FormatEPUB},
+			Formats:   []domain.Format{domain.FormatFB2, domain.FormatEPUB, domain.FormatMOBI},
 			Provider:  providerName,
 			SourceURL: r.bookURL,
 		}

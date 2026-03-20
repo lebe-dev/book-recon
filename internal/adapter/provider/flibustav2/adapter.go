@@ -79,6 +79,8 @@ func toDomainFormats(formats []Format) []domain.Format {
 			out = append(out, domain.FormatFB2)
 		case FormatEPUB:
 			out = append(out, domain.FormatEPUB)
+		case FormatMOBI:
+			out = append(out, domain.FormatMOBI)
 		}
 	}
 	return out
@@ -96,6 +98,8 @@ func toV2Format(f domain.Format) Format {
 	switch f {
 	case domain.FormatEPUB:
 		return FormatEPUB
+	case domain.FormatMOBI:
+		return FormatMOBI
 	default:
 		return FormatFB2
 	}

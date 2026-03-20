@@ -12,6 +12,7 @@ type Format string
 const (
 	FormatEPUB Format = "epub"
 	FormatFB2  Format = "fb2"
+	FormatMOBI Format = "mobi"
 )
 
 type Book struct {

@@ -75,21 +75,26 @@ func buildResultsKeyboard(results []domain.SearchResult, offset int, hasMore boo
 func buildSettingsKeyboard(current domain.Format) *telebot.ReplyMarkup {
 	markup := &telebot.ReplyMarkup{}
 
-	epubLabel := "○ EPUB"
-	fb2Label := "○ FB2"
-	if current == domain.FormatEPUB {
-		epubLabel = "● EPUB"
-	} else {
-		fb2Label = "● FB2"
+	type fmtBtn struct {
+		label  string
+		format domain.Format
+	}
+	buttons := []fmtBtn{
+		{"EPUB", domain.FormatEPUB},
+		{"FB2", domain.FormatFB2},
+		{"MOBI", domain.FormatMOBI},
 	}
 
-	markup.Inline(
-		markup.Row(
-			markup.Data(epubLabel, "fmt", string(domain.FormatEPUB)),
-			markup.Data(fb2Label, "fmt", string(domain.FormatFB2)),
-		),
-	)
+	var row telebot.Row
+	for _, b := range buttons {
+		label := "○ " + b.label
+		if current == b.format {
+			label = "● " + b.label
+		}
+		row = append(row, markup.Data(label, "fmt", string(b.format)))
+	}
 
+	markup.Inline(row)
 	return markup
 }
 

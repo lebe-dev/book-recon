@@ -18,6 +18,10 @@ func (b *Bot) handleSearch(c telebot.Context) error {
 		return c.Send("Введите название книги или имя автора для поиска.")
 	}
 
+	if strings.HasPrefix(query, "/") {
+		return nil
+	}
+
 	b.logger.Debug("search request", "username", c.Sender().Username, "query", query)
 
 	results, err := b.service.Search(c.Get("ctx").(contextKey).ctx, c.Sender().ID, query)

@@ -25,6 +25,7 @@ services:
       - "127.0.0.1:9117:9117"
     volumes:
       - jackett-config:/config
+      - ./jackett/ServerConfig.json:/config/Jackett/ServerConfig.json
     environment:
       - PUID=1000
       - PGID=1000

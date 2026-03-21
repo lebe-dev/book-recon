@@ -257,6 +257,87 @@ func (p *Provider) DownloadMulti(ctx context.Context, result domain.SearchResult
 	return picked, cleanup, nil
 }
 
+// CheckHealth verifies Jackett availability and RuTracker indexer reachability.
+// Returns two statuses: one for Jackett connectivity and one for RuTracker search.
+func (p *Provider) CheckHealth(ctx context.Context) []domain.HealthStatus {
+	var statuses []domain.HealthStatus
+
+	// 1. Check Jackett API via caps endpoint.
+	capsURL := fmt.Sprintf("%s/api/v2.0/indexers/%s/results/torznab/api?apikey=%s&t=caps",
+		strings.TrimRight(p.config.JackettURL, "/"),
+		url.PathEscape(p.config.JackettIndexer),
+		url.QueryEscape(p.config.JackettAPIKey),
+	)
+
+	jackettStatus := domain.HealthStatus{Name: "Jackett"}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, capsURL, nil)
+	if err != nil {
+		jackettStatus.Detail = err.Error()
+		statuses = append(statuses, jackettStatus)
+		return append(statuses, domain.HealthStatus{Name: "RuTracker", Detail: "skipped (Jackett unavailable)"})
+	}
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		jackettStatus.Detail = err.Error()
+		statuses = append(statuses, jackettStatus)
+		return append(statuses, domain.HealthStatus{Name: "RuTracker", Detail: "skipped (Jackett unavailable)"})
+	}
+	_ = resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		jackettStatus.Detail = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		statuses = append(statuses, jackettStatus)
+		return append(statuses, domain.HealthStatus{Name: "RuTracker", Detail: "skipped (Jackett unavailable)"})
+	}
+
+	jackettStatus.Healthy = true
+	jackettStatus.Detail = fmt.Sprintf("HTTP %d", resp.StatusCode)
+	statuses = append(statuses, jackettStatus)
+
+	// 2. Check RuTracker via a test search.
+	searchURL := fmt.Sprintf("%s/api/v2.0/indexers/%s/results/torznab/api?apikey=%s&t=search&q=%s&limit=1",
+		strings.TrimRight(p.config.JackettURL, "/"),
+		url.PathEscape(p.config.JackettIndexer),
+		url.QueryEscape(p.config.JackettAPIKey),
+		url.QueryEscape("test"),
+	)
+
+	rtStatus := domain.HealthStatus{Name: "RuTracker"}
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, searchURL, nil)
+	if err != nil {
+		rtStatus.Detail = err.Error()
+		return append(statuses, rtStatus)
+	}
+
+	resp, err = p.httpClient.Do(req)
+	if err != nil {
+		rtStatus.Detail = err.Error()
+		return append(statuses, rtStatus)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		rtStatus.Detail = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		return append(statuses, rtStatus)
+	}
+
+	// Parse response to detect Torznab errors from the indexer.
+	_, err = ParseTorznab(resp.Body)
+	if err != nil {
+		if te, ok := err.(*TorznabError); ok {
+			rtStatus.Detail = te.Description
+		} else {
+			rtStatus.Detail = err.Error()
+		}
+		return append(statuses, rtStatus)
+	}
+
+	rtStatus.Healthy = true
+	rtStatus.Detail = "OK"
+	return append(statuses, rtStatus)
+}
+
 // Close shuts down the torrent manager.
 func (p *Provider) Close() {
 	p.torrentMgr.Close()

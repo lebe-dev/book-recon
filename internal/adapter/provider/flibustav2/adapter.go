@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -103,6 +104,25 @@ func toV2Format(f domain.Format) Format {
 	default:
 		return FormatFB2
 	}
+}
+
+// CheckHealth checks Flibusta availability by issuing an HTTP HEAD request.
+func (p *DomainProvider) CheckHealth(ctx context.Context) []domain.HealthStatus {
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, p.inner.baseURL, nil)
+	if err != nil {
+		return []domain.HealthStatus{{Name: providerName, Healthy: false, Detail: err.Error()}}
+	}
+
+	resp, err := p.inner.httpClient.Do(req)
+	if err != nil {
+		return []domain.HealthStatus{{Name: providerName, Healthy: false, Detail: err.Error()}}
+	}
+	_ = resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return []domain.HealthStatus{{Name: providerName, Healthy: false, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}}
+	}
+	return []domain.HealthStatus{{Name: providerName, Healthy: true, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}}
 }
 
 func extractIDFromURL(sourceURL string) int {

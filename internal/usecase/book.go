@@ -289,6 +289,17 @@ func (s *BookService) GetProvider(name string) (domain.BookProvider, bool) {
 	return p, ok
 }
 
+// CheckHealth runs health checks on all providers that implement domain.HealthChecker.
+func (s *BookService) CheckHealth(ctx context.Context) []domain.HealthStatus {
+	var statuses []domain.HealthStatus
+	for _, p := range s.providers {
+		if hc, ok := p.(domain.HealthChecker); ok {
+			statuses = append(statuses, hc.CheckHealth(ctx)...)
+		}
+	}
+	return statuses
+}
+
 // SetFormat sets the user's preferred format.
 func (s *BookService) SetFormat(ctx context.Context, telegramID int64, format domain.Format) error {
 	s.logger.Info("format changed", "telegram_id", telegramID, "format", format)

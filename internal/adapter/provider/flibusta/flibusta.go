@@ -315,6 +315,26 @@ func extractBookID(bookURL string) string {
 	return ""
 }
 
+// CheckHealth checks Flibusta availability by issuing an HTTP HEAD request.
+func (p *Provider) CheckHealth(ctx context.Context) []domain.HealthStatus {
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, p.baseURL, nil)
+	if err != nil {
+		return []domain.HealthStatus{{Name: providerName, Healthy: false, Detail: err.Error()}}
+	}
+	p.setHeaders(req)
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return []domain.HealthStatus{{Name: providerName, Healthy: false, Detail: err.Error()}}
+	}
+	_ = resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return []domain.HealthStatus{{Name: providerName, Healthy: false, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}}
+	}
+	return []domain.HealthStatus{{Name: providerName, Healthy: true, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}}
+}
+
 // fallbackFilename builds a filename when no better name is available.
 func fallbackFilename(author, title, format string) string {
 	name := strings.TrimSpace(author + ". " + title)

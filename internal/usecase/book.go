@@ -146,11 +146,23 @@ func (s *BookService) GetPage(ctx context.Context, telegramID int64, offset int)
 	return session.Results[offset:end], end < total, total, nil
 }
 
-// Download fetches a book to a temp file, checking size limits.
+// Download fetches a book to a temp file using the user's preferred format.
 // Returns path to the temp file, filename, file size in bytes, and error.
 // The caller is responsible for removing the temp file.
 func (s *BookService) Download(ctx context.Context, telegramID int64, resultID string) (string, string, int64, error) {
-	s.logger.Info("download started", "telegram_id", telegramID, "result_id", resultID)
+	userSettings, err := s.GetSettings(ctx, telegramID)
+	if err != nil {
+		return "", "", 0, err
+	}
+	return s.DownloadWithFormat(ctx, telegramID, resultID, userSettings.PreferredFormat)
+}
+
+// DownloadWithFormat fetches a book in the specified format to a temp file.
+// Falls back to the best available format if the requested one is unavailable.
+// Returns path to the temp file, filename, file size in bytes, and error.
+// The caller is responsible for removing the temp file.
+func (s *BookService) DownloadWithFormat(ctx context.Context, telegramID int64, resultID string, format domain.Format) (string, string, int64, error) {
+	s.logger.Info("download started", "telegram_id", telegramID, "result_id", resultID, "format", format)
 
 	result, err := s.searchCache.FindResult(ctx, telegramID, resultID)
 	if err != nil {
@@ -161,18 +173,12 @@ func (s *BookService) Download(ctx context.Context, telegramID int64, resultID s
 		return "", "", 0, domain.NewError(domain.ErrCodeNotFound, "result not found in cache")
 	}
 
-	userSettings, err := s.GetSettings(ctx, telegramID)
-	if err != nil {
-		return "", "", 0, err
-	}
-
-	format := userSettings.PreferredFormat
 	if !result.Book.HasFormat(format) {
 		if len(result.Book.Formats) == 0 {
 			return "", "", 0, domain.NewError(domain.ErrCodeFormatNA, "no formats available")
 		}
 		format = pickBestFormat(result.Book.Formats)
-		s.logger.Debug("preferred format unavailable, using fallback", "preferred", userSettings.PreferredFormat, "fallback", format)
+		s.logger.Debug("requested format unavailable, using fallback", "requested", format, "fallback", format)
 	}
 
 	provider, ok := s.providerMap[result.Book.Provider]

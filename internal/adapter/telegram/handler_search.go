@@ -36,7 +36,41 @@ func (b *Bot) handleDownload(c telebot.Context) error {
 	}
 
 	ctx := c.Get("ctx").(contextKey).ctx
-	b.logger.Debug("download request", "username", c.Sender().Username, "result_id", resultID)
+	b.logger.Debug("book selected", "username", c.Sender().Username, "result_id", resultID)
+
+	result, err := b.service.GetResult(ctx, c.Sender().ID, resultID)
+	if err != nil {
+		return b.handleError(c, err)
+	}
+	if result == nil {
+		return c.Respond(&telebot.CallbackResponse{Text: "Книга не найдена в кэше. Повторите поиск."})
+	}
+
+	title := escapeMarkdown(result.Book.Title)
+	author := escapeMarkdown(result.Book.Author)
+
+	var text string
+	if author != "" {
+		text = fmt.Sprintf("📖 *%s* — %s\n\nВыберите формат:", title, author)
+	} else {
+		text = fmt.Sprintf("📖 *%s*\n\nВыберите формат:", title)
+	}
+
+	return c.Edit(text, buildFormatKeyboard(resultID, result.Book.Formats), telebot.ModeMarkdown)
+}
+
+func (b *Bot) handleDownloadFormat(c telebot.Context) error {
+	data := c.Data()
+	parts := strings.SplitN(data, "|", 2)
+	if len(parts) != 2 {
+		return nil
+	}
+
+	resultID := parts[0]
+	format := domain.Format(parts[1])
+
+	ctx := c.Get("ctx").(contextKey).ctx
+	b.logger.Debug("download request", "username", c.Sender().Username, "result_id", resultID, "format", format)
 
 	result, err := b.service.GetResult(ctx, c.Sender().ID, resultID)
 	if err != nil {
@@ -52,7 +86,7 @@ func (b *Bot) handleDownload(c telebot.Context) error {
 		b.logger.Warn("failed to send typing action", "error", err)
 	}
 
-	tmpPath, filename, fileSize, err := b.service.Download(ctx, c.Sender().ID, resultID)
+	tmpPath, filename, fileSize, err := b.service.DownloadWithFormat(ctx, c.Sender().ID, resultID, format)
 	if err != nil {
 		return b.handleDownloadError(c, err, sourceURL)
 	}

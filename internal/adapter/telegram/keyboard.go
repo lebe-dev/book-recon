@@ -98,6 +98,19 @@ func buildSettingsKeyboard(current domain.Format) *telebot.ReplyMarkup {
 	return markup
 }
 
+func buildFormatKeyboard(resultID string, formats []domain.Format) *telebot.ReplyMarkup {
+	markup := &telebot.ReplyMarkup{}
+
+	var row telebot.Row
+	for _, f := range formats {
+		label := strings.ToUpper(string(f))
+		row = append(row, markup.Data(label, "dlf", resultID, string(f)))
+	}
+
+	markup.Inline(row)
+	return markup
+}
+
 func formatList(formats []domain.Format) string {
 	if len(formats) == 0 {
 		return ""

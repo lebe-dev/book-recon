@@ -79,6 +79,7 @@ func (b *Bot) setupRoutes() {
 	b.bot.Handle(telebot.OnText, b.handleSearch)
 
 	b.bot.Handle(&telebot.Btn{Unique: "dl"}, b.handleDownload)
+	b.bot.Handle(&telebot.Btn{Unique: "dlf"}, b.handleDownloadFormat)
 	b.bot.Handle(&telebot.Btn{Unique: "page"}, b.handlePage)
 	b.bot.Handle(&telebot.Btn{Unique: "fmt"}, b.handleSetFormat)
 	b.bot.Handle(&telebot.Btn{Unique: "approve"}, b.handleApprove)

@@ -31,6 +31,10 @@ func (b *Bot) handleSetFormat(c telebot.Context) error {
 		format = domain.FormatFB2
 	case domain.FormatMOBI:
 		format = domain.FormatMOBI
+	case domain.FormatPDF:
+		format = domain.FormatPDF
+	case domain.FormatDJVU:
+		format = domain.FormatDJVU
 	default:
 		b.logger.Warn("invalid format callback", "data", formatStr)
 		return nil

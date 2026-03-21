@@ -12,6 +12,9 @@ const (
 	ErrCodeTimeout         ErrorCode = "TIMEOUT"
 	ErrCodeValidation      ErrorCode = "VALIDATION_ERROR"
 	ErrCodeBookUnavailable ErrorCode = "BOOK_UNAVAILABLE"
+	ErrCodeNoSeeders       ErrorCode = "NO_SEEDERS"
+	ErrCodeTorrentTooLarge ErrorCode = "TORRENT_TOO_LARGE"
+	ErrCodeServiceDown     ErrorCode = "SERVICE_DOWN"
 )
 
 // DomainError is the base error type for all domain-level errors.

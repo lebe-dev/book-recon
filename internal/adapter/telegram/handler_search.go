@@ -1,11 +1,13 @@
 package telegram
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/lebe-dev/book-recon/internal/adapter/provider/rutracker"
 	"github.com/lebe-dev/book-recon/internal/domain"
 	"gopkg.in/telebot.v4"
 )
@@ -49,14 +51,36 @@ func (b *Bot) handleDownload(c telebot.Context) error {
 	title := escapeMarkdown(result.Book.Title)
 	author := escapeMarkdown(result.Book.Author)
 
-	var text string
+	var sb strings.Builder
 	if author != "" {
-		text = fmt.Sprintf("📖 *%s* — %s\n\nВыберите формат:", title, author)
+		fmt.Fprintf(&sb, "📖 *%s* — %s\n", title, author)
 	} else {
-		text = fmt.Sprintf("📖 *%s*\n\nВыберите формат:", title)
+		fmt.Fprintf(&sb, "📖 *%s*\n", title)
 	}
 
-	return c.Edit(text, buildFormatKeyboard(resultID, result.Book.Formats), telebot.ModeMarkdown)
+	// RuTracker: show seeds/size and torrent warning.
+	if result.Book.Provider == "RuTracker" && result.Book.Metadata != nil {
+		seeds := result.Book.Metadata["seeds"]
+		torrentSize := result.Book.Metadata["torrent_size"]
+		if seeds != "" || torrentSize != "" {
+			parts := make([]string, 0, 2)
+			if seeds != "" {
+				parts = append(parts, fmt.Sprintf("🌱 %s сида", seeds))
+			}
+			if torrentSize != "" {
+				if size, err := strconv.ParseInt(torrentSize, 10, 64); err == nil {
+					parts = append(parts, fmt.Sprintf("📦 %s", formatFileSize(size)))
+				}
+			}
+			sb.WriteString(strings.Join(parts, " · "))
+			sb.WriteString("\n")
+		}
+		sb.WriteString("\nВыберите формат (скачивание из торрента может занять несколько минут):")
+	} else {
+		sb.WriteString("\nВыберите формат:")
+	}
+
+	return c.Edit(sb.String(), buildFormatKeyboard(resultID, result.Book.Formats), telebot.ModeMarkdown)
 }
 
 func (b *Bot) handleDownloadFormat(c telebot.Context) error {
@@ -76,7 +100,17 @@ func (b *Bot) handleDownloadFormat(c telebot.Context) error {
 	if err != nil {
 		return b.handleError(c, err)
 	}
+	if result == nil {
+		return c.Respond(&telebot.CallbackResponse{Text: "Книга не найдена в кэше. Повторите поиск."})
+	}
 
+	// RuTracker: async download in goroutine.
+	if result.Book.Provider == "RuTracker" {
+		go b.downloadRuTracker(c, result, format)
+		return c.Edit("⏳ Скачиваю торрент, это может занять несколько минут...")
+	}
+
+	// Other providers: synchronous download.
 	var sourceURL string
 	if result != nil {
 		sourceURL = result.Book.SourceURL
@@ -106,6 +140,89 @@ func (b *Bot) handleDownloadFormat(c telebot.Context) error {
 
 	b.logger.Debug("sending document", "username", c.Sender().Username, "filename", filename, "size", fileSize)
 	return c.Send(doc)
+}
+
+// downloadRuTracker handles async torrent download and file sending.
+func (b *Bot) downloadRuTracker(c telebot.Context, result *domain.SearchResult, format domain.Format) {
+	ctx := context.Background()
+	chatID := c.Chat().ID
+
+	provider, ok := b.service.GetProvider("RuTracker")
+	if !ok {
+		b.sendToChat(chatID, "⚠️ Провайдер RuTracker не найден.")
+		return
+	}
+
+	rtProvider, ok := provider.(*rutracker.Provider)
+	if !ok {
+		b.sendToChat(chatID, "⚠️ Ошибка провайдера RuTracker.")
+		return
+	}
+
+	b.logger.Debug("rutracker async download started", "username", c.Sender().Username, "result_id", result.ID)
+
+	picked, cleanup, err := rtProvider.DownloadMulti(ctx, *result, format)
+	if err != nil {
+		code, ok := domain.ErrorCodeFrom(err)
+		if ok {
+			b.sendToChat(chatID, rutrackerErrorMessage(code, err))
+		} else {
+			b.logger.Error("rutracker download failed", "error", err)
+			b.sendToChat(chatID, "⚠️ Ошибка при скачивании торрента.")
+		}
+		return
+	}
+	defer cleanup()
+
+	// Update status message.
+	b.sendToChat(chatID, fmt.Sprintf("📚 Из торрента выбрано %d файла (%s):", len(picked), strings.ToUpper(string(picked[0].Format))))
+
+	// Send each file.
+	for _, pf := range picked {
+		f, err := os.Open(pf.Path)
+		if err != nil {
+			b.logger.Error("failed to open picked file", "path", pf.Path, "error", err)
+			b.sendToChat(chatID, fmt.Sprintf("⚠️ Не удалось отправить файл %s.", pf.Name))
+			continue
+		}
+
+		doc := &telebot.Document{
+			File:     telebot.FromReader(f),
+			FileName: pf.Name,
+			Caption:  fmt.Sprintf("📦 %s", formatFileSize(pf.Size)),
+		}
+
+		if _, err := b.bot.Send(telebot.ChatID(chatID), doc); err != nil {
+			b.logger.Error("failed to send document", "filename", pf.Name, "error", err)
+			b.sendToChat(chatID, fmt.Sprintf("⚠️ Не удалось отправить файл %s.", pf.Name))
+		}
+		_ = f.Close()
+	}
+
+	b.logger.Info("rutracker download complete", "username", c.Sender().Username, "files", len(picked))
+}
+
+func (b *Bot) sendToChat(chatID int64, text string) {
+	if _, err := b.bot.Send(telebot.ChatID(chatID), text); err != nil {
+		b.logger.Error("failed to send message", "chat_id", chatID, "error", err)
+	}
+}
+
+func rutrackerErrorMessage(code domain.ErrorCode, err error) string {
+	switch code {
+	case domain.ErrCodeNoSeeders:
+		return "🌱 Нет раздающих — скачивание невозможно. Попробуйте другую раздачу."
+	case domain.ErrCodeTorrentTooLarge:
+		return "📦 Торрент слишком большой. Максимум: 2 ГБ."
+	case domain.ErrCodeTimeout:
+		return "⏱ Торрент не скачался вовремя. Попробуйте раздачу с большим количеством сидов."
+	case domain.ErrCodeFormatNA:
+		return "📄 В торренте не найдены файлы нужного формата. Попробуйте другой формат."
+	case domain.ErrCodeServiceDown:
+		return "⚠️ Сервис поиска недоступен. Попробуйте позже."
+	default:
+		return "⚠️ Ошибка при скачивании торрента. Попробуйте позже."
+	}
 }
 
 func (b *Bot) handlePage(c telebot.Context) error {
@@ -173,6 +290,12 @@ func errorMessage(code domain.ErrorCode) string {
 		return "⚠️ Ошибка при обращении к источнику. Попробуйте позже."
 	case domain.ErrCodeBookUnavailable:
 		return "🚫 Книга недоступна для скачивания (удалена по жалобе правообладателя)."
+	case domain.ErrCodeNoSeeders:
+		return "🌱 Нет раздающих — скачивание невозможно. Попробуйте другую раздачу."
+	case domain.ErrCodeTorrentTooLarge:
+		return "📦 Торрент слишком большой. Максимум: 2 ГБ."
+	case domain.ErrCodeServiceDown:
+		return "⚠️ Сервис поиска недоступен. Попробуйте позже."
 	default:
 		return "⚠️ Непредвиденная ошибка. Попробуйте позже."
 	}

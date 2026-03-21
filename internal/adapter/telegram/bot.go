@@ -197,3 +197,21 @@ func (b *Bot) handleHelp(c telebot.Context) error {
 
 	return c.Send(text, telebot.ModeMarkdown)
 }
+
+// NotifyProviderError sends a provider error alert to all admin users.
+func (b *Bot) NotifyProviderError(providerName string, err error) {
+	ctx := context.Background()
+	adminIDs := b.accessService.ResolveAdminIDs(ctx, b.adminUsers)
+	if len(adminIDs) == 0 {
+		return
+	}
+
+	text := fmt.Sprintf("⚠️ *Ошибка провайдера %s*\n\n`%s`", escapeMarkdown(providerName), escapeMarkdown(err.Error()))
+
+	for _, adminID := range adminIDs {
+		recipient := telebot.ChatID(adminID)
+		if _, sendErr := b.bot.Send(recipient, text, telebot.ModeMarkdown); sendErr != nil {
+			b.logger.Error("failed to notify admin about provider error", "admin_id", adminID, "error", sendErr)
+		}
+	}
+}

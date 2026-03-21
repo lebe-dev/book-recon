@@ -19,6 +19,7 @@ WORKDIR /app
 
 RUN addgroup -g 10001 book-recon && \
     adduser -h /app -D -u 10001 -G book-recon book-recon && \
+    mkdir -p /app/data/torrents && \
     chmod 700 /app && \
     chown -R book-recon: /app
 

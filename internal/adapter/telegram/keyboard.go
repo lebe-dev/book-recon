@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/lebe-dev/book-recon/internal/domain"
@@ -29,9 +30,47 @@ func buildResultsText(query string, results []domain.SearchResult, offset, total
 		formats := formatList(r.Book.Formats)
 		provider := escapeMarkdown(r.Book.Provider)
 		fmt.Fprintf(&sb, "      📄 %s · %s", formats, provider)
+
+		// RuTracker: show seeds and torrent size.
+		if r.Book.Provider == "RuTracker" && r.Book.Metadata != nil {
+			seeds := r.Book.Metadata["seeds"]
+			torrentSize := r.Book.Metadata["torrent_size"]
+			if seeds != "" || torrentSize != "" {
+				sb.WriteString("\n      ")
+				if seeds != "" {
+					fmt.Fprintf(&sb, "🌱 %s сида", seeds)
+				}
+				if torrentSize != "" {
+					if seeds != "" {
+						sb.WriteString(" · ")
+					}
+					if size, err := strconv.ParseInt(torrentSize, 10, 64); err == nil {
+						fmt.Fprintf(&sb, "📦 %s", formatTorrentSize(size))
+					}
+				}
+			}
+		}
 	}
 
 	return sb.String()
+}
+
+func formatTorrentSize(bytes int64) string {
+	const (
+		kb = 1024
+		mb = 1024 * kb
+		gb = 1024 * mb
+	)
+	switch {
+	case bytes >= gb:
+		return fmt.Sprintf("%.1f ГБ", float64(bytes)/float64(gb))
+	case bytes >= mb:
+		return fmt.Sprintf("%.1f МБ", float64(bytes)/float64(mb))
+	case bytes >= kb:
+		return fmt.Sprintf("%.0f КБ", float64(bytes)/float64(kb))
+	default:
+		return fmt.Sprintf("%d Б", bytes)
+	}
 }
 
 func buildResultsKeyboard(results []domain.SearchResult, offset int, hasMore bool, total int) *telebot.ReplyMarkup {
@@ -79,22 +118,29 @@ func buildSettingsKeyboard(current domain.Format) *telebot.ReplyMarkup {
 		label  string
 		format domain.Format
 	}
-	buttons := []fmtBtn{
+	row1Btns := []fmtBtn{
 		{"EPUB", domain.FormatEPUB},
 		{"FB2", domain.FormatFB2},
 		{"MOBI", domain.FormatMOBI},
 	}
-
-	var row telebot.Row
-	for _, b := range buttons {
-		label := "○ " + b.label
-		if current == b.format {
-			label = "● " + b.label
-		}
-		row = append(row, markup.Data(label, "fmt", string(b.format)))
+	row2Btns := []fmtBtn{
+		{"PDF", domain.FormatPDF},
+		{"DJVU", domain.FormatDJVU},
 	}
 
-	markup.Inline(row)
+	makeRow := func(btns []fmtBtn) telebot.Row {
+		var row telebot.Row
+		for _, b := range btns {
+			label := "○ " + b.label
+			if current == b.format {
+				label = "● " + b.label
+			}
+			row = append(row, markup.Data(label, "fmt", string(b.format)))
+		}
+		return row
+	}
+
+	markup.Inline(makeRow(row1Btns), makeRow(row2Btns))
 	return markup
 }
 

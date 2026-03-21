@@ -2,6 +2,7 @@ package config
 
 import (
 	"strings"
+	"time"
 
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
@@ -20,6 +21,16 @@ type Config struct {
 	BookSizeThreshold int64    `env:"BOOK_SIZE_THRESHOLD" envDefault:"4096"`
 	RoyallibEnabled   bool     `env:"ROYALLIB_ENABLED" envDefault:"false"`
 	FlibustaEnabled   bool     `env:"FLIBUSTA_ENABLED" envDefault:"true"`
+
+	// RuTracker via Jackett
+	RutrackerEnabled         bool          `env:"RUTRACKER_ENABLED" envDefault:"false"`
+	JackettURL               string        `env:"JACKETT_URL" envDefault:"http://localhost:9117"`
+	JackettAPIKey            string        `env:"JACKETT_API_KEY"`
+	JackettIndexer           string        `env:"JACKETT_INDEXER" envDefault:"rutracker"`
+	RutrackerDownloadTimeout time.Duration `env:"RUTRACKER_DOWNLOAD_TIMEOUT" envDefault:"5m"`
+	RutrackerMaxBooks        int           `env:"RUTRACKER_MAX_BOOKS" envDefault:"5"`
+	RutrackerMaxTorrentSize  int64         `env:"RUTRACKER_MAX_TORRENT_SIZE" envDefault:"52428800"`
+	RutrackerDownloadDir     string        `env:"RUTRACKER_DOWNLOAD_DIR" envDefault:"/tmp/book-recon-torrents"`
 }
 
 func Load() (*Config, error) {

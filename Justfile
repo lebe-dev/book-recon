@@ -59,3 +59,6 @@ release: release-image
 
 deploy:
     ssh kaiman 'cd /opt/book-recon && docker compose pull && docker compose down && IMAGE_TAG={{ version }} docker compose up -d'
+
+port-forward-jackett:
+    ssh -N -L 9117:localhost:9117 kaiman

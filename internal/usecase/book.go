@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -19,14 +20,20 @@ const (
 	SessionTTL      = 30 * time.Minute
 	DownloadTimeout = 60 * time.Second
 	ProviderTimeout = 15 * time.Second
+	ErrorCooldown   = 5 * time.Minute
 )
 
+// ProviderErrorFunc is called when a provider fails during search.
+type ProviderErrorFunc func(providerName string, err error)
+
 type BookService struct {
-	providers   []domain.BookProvider
-	providerMap map[string]domain.BookProvider
-	settings    domain.UserSettingsRepository
-	searchCache domain.SearchCacheRepository
-	logger      *log.Logger
+	providers       []domain.BookProvider
+	providerMap     map[string]domain.BookProvider
+	settings        domain.UserSettingsRepository
+	searchCache     domain.SearchCacheRepository
+	onProviderError ProviderErrorFunc
+	errorCooldown   sync.Map // provider name -> time.Time
+	logger          *log.Logger
 }
 
 func NewBookService(
@@ -46,6 +53,26 @@ func NewBookService(
 		searchCache: searchCache,
 		logger:      logger,
 	}
+}
+
+// SetOnProviderError sets a callback invoked when a provider fails during search.
+func (s *BookService) SetOnProviderError(fn ProviderErrorFunc) {
+	s.onProviderError = fn
+}
+
+func (s *BookService) notifyProviderError(providerName string, err error) {
+	if s.onProviderError == nil {
+		return
+	}
+
+	now := time.Now()
+	if v, ok := s.errorCooldown.Load(providerName); ok {
+		if now.Before(v.(time.Time).Add(ErrorCooldown)) {
+			return
+		}
+	}
+	s.errorCooldown.Store(providerName, now)
+	s.onProviderError(providerName, err)
 }
 
 // Search queries all providers in parallel, caches results, returns first page.
@@ -73,6 +100,7 @@ func (s *BookService) Search(ctx context.Context, telegramID int64, query string
 			results, err := p.Search(pctx, query, SearchLimit)
 			if err != nil {
 				s.logger.Warn("provider search failed", "provider", p.Name(), "error", err)
+				s.notifyProviderError(p.Name(), err)
 				ch <- providerResult{name: p.Name()}
 				return nil // partial results: don't fail the whole search
 			}
@@ -240,7 +268,7 @@ func (s *BookService) GetSettings(ctx context.Context, telegramID int64) (*domai
 }
 
 // formatPriority defines the fallback order when the user's preferred format is unavailable.
-var formatPriority = []domain.Format{domain.FormatEPUB, domain.FormatFB2, domain.FormatMOBI}
+var formatPriority = []domain.Format{domain.FormatEPUB, domain.FormatFB2, domain.FormatMOBI, domain.FormatPDF, domain.FormatDJVU}
 
 // pickBestFormat returns the highest-priority format available in the list.
 // Falls back to the first element if none of the prioritised formats match.
@@ -253,6 +281,12 @@ func pickBestFormat(available []domain.Format) domain.Format {
 		}
 	}
 	return available[0]
+}
+
+// GetProvider returns a provider by name.
+func (s *BookService) GetProvider(name string) (domain.BookProvider, bool) {
+	p, ok := s.providerMap[name]
+	return p, ok
 }
 
 // SetFormat sets the user's preferred format.

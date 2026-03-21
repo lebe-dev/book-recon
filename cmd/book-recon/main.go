@@ -10,13 +10,14 @@ import (
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/flibusta"
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/flibustav2"
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/royallib"
+	rtprovider "github.com/lebe-dev/book-recon/internal/adapter/provider/rutracker"
 	"github.com/lebe-dev/book-recon/internal/adapter/storage"
 	"github.com/lebe-dev/book-recon/internal/adapter/telegram"
 	"github.com/lebe-dev/book-recon/internal/domain"
 	"github.com/lebe-dev/book-recon/internal/usecase"
 )
 
-const Version = "0.3.0"
+const Version = "0.4.0"
 
 func main() {
 	logger := log.NewWithOptions(os.Stderr, log.Options{
@@ -68,8 +69,36 @@ func main() {
 		logger.Info("provider enabled", "provider", "flibusta")
 	}
 
+	var rutrackerProvider *rtprovider.Provider
+	if cfg.RutrackerEnabled {
+		torrentMgr, err := rtprovider.NewTorrentManager(rtprovider.TorrentConfig{
+			DownloadDir:     cfg.RutrackerDownloadDir,
+			DownloadTimeout: cfg.RutrackerDownloadTimeout,
+			MaxTorrentSize:  cfg.RutrackerMaxTorrentSize,
+			MaxConcurrent:   3,
+		}, logger)
+		if err != nil {
+			logger.Fatal("failed to create torrent manager", "error", err)
+		}
+		if err := torrentMgr.CleanupStale(); err != nil {
+			logger.Warn("failed to cleanup stale torrents", "error", err)
+		}
+
+		rutrackerProvider = rtprovider.New(rtprovider.Config{
+			JackettURL:      cfg.JackettURL,
+			JackettAPIKey:   cfg.JackettAPIKey,
+			JackettIndexer:  cfg.JackettIndexer,
+			DownloadTimeout: cfg.RutrackerDownloadTimeout,
+			MaxBooks:        cfg.RutrackerMaxBooks,
+			MaxTorrentSize:  cfg.RutrackerMaxTorrentSize,
+			DownloadDir:     cfg.RutrackerDownloadDir,
+		}, torrentMgr, logger)
+		providers = append(providers, rutrackerProvider)
+		logger.Info("provider enabled", "provider", "rutracker")
+	}
+
 	if len(providers) == 0 {
-		logger.Fatal("no providers enabled, set ROYALLIB_ENABLED=true and/or FLIBUSTA_ENABLED=true")
+		logger.Fatal("no providers enabled, set ROYALLIB_ENABLED=true, FLIBUSTA_ENABLED=true, and/or RUTRACKER_ENABLED=true")
 	}
 
 	bookService := usecase.NewBookService(providers, userRepo, searchCache, logger)
@@ -80,6 +109,8 @@ func main() {
 		logger.Fatal("failed to create telegram bot", "error", err)
 	}
 
+	bookService.SetOnProviderError(bot.NotifyProviderError)
+
 	go bot.Start()
 	logger.Info("bot started", "version", Version)
 
@@ -89,5 +120,8 @@ func main() {
 
 	logger.Info("shutting down...")
 	bot.Stop()
+	if rutrackerProvider != nil {
+		rutrackerProvider.Close()
+	}
 	logger.Info("bye")
 }

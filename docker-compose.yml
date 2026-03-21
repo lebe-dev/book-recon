@@ -7,8 +7,33 @@ services:
       DB_PATH: /app/data/book-recon.db
     volumes:
       - ./data:/app/data
+    depends_on:
+      - jackett
     deploy:
       resources:
         limits:
-          cpus: "1"
+          cpus: "0.5"
           memory: 128M
+
+  jackett:
+    image: linuxserver/jackett
+    restart: unless-stopped
+    # Port forwarding to access Jackett Web UI:
+    # - ssh -L 9117:localhost:9117 your-server
+    # - Open http://localhost:9117
+    ports:
+      - "127.0.0.1:9117:9117"
+    volumes:
+      - jackett-config:/config
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Moscow
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+volumes:
+  jackett-config:

@@ -4,3 +4,5 @@
 *.md
 /book-recon
 /flibusta-engine
+/go-rutracker
+/jackett

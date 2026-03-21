@@ -13,6 +13,8 @@ const (
 	FormatEPUB Format = "epub"
 	FormatFB2  Format = "fb2"
 	FormatMOBI Format = "mobi"
+	FormatPDF  Format = "pdf"
+	FormatDJVU Format = "djvu"
 )
 
 type Book struct {
@@ -21,6 +23,7 @@ type Book struct {
 	Formats   []Format
 	Provider  string
 	SourceURL string
+	Metadata  map[string]string
 }
 
 // HasFormat reports whether the book is available in the given format.

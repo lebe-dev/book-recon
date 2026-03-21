@@ -75,6 +75,7 @@ func (b *Bot) setupRoutes() {
 	b.bot.Handle("/settings", b.handleSettings)
 	b.bot.Handle("/blocked_users", b.handleBlockedUsers)
 	b.bot.Handle("/allowed_users", b.handleAllowedUsers)
+	b.bot.Handle("/whats_new", b.handleWhatsNew)
 	b.bot.Handle(telebot.OnText, b.handleSearch)
 
 	b.bot.Handle(&telebot.Btn{Unique: "dl"}, b.handleDownload)
@@ -189,7 +190,8 @@ func (b *Bot) handleHelp(c telebot.Context) error {
 	if b.isAdmin(username) {
 		text += "\n\n*Администрирование:*\n" +
 			"/allowed\\_users — одобренные пользователи\n" +
-			"/blocked\\_users — заблокированные пользователи"
+			"/blocked\\_users — заблокированные пользователи\n" +
+			"/whats\\_new — рассылка «Что нового» всем пользователям"
 	}
 
 	return c.Send(text, telebot.ModeMarkdown)

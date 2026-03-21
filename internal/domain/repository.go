@@ -13,6 +13,7 @@ type UserSettingsRepository interface {
 type UserRepository interface {
 	Register(ctx context.Context, telegramID int64, username string) error
 	GetIDByUsername(ctx context.Context, username string) (int64, error)
+	ListAllIDs(ctx context.Context) ([]int64, error)
 }
 
 // SearchCacheRepository stores search results for pagination and download.

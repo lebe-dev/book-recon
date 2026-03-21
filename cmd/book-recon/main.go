@@ -48,17 +48,29 @@ func main() {
 	searchCache := storage.NewSearchCacheRepo(db)
 	accessRepo := storage.NewAccessRepo(db)
 
-	royallibProvider := royallib.New(cfg.RoyallibBaseURL, cfg.UserAgent, cfg.BookSizeThreshold, logger)
+	var providers []domain.BookProvider
 
-	var flibustaProvider domain.BookProvider
-	if cfg.FlibustaEngine == "v2" {
-		logger.Info("using flibusta engine v2 (OPDS)")
-		flibustaProvider = flibustav2.NewDomainProvider(cfg.FlibustaBaseURL, logger)
-	} else {
-		flibustaProvider = flibusta.New(cfg.FlibustaBaseURL, cfg.UserAgent, logger)
+	if cfg.RoyallibEnabled {
+		royallibProvider := royallib.New(cfg.RoyallibBaseURL, cfg.UserAgent, cfg.BookSizeThreshold, logger)
+		providers = append(providers, royallibProvider)
+		logger.Info("provider enabled", "provider", "royallib")
 	}
 
-	providers := []domain.BookProvider{royallibProvider, flibustaProvider}
+	if cfg.FlibustaEnabled {
+		var flibustaProvider domain.BookProvider
+		if cfg.FlibustaEngine == "v2" {
+			logger.Info("using flibusta engine v2 (OPDS)")
+			flibustaProvider = flibustav2.NewDomainProvider(cfg.FlibustaBaseURL, logger)
+		} else {
+			flibustaProvider = flibusta.New(cfg.FlibustaBaseURL, cfg.UserAgent, logger)
+		}
+		providers = append(providers, flibustaProvider)
+		logger.Info("provider enabled", "provider", "flibusta")
+	}
+
+	if len(providers) == 0 {
+		logger.Fatal("no providers enabled, set ROYALLIB_ENABLED=true and/or FLIBUSTA_ENABLED=true")
+	}
 
 	bookService := usecase.NewBookService(providers, userRepo, searchCache, logger)
 	accessService := usecase.NewAccessService(accessRepo, userRegistry, logger)

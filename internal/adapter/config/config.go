@@ -18,6 +18,8 @@ type Config struct {
 	FlibustaBaseURL   string   `env:"FLIBUSTA_BASE_URL" envDefault:"https://flibusta.is"`
 	FlibustaEngine    string   `env:"FLIBUSTA_ENGINE" envDefault:"default"`
 	BookSizeThreshold int64    `env:"BOOK_SIZE_THRESHOLD" envDefault:"4096"`
+	RoyallibEnabled   bool     `env:"ROYALLIB_ENABLED" envDefault:"false"`
+	FlibustaEnabled   bool     `env:"FLIBUSTA_ENABLED" envDefault:"true"`
 }
 
 func Load() (*Config, error) {

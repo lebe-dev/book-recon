@@ -147,29 +147,29 @@ func (s *BookService) GetPage(ctx context.Context, telegramID int64, offset int)
 }
 
 // Download fetches a book to a temp file, checking size limits.
-// Returns path to the temp file and the filename for sending.
+// Returns path to the temp file, filename, file size in bytes, and error.
 // The caller is responsible for removing the temp file.
-func (s *BookService) Download(ctx context.Context, telegramID int64, resultID string) (string, string, error) {
+func (s *BookService) Download(ctx context.Context, telegramID int64, resultID string) (string, string, int64, error) {
 	s.logger.Info("download started", "telegram_id", telegramID, "result_id", resultID)
 
 	result, err := s.searchCache.FindResult(ctx, telegramID, resultID)
 	if err != nil {
-		return "", "", err
+		return "", "", 0, err
 	}
 	if result == nil {
 		s.logger.Debug("result not found in cache", "telegram_id", telegramID, "result_id", resultID)
-		return "", "", domain.NewError(domain.ErrCodeNotFound, "result not found in cache")
+		return "", "", 0, domain.NewError(domain.ErrCodeNotFound, "result not found in cache")
 	}
 
 	userSettings, err := s.GetSettings(ctx, telegramID)
 	if err != nil {
-		return "", "", err
+		return "", "", 0, err
 	}
 
 	format := userSettings.PreferredFormat
 	if !result.Book.HasFormat(format) {
 		if len(result.Book.Formats) == 0 {
-			return "", "", domain.NewError(domain.ErrCodeFormatNA, "no formats available")
+			return "", "", 0, domain.NewError(domain.ErrCodeFormatNA, "no formats available")
 		}
 		format = pickBestFormat(result.Book.Formats)
 		s.logger.Debug("preferred format unavailable, using fallback", "preferred", userSettings.PreferredFormat, "fallback", format)
@@ -177,7 +177,7 @@ func (s *BookService) Download(ctx context.Context, telegramID int64, resultID s
 
 	provider, ok := s.providerMap[result.Book.Provider]
 	if !ok {
-		return "", "", domain.NewError(domain.ErrCodeProviderError, "unknown provider: "+result.Book.Provider)
+		return "", "", 0, domain.NewError(domain.ErrCodeProviderError, "unknown provider: "+result.Book.Provider)
 	}
 
 	dlCtx, cancel := context.WithTimeout(ctx, DownloadTimeout)
@@ -185,13 +185,13 @@ func (s *BookService) Download(ctx context.Context, telegramID int64, resultID s
 
 	reader, filename, err := provider.Download(dlCtx, *result, format)
 	if err != nil {
-		return "", "", domain.WrapError(domain.ErrCodeProviderError, "download failed", err)
+		return "", "", 0, domain.WrapError(domain.ErrCodeProviderError, "download failed", err)
 	}
 	defer func() { _ = reader.Close() }()
 
 	tmpFile, err := os.CreateTemp("", "book-recon-*."+string(format))
 	if err != nil {
-		return "", "", domain.WrapError(domain.ErrCodeProviderError, "failed to create temp file", err)
+		return "", "", 0, domain.WrapError(domain.ErrCodeProviderError, "failed to create temp file", err)
 	}
 
 	limited := io.LimitReader(reader, MaxFileSize+1)
@@ -200,17 +200,17 @@ func (s *BookService) Download(ctx context.Context, telegramID int64, resultID s
 
 	if err != nil {
 		_ = os.Remove(tmpFile.Name())
-		return "", "", domain.WrapError(domain.ErrCodeProviderError, "failed to write temp file", err)
+		return "", "", 0, domain.WrapError(domain.ErrCodeProviderError, "failed to write temp file", err)
 	}
 
 	if written > MaxFileSize {
 		_ = os.Remove(tmpFile.Name())
 		s.logger.Warn("file too large", "telegram_id", telegramID, "size", written)
-		return "", "", domain.NewError(domain.ErrCodeFileTooLarge, "file exceeds 50 MB limit")
+		return "", "", 0, domain.NewError(domain.ErrCodeFileTooLarge, "file exceeds 50 MB limit")
 	}
 
 	s.logger.Info("download completed", "telegram_id", telegramID, "filename", filename, "size", written)
-	return tmpFile.Name(), filename, nil
+	return tmpFile.Name(), filename, written, nil
 }
 
 // GetResult returns a cached search result by ID, or nil if not found.

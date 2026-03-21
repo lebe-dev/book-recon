@@ -52,7 +52,7 @@ func (b *Bot) handleDownload(c telebot.Context) error {
 		b.logger.Warn("failed to send typing action", "error", err)
 	}
 
-	tmpPath, filename, err := b.service.Download(ctx, c.Sender().ID, resultID)
+	tmpPath, filename, fileSize, err := b.service.Download(ctx, c.Sender().ID, resultID)
 	if err != nil {
 		return b.handleDownloadError(c, err, sourceURL)
 	}
@@ -67,9 +67,10 @@ func (b *Bot) handleDownload(c telebot.Context) error {
 	doc := &telebot.Document{
 		File:     telebot.FromReader(f),
 		FileName: filename,
+		Caption:  fmt.Sprintf("📦 %s", formatFileSize(fileSize)),
 	}
 
-	b.logger.Debug("sending document", "username", c.Sender().Username, "filename", filename)
+	b.logger.Debug("sending document", "username", c.Sender().Username, "filename", filename, "size", fileSize)
 	return c.Send(doc)
 }
 
@@ -151,6 +152,21 @@ func foundText(n int) string {
 		return fmt.Sprintf("Найдено %d книги", n)
 	default:
 		return fmt.Sprintf("Найдено %d книг", n)
+	}
+}
+
+func formatFileSize(bytes int64) string {
+	const (
+		kb = 1024
+		mb = 1024 * kb
+	)
+	switch {
+	case bytes >= mb:
+		return fmt.Sprintf("%.1f МБ", float64(bytes)/float64(mb))
+	case bytes >= kb:
+		return fmt.Sprintf("%.0f КБ", float64(bytes)/float64(kb))
+	default:
+		return fmt.Sprintf("%d Б", bytes)
 	}
 }
 

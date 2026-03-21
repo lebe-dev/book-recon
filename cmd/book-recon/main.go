@@ -85,13 +85,14 @@ func main() {
 		}
 
 		rutrackerProvider = rtprovider.New(rtprovider.Config{
-			JackettURL:      cfg.JackettURL,
-			JackettAPIKey:   cfg.JackettAPIKey,
-			JackettIndexer:  cfg.JackettIndexer,
-			DownloadTimeout: cfg.RutrackerDownloadTimeout,
-			MaxBooks:        cfg.RutrackerMaxBooks,
-			MaxTorrentSize:  cfg.RutrackerMaxTorrentSize,
-			DownloadDir:     cfg.RutrackerDownloadDir,
+			JackettURL:        cfg.JackettURL,
+			JackettAPIKey:     cfg.JackettAPIKey,
+			JackettIndexer:    cfg.JackettIndexer,
+			JackettCategories: cfg.JackettCategories,
+			DownloadTimeout:   cfg.RutrackerDownloadTimeout,
+			MaxBooks:          cfg.RutrackerMaxBooks,
+			MaxTorrentSize:    cfg.RutrackerMaxTorrentSize,
+			DownloadDir:       cfg.RutrackerDownloadDir,
 		}, torrentMgr, logger)
 		providers = append(providers, rutrackerProvider)
 		logger.Info("provider enabled", "provider", "rutracker")

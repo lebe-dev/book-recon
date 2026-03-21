@@ -18,13 +18,14 @@ import (
 
 // Config holds RuTracker provider configuration.
 type Config struct {
-	JackettURL      string
-	JackettAPIKey   string
-	JackettIndexer  string
-	DownloadTimeout time.Duration
-	MaxBooks        int
-	MaxTorrentSize  int64
-	DownloadDir     string
+	JackettURL        string
+	JackettAPIKey     string
+	JackettIndexer    string
+	JackettCategories []string
+	DownloadTimeout   time.Duration
+	MaxBooks          int
+	MaxTorrentSize    int64
+	DownloadDir       string
 }
 
 // Provider implements domain.BookProvider for RuTracker via Jackett.
@@ -56,6 +57,10 @@ func (p *Provider) Search(ctx context.Context, query string, limit int) ([]domai
 		url.QueryEscape(query),
 		limit,
 	)
+
+	if len(p.config.JackettCategories) > 0 {
+		u += "&cat=" + url.QueryEscape(strings.Join(p.config.JackettCategories, ","))
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {

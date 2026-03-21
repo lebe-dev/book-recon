@@ -13,39 +13,61 @@ func buildResultsText(query string, results []domain.SearchResult, offset, total
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "🔍 *%s*\n\n", escapeMarkdown(query))
 	sb.WriteString(foundText(total))
-	sb.WriteString(". Выберите книгу для скачивания:\n")
+	sb.WriteString(". Выберите книгу для скачивания:")
+
+	// Group results by provider, preserving order of first appearance.
+	type providerGroup struct {
+		name    string
+		indices []int
+	}
+	var groups []providerGroup
+	providerIdx := make(map[string]int)
 
 	for i, r := range results {
-		num := offset + i + 1
-		title := escapeMarkdown(r.Book.Title)
-		author := escapeMarkdown(r.Book.Author)
-
-		sb.WriteString("\n")
-		if author != "" {
-			fmt.Fprintf(&sb, "*%d.* %s — %s\n", num, title, author)
-		} else {
-			fmt.Fprintf(&sb, "*%d.* %s\n", num, title)
+		idx, ok := providerIdx[r.Book.Provider]
+		if !ok {
+			idx = len(groups)
+			providerIdx[r.Book.Provider] = idx
+			groups = append(groups, providerGroup{name: r.Book.Provider})
 		}
+		groups[idx].indices = append(groups[idx].indices, i)
+	}
 
-		formats := formatList(r.Book.Formats)
-		provider := escapeMarkdown(r.Book.Provider)
-		fmt.Fprintf(&sb, "      📄 %s · %s", formats, provider)
+	for _, g := range groups {
+		fmt.Fprintf(&sb, "\n\n*%s*", escapeMarkdown(g.name))
 
-		// RuTracker: show seeds and torrent size.
-		if r.Book.Provider == "RuTracker" && r.Book.Metadata != nil {
-			seeds := r.Book.Metadata["seeds"]
-			torrentSize := r.Book.Metadata["torrent_size"]
-			if seeds != "" || torrentSize != "" {
-				sb.WriteString("\n      ")
-				if seeds != "" {
-					fmt.Fprintf(&sb, "🌱 %s сида", seeds)
-				}
-				if torrentSize != "" {
+		for _, i := range g.indices {
+			r := results[i]
+			num := offset + i + 1
+			title := escapeMarkdown(r.Book.Title)
+			author := escapeMarkdown(r.Book.Author)
+
+			sb.WriteString("\n")
+			if author != "" {
+				fmt.Fprintf(&sb, "*%d.* %s — %s\n", num, title, author)
+			} else {
+				fmt.Fprintf(&sb, "*%d.* %s\n", num, title)
+			}
+
+			formats := formatList(r.Book.Formats)
+			fmt.Fprintf(&sb, "      📄 %s", formats)
+
+			// RuTracker: show seeds and torrent size.
+			if r.Book.Provider == "RuTracker" && r.Book.Metadata != nil {
+				seeds := r.Book.Metadata["seeds"]
+				torrentSize := r.Book.Metadata["torrent_size"]
+				if seeds != "" || torrentSize != "" {
+					sb.WriteString("\n      ")
 					if seeds != "" {
-						sb.WriteString(" · ")
+						fmt.Fprintf(&sb, "🌱 %s сида", seeds)
 					}
-					if size, err := strconv.ParseInt(torrentSize, 10, 64); err == nil {
-						fmt.Fprintf(&sb, "📦 %s", formatTorrentSize(size))
+					if torrentSize != "" {
+						if seeds != "" {
+							sb.WriteString(" · ")
+						}
+						if size, err := strconv.ParseInt(torrentSize, 10, 64); err == nil {
+							fmt.Fprintf(&sb, "📦 %s", formatTorrentSize(size))
+						}
 					}
 				}
 			}

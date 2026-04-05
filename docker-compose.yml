@@ -1,6 +1,6 @@
 services:
   book-recon:
-    image: tinyops/book-recon:0.1.0
+    image: tinyops/book-recon:0.4.0
     restart: unless-stopped
     env_file: .env
     environment:

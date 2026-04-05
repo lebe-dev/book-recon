@@ -6,9 +6,9 @@ Book recon is a service to find books via Telegram Bot.
 
 - UI: Telegram bot
 - Supported providers:
-  - https://royallib.com/
-  - http://flibusta.site/
+  - [Flibusta](http://flibusta.site)
   - RuTracker (via Jackett)
+  - [RoyalLib](https://royallib.com)
 
 ## Quick start
 

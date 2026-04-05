@@ -1,8 +1,6 @@
 package telegram
 
 import (
-	"fmt"
-
 	"github.com/lebe-dev/book-recon/internal/domain"
 	"gopkg.in/telebot.v4"
 )
@@ -15,8 +13,7 @@ func (b *Bot) handleSettings(c telebot.Context) error {
 		return b.handleError(c, err)
 	}
 
-	text := fmt.Sprintf("⚙️ Настройки\n\nПредпочитаемый формат: *%s*", string(settings.PreferredFormat))
-	return c.Send(text, buildSettingsKeyboard(settings.PreferredFormat), telebot.ModeMarkdown)
+	return c.Send(b.msg.SettingsText(string(settings.PreferredFormat)), buildSettingsKeyboard(settings.PreferredFormat), telebot.ModeMarkdown)
 }
 
 func (b *Bot) handleSetFormat(c telebot.Context) error {
@@ -44,6 +41,5 @@ func (b *Bot) handleSetFormat(c telebot.Context) error {
 		return b.handleError(c, err)
 	}
 
-	text := fmt.Sprintf("⚙️ Настройки\n\nПредпочитаемый формат: *%s*", string(format))
-	return c.Edit(text, buildSettingsKeyboard(format), telebot.ModeMarkdown)
+	return c.Edit(b.msg.SettingsText(string(format)), buildSettingsKeyboard(format), telebot.ModeMarkdown)
 }

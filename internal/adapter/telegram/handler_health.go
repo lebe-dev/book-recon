@@ -20,11 +20,11 @@ func (b *Bot) handleHealth(c telebot.Context) error {
 
 	statuses := b.service.CheckHealth(ctx)
 	if len(statuses) == 0 {
-		return c.Send("Нет провайдеров с поддержкой health check.", telebot.ModeMarkdown)
+		return c.Send(b.msg.HealthNoProviders, telebot.ModeMarkdown)
 	}
 
 	var sb strings.Builder
-	sb.WriteString("🏥 *Состояние сервисов*\n\n")
+	sb.WriteString(b.msg.HealthTitle)
 
 	for _, s := range statuses {
 		icon := "✅"

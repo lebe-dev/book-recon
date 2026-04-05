@@ -13,6 +13,7 @@ type Config struct {
 	AllowedUsers      []string `env:"ALLOWED_USERS" envSeparator:","`
 	AdminUsers        []string `env:"ADMIN_USERS" envSeparator:","`
 	DBPath            string   `env:"DB_PATH" envDefault:"book-recon.db"`
+	Locale            string   `env:"LOCALE" envDefault:"en"`
 	LogLevel          string   `env:"LOG_LEVEL" envDefault:"info"`
 	UserAgent         string   `env:"USER_AGENT" envDefault:"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"`
 	RoyallibBaseURL   string   `env:"ROYALLIB_BASE_URL" envDefault:"https://royallib.com"`

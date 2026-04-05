@@ -15,7 +15,7 @@ import (
 func (b *Bot) handleSearch(c telebot.Context) error {
 	query := strings.TrimSpace(c.Text())
 	if query == "" {
-		return c.Send("Введите название книги или имя автора для поиска.")
+		return c.Send(b.msg.SearchEmpty)
 	}
 
 	if strings.HasPrefix(query, "/") {
@@ -31,8 +31,8 @@ func (b *Bot) handleSearch(c telebot.Context) error {
 
 	_, hasMore, total, _ := b.service.GetPage(c.Get("ctx").(contextKey).ctx, c.Sender().ID, 0)
 
-	text := buildResultsText(query, results, 0, total)
-	return c.Send(text, buildResultsKeyboard(results, 0, hasMore, total), telebot.ModeMarkdown)
+	text := buildResultsText(b.msg, query, results, 0, total)
+	return c.Send(text, buildResultsKeyboard(b.msg, results, 0, hasMore, total), telebot.ModeMarkdown)
 }
 
 func (b *Bot) handleDownload(c telebot.Context) error {
@@ -49,7 +49,7 @@ func (b *Bot) handleDownload(c telebot.Context) error {
 		return b.handleError(c, err)
 	}
 	if result == nil {
-		return c.Respond(&telebot.CallbackResponse{Text: "Книга не найдена в кэше. Повторите поиск."})
+		return c.Respond(&telebot.CallbackResponse{Text: b.msg.SearchCacheMiss})
 	}
 
 	title := escapeMarkdown(result.Book.Title)
@@ -69,19 +69,19 @@ func (b *Bot) handleDownload(c telebot.Context) error {
 		if seeds != "" || torrentSize != "" {
 			parts := make([]string, 0, 2)
 			if seeds != "" {
-				parts = append(parts, fmt.Sprintf("🌱 %s сида", seeds))
+				parts = append(parts, b.msg.SeedsLabel(seeds))
 			}
 			if torrentSize != "" {
 				if size, err := strconv.ParseInt(torrentSize, 10, 64); err == nil {
-					parts = append(parts, fmt.Sprintf("📦 %s", formatFileSize(size)))
+					parts = append(parts, fmt.Sprintf("📦 %s", b.msg.FormatFileSize(size)))
 				}
 			}
 			sb.WriteString(strings.Join(parts, " · "))
 			sb.WriteString("\n")
 		}
-		sb.WriteString("\nВыберите формат (скачивание из торрента может занять несколько минут):")
+		sb.WriteString(b.msg.DownloadRTChooseFmt)
 	} else {
-		sb.WriteString("\nВыберите формат:")
+		sb.WriteString(b.msg.SearchChooseFormat)
 	}
 
 	return c.Edit(sb.String(), buildFormatKeyboard(resultID, result.Book.Formats), telebot.ModeMarkdown)
@@ -105,13 +105,13 @@ func (b *Bot) handleDownloadFormat(c telebot.Context) error {
 		return b.handleError(c, err)
 	}
 	if result == nil {
-		return c.Respond(&telebot.CallbackResponse{Text: "Книга не найдена в кэше. Повторите поиск."})
+		return c.Respond(&telebot.CallbackResponse{Text: b.msg.SearchCacheMiss})
 	}
 
 	// RuTracker: async download in goroutine.
 	if result.Book.Provider == "RuTracker" {
 		go b.downloadRuTracker(c, result, format)
-		return c.Edit("⏳ Скачиваю торрент, это может занять несколько минут...")
+		return c.Edit(b.msg.DownloadTorrentWait)
 	}
 
 	// Other providers: synchronous download.
@@ -132,14 +132,14 @@ func (b *Bot) handleDownloadFormat(c telebot.Context) error {
 
 	f, err := os.Open(tmpPath)
 	if err != nil {
-		return c.Send("Ошибка при отправке файла.")
+		return c.Send(b.msg.DownloadSendError)
 	}
 	defer func() { _ = f.Close() }()
 
 	doc := &telebot.Document{
 		File:     telebot.FromReader(f),
 		FileName: filename,
-		Caption:  fmt.Sprintf("📦 %s", formatFileSize(fileSize)),
+		Caption:  fmt.Sprintf("📦 %s", b.msg.FormatFileSize(fileSize)),
 	}
 
 	b.logger.Debug("sending document", "username", c.Sender().Username, "filename", filename, "size", fileSize)
@@ -153,13 +153,13 @@ func (b *Bot) downloadRuTracker(c telebot.Context, result *domain.SearchResult, 
 
 	provider, ok := b.service.GetProvider("RuTracker")
 	if !ok {
-		b.sendToChat(chatID, "⚠️ Провайдер RuTracker не найден.")
+		b.sendToChat(chatID, b.msg.DownloadRTNotFound)
 		return
 	}
 
 	rtProvider, ok := provider.(*rutracker.Provider)
 	if !ok {
-		b.sendToChat(chatID, "⚠️ Ошибка провайдера RuTracker.")
+		b.sendToChat(chatID, b.msg.DownloadRTError)
 		return
 	}
 
@@ -169,36 +169,36 @@ func (b *Bot) downloadRuTracker(c telebot.Context, result *domain.SearchResult, 
 	if err != nil {
 		code, ok := domain.ErrorCodeFrom(err)
 		if ok {
-			b.sendToChat(chatID, rutrackerErrorMessage(code, err))
+			b.sendToChat(chatID, b.rutrackerErrorMessage(code))
 		} else {
 			b.logger.Error("rutracker download failed", "error", err)
-			b.sendToChat(chatID, "⚠️ Ошибка при скачивании торрента.")
+			b.sendToChat(chatID, b.msg.DownloadTorrentErr)
 		}
 		return
 	}
 	defer cleanup()
 
 	// Update status message.
-	b.sendToChat(chatID, fmt.Sprintf("📚 Из торрента выбрано %d файла (%s):", len(picked), strings.ToUpper(string(picked[0].Format))))
+	b.sendToChat(chatID, b.msg.TorrentPicked(len(picked), strings.ToUpper(string(picked[0].Format))))
 
 	// Send each file.
 	for _, pf := range picked {
 		f, err := os.Open(pf.Path)
 		if err != nil {
 			b.logger.Error("failed to open picked file", "path", pf.Path, "error", err)
-			b.sendToChat(chatID, fmt.Sprintf("⚠️ Не удалось отправить файл %s.", pf.Name))
+			b.sendToChat(chatID, b.msg.FileSendError(pf.Name))
 			continue
 		}
 
 		doc := &telebot.Document{
 			File:     telebot.FromReader(f),
 			FileName: pf.Name,
-			Caption:  fmt.Sprintf("📦 %s", formatFileSize(pf.Size)),
+			Caption:  fmt.Sprintf("📦 %s", b.msg.FormatFileSize(pf.Size)),
 		}
 
 		if _, err := b.bot.Send(telebot.ChatID(chatID), doc); err != nil {
 			b.logger.Error("failed to send document", "filename", pf.Name, "error", err)
-			b.sendToChat(chatID, fmt.Sprintf("⚠️ Не удалось отправить файл %s.", pf.Name))
+			b.sendToChat(chatID, b.msg.FileSendError(pf.Name))
 		}
 		_ = f.Close()
 	}
@@ -212,20 +212,20 @@ func (b *Bot) sendToChat(chatID int64, text string) {
 	}
 }
 
-func rutrackerErrorMessage(code domain.ErrorCode, err error) string {
+func (b *Bot) rutrackerErrorMessage(code domain.ErrorCode) string {
 	switch code {
 	case domain.ErrCodeNoSeeders:
-		return "🌱 Нет раздающих — скачивание невозможно. Попробуйте другую раздачу."
+		return b.msg.ErrRTNoSeeders
 	case domain.ErrCodeTorrentTooLarge:
-		return "📦 Торрент слишком большой. Максимум: 2 ГБ."
+		return b.msg.ErrRTTorrentTooLarge
 	case domain.ErrCodeTimeout:
-		return "⏱ Торрент не скачался вовремя. Попробуйте раздачу с большим количеством сидов."
+		return b.msg.ErrRTTimeout
 	case domain.ErrCodeFormatNA:
-		return "📄 В торренте не найдены файлы нужного формата. Попробуйте другой формат."
+		return b.msg.ErrRTFormatNA
 	case domain.ErrCodeServiceDown:
-		return "⚠️ Сервис поиска недоступен. Попробуйте позже."
+		return b.msg.ErrRTServiceDown
 	default:
-		return "⚠️ Ошибка при скачивании торрента. Попробуйте позже."
+		return b.msg.ErrRTDownload
 	}
 }
 
@@ -245,8 +245,8 @@ func (b *Bot) handlePage(c telebot.Context) error {
 	}
 
 	query := extractQuery(c.Message().Text)
-	text := buildResultsText(query, results, offset, total)
-	return c.Edit(text, buildResultsKeyboard(results, offset, hasMore, total), telebot.ModeMarkdown)
+	text := buildResultsText(b.msg, query, results, offset, total)
+	return c.Edit(text, buildResultsKeyboard(b.msg, results, offset, hasMore, total), telebot.ModeMarkdown)
 }
 
 func extractQuery(text string) string {
@@ -258,76 +258,50 @@ func (b *Bot) handleError(c telebot.Context, err error) error {
 	code, ok := domain.ErrorCodeFrom(err)
 	if !ok {
 		b.logger.Error("unhandled error", "username", c.Sender().Username, "error", err)
-		return c.Send("Произошла непредвиденная ошибка. Попробуйте позже.")
+		return c.Send(b.msg.ErrUnexpected)
 	}
 
 	b.logger.Debug("domain error", "username", c.Sender().Username, "code", code, "error", err)
-	return c.Send(errorMessage(code))
+	return c.Send(b.errorMessage(code))
 }
 
 func (b *Bot) handleDownloadError(c telebot.Context, err error, sourceURL string) error {
 	code, ok := domain.ErrorCodeFrom(err)
 	if !ok {
 		b.logger.Error("unhandled error", "username", c.Sender().Username, "error", err)
-		return c.Send("Произошла непредвиденная ошибка. Попробуйте позже.")
+		return c.Send(b.msg.ErrUnexpected)
 	}
 
 	b.logger.Debug("domain error", "username", c.Sender().Username, "code", code, "error", err)
-	msg := errorMessage(code)
+	msg := b.errorMessage(code)
 	if sourceURL != "" {
-		msg += "\n\nИсточник: " + sourceURL
+		msg += b.msg.DownloadSourceLabel + sourceURL
 	}
 	return c.Send(msg)
 }
 
-func errorMessage(code domain.ErrorCode) string {
+func (b *Bot) errorMessage(code domain.ErrorCode) string {
 	switch code {
 	case domain.ErrCodeNotFound:
-		return "📭 Книги не найдены. Попробуйте другой запрос или проверьте написание."
+		return b.msg.ErrNotFound
 	case domain.ErrCodeFormatNA:
-		return "📄 Этот формат недоступен для книги. Измените формат в /settings."
+		return b.msg.ErrFormatNA
 	case domain.ErrCodeFileTooLarge:
-		return "📦 Файл слишком большой (>50 МБ) — Telegram не принимает такие файлы."
+		return b.msg.ErrFileTooLarge
 	case domain.ErrCodeTimeout:
-		return "⏱ Источник не отвечает. Попробуйте через несколько минут."
+		return b.msg.ErrTimeout
 	case domain.ErrCodeProviderError:
-		return "⚠️ Ошибка при обращении к источнику. Попробуйте позже."
+		return b.msg.ErrProvider
 	case domain.ErrCodeBookUnavailable:
-		return "🚫 Книга недоступна для скачивания (удалена по жалобе правообладателя)."
+		return b.msg.ErrBookUnavailable
 	case domain.ErrCodeNoSeeders:
-		return "🌱 Нет раздающих — скачивание невозможно. Попробуйте другую раздачу."
+		return b.msg.ErrNoSeeders
 	case domain.ErrCodeTorrentTooLarge:
-		return "📦 Торрент слишком большой. Максимум: 2 ГБ."
+		return b.msg.ErrTorrentTooLarge
 	case domain.ErrCodeServiceDown:
-		return "⚠️ Сервис поиска недоступен. Попробуйте позже."
+		return b.msg.ErrServiceDown
 	default:
-		return "⚠️ Непредвиденная ошибка. Попробуйте позже."
-	}
-}
-
-func foundText(n int) string {
-	switch {
-	case n == 1:
-		return "Найдена 1 книга"
-	case n >= 2 && n <= 4:
-		return fmt.Sprintf("Найдено %d книги", n)
-	default:
-		return fmt.Sprintf("Найдено %d книг", n)
-	}
-}
-
-func formatFileSize(bytes int64) string {
-	const (
-		kb = 1024
-		mb = 1024 * kb
-	)
-	switch {
-	case bytes >= mb:
-		return fmt.Sprintf("%.1f МБ", float64(bytes)/float64(mb))
-	case bytes >= kb:
-		return fmt.Sprintf("%.0f КБ", float64(bytes)/float64(kb))
-	default:
-		return fmt.Sprintf("%d Б", bytes)
+		return b.msg.ErrUnexpected
 	}
 }
 

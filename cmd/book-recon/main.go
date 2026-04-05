@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/lebe-dev/book-recon/internal/adapter/config"
+	"github.com/lebe-dev/book-recon/internal/adapter/i18n"
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/flibusta"
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/flibustav2"
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/royallib"
@@ -17,7 +18,7 @@ import (
 	"github.com/lebe-dev/book-recon/internal/usecase"
 )
 
-const Version = "0.4.0"
+const Version = "0.5.0"
 
 func main() {
 	logger := log.NewWithOptions(os.Stderr, log.Options{
@@ -35,7 +36,13 @@ func main() {
 		level = log.InfoLevel
 	}
 	logger.SetLevel(level)
-	logger.Debug("config loaded", "db_path", cfg.DBPath, "log_level", cfg.LogLevel, "allowed_users", len(cfg.AllowedUsers), "admin_users", len(cfg.AdminUsers))
+
+	msg, err := i18n.Load(cfg.Locale)
+	if err != nil {
+		logger.Fatal("unsupported locale", "locale", cfg.Locale)
+	}
+
+	logger.Debug("config loaded", "db_path", cfg.DBPath, "log_level", cfg.LogLevel, "locale", cfg.Locale, "allowed_users", len(cfg.AllowedUsers), "admin_users", len(cfg.AdminUsers))
 
 	db, err := storage.NewDB(cfg.DBPath)
 	if err != nil {
@@ -105,7 +112,7 @@ func main() {
 	bookService := usecase.NewBookService(providers, userRepo, searchCache, logger)
 	accessService := usecase.NewAccessService(accessRepo, userRegistry, logger)
 
-	bot, err := telegram.New(cfg.TelegramToken, bookService, accessService, userRegistry, cfg.AllowedUsers, cfg.AdminUsers, Version, logger)
+	bot, err := telegram.New(cfg.TelegramToken, bookService, accessService, userRegistry, cfg.AllowedUsers, cfg.AdminUsers, Version, msg, logger)
 	if err != nil {
 		logger.Fatal("failed to create telegram bot", "error", err)
 	}

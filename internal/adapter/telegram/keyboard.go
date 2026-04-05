@@ -5,15 +5,16 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lebe-dev/book-recon/internal/adapter/i18n"
 	"github.com/lebe-dev/book-recon/internal/domain"
 	"gopkg.in/telebot.v4"
 )
 
-func buildResultsText(query string, results []domain.SearchResult, offset, total int) string {
+func buildResultsText(msg *i18n.Messages, query string, results []domain.SearchResult, offset, total int) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "🔍 *%s*\n\n", escapeMarkdown(query))
-	sb.WriteString(foundText(total))
-	sb.WriteString(". Выберите книгу для скачивания:")
+	sb.WriteString(msg.FoundBooks(total))
+	sb.WriteString(msg.SearchSelectBook)
 
 	// Group results by provider, preserving order of first appearance.
 	type providerGroup struct {
@@ -59,14 +60,14 @@ func buildResultsText(query string, results []domain.SearchResult, offset, total
 				if seeds != "" || torrentSize != "" {
 					sb.WriteString("\n      ")
 					if seeds != "" {
-						fmt.Fprintf(&sb, "🌱 %s сида", seeds)
+						sb.WriteString(msg.SeedsLabel(seeds))
 					}
 					if torrentSize != "" {
 						if seeds != "" {
 							sb.WriteString(" · ")
 						}
 						if size, err := strconv.ParseInt(torrentSize, 10, 64); err == nil {
-							fmt.Fprintf(&sb, "📦 %s", formatTorrentSize(size))
+							fmt.Fprintf(&sb, "📦 %s", msg.FormatTorrentSize(size))
 						}
 					}
 				}
@@ -77,25 +78,7 @@ func buildResultsText(query string, results []domain.SearchResult, offset, total
 	return sb.String()
 }
 
-func formatTorrentSize(bytes int64) string {
-	const (
-		kb = 1024
-		mb = 1024 * kb
-		gb = 1024 * mb
-	)
-	switch {
-	case bytes >= gb:
-		return fmt.Sprintf("%.1f ГБ", float64(bytes)/float64(gb))
-	case bytes >= mb:
-		return fmt.Sprintf("%.1f МБ", float64(bytes)/float64(mb))
-	case bytes >= kb:
-		return fmt.Sprintf("%.0f КБ", float64(bytes)/float64(kb))
-	default:
-		return fmt.Sprintf("%d Б", bytes)
-	}
-}
-
-func buildResultsKeyboard(results []domain.SearchResult, offset int, hasMore bool, total int) *telebot.ReplyMarkup {
+func buildResultsKeyboard(msg *i18n.Messages, results []domain.SearchResult, offset int, hasMore bool, total int) *telebot.ReplyMarkup {
 	markup := &telebot.ReplyMarkup{}
 
 	var rows []telebot.Row
@@ -113,7 +96,7 @@ func buildResultsKeyboard(results []domain.SearchResult, offset int, hasMore boo
 
 	var navBtns []telebot.Btn
 	if offset > 0 {
-		navBtns = append(navBtns, markup.Data("← Назад", "page", fmt.Sprintf("%d", offset-pageSize)))
+		navBtns = append(navBtns, markup.Data(msg.NavBack, "page", fmt.Sprintf("%d", offset-pageSize)))
 	}
 	if total > pageSize {
 		currentPage := offset/pageSize + 1
@@ -121,7 +104,7 @@ func buildResultsKeyboard(results []domain.SearchResult, offset int, hasMore boo
 		navBtns = append(navBtns, markup.Data(fmt.Sprintf("%d / %d", currentPage, totalPages), "noop", ""))
 	}
 	if hasMore {
-		navBtns = append(navBtns, markup.Data("Далее →", "page", fmt.Sprintf("%d", offset+pageSize)))
+		navBtns = append(navBtns, markup.Data(msg.NavNext, "page", fmt.Sprintf("%d", offset+pageSize)))
 	}
 	if len(navBtns) > 0 {
 		row := make(telebot.Row, len(navBtns))

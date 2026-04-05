@@ -2,12 +2,12 @@ package telegram
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/lebe-dev/book-recon/internal/adapter/i18n"
 	"github.com/lebe-dev/book-recon/internal/domain"
 	"github.com/lebe-dev/book-recon/internal/usecase"
 	"gopkg.in/telebot.v4"
@@ -27,10 +27,11 @@ type Bot struct {
 	allowedUsers  []string
 	adminUsers    []string
 	version       string
+	msg           *i18n.Messages
 	logger        *log.Logger
 }
 
-func New(token string, service *usecase.BookService, accessService *usecase.AccessService, userRepo domain.UserRepository, allowedUsers, adminUsers []string, version string, logger *log.Logger) (*Bot, error) {
+func New(token string, service *usecase.BookService, accessService *usecase.AccessService, userRepo domain.UserRepository, allowedUsers, adminUsers []string, version string, msg *i18n.Messages, logger *log.Logger) (*Bot, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -49,6 +50,7 @@ func New(token string, service *usecase.BookService, accessService *usecase.Acce
 		allowedUsers:  allowedUsers,
 		adminUsers:    adminUsers,
 		version:       version,
+		msg:           msg,
 		logger:        logger,
 	}
 
@@ -120,7 +122,7 @@ func (b *Bot) accessMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 			b.logger.Debug("access granted via approval", "telegram_id", sender.ID)
 			return next(c)
 		case domain.AccessStatusPending:
-			return c.Send("⏳ Ваш запрос на доступ ожидает рассмотрения.")
+			return c.Send(b.msg.AccessPending)
 		case domain.AccessStatusDenied:
 			b.logger.Debug("access denied (denied status)", "telegram_id", sender.ID)
 			return nil
@@ -140,10 +142,10 @@ func (b *Bot) accessMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 		if created {
 			b.logger.Info("new access request", "telegram_id", sender.ID, "username", sender.Username)
 			go b.notifyAdminsAboutRequest(ctx, sender)
-			return c.Send("📨 Запрос на доступ отправлен администраторам. Ожидайте.")
+			return c.Send(b.msg.AccessRequestSent)
 		}
 
-		return c.Send("⏳ Ваш запрос на доступ ожидает рассмотрения.")
+		return c.Send(b.msg.AccessPending)
 	}
 }
 
@@ -164,7 +166,7 @@ func (b *Bot) handleStart(c telebot.Context) error {
 
 	username := strings.ToLower(sender.Username)
 	if slices.Contains(b.adminUsers, username) {
-		return c.Send(fmt.Sprintf("📚 *Book Recon* `%s`", b.version), telebot.ModeMarkdown)
+		return c.Send(b.msg.StartAdmin(b.version), telebot.ModeMarkdown)
 	}
 
 	name := sender.FirstName
@@ -172,32 +174,12 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		name = sender.Username
 	}
 
-	return c.Send(
-		fmt.Sprintf("📚 *Book Recon*\n\nПривет, %s! Напишите название книги или имя автора — я найду и скачаю книгу.\n\nКоманды:\n/settings — настройки формата\n/help — справка", escapeMarkdown(name)),
-		telebot.ModeMarkdown,
-	)
+	return c.Send(b.msg.StartUser(escapeMarkdown(name)), telebot.ModeMarkdown)
 }
 
 func (b *Bot) handleHelp(c telebot.Context) error {
-	text := "📖 *Справка*\n\n" +
-		"Напишите название книги или имя автора — бот найдёт и предложит скачать.\n\n" +
-		"*Советы:*\n" +
-		"• Поиск идёт одновременно по нескольким источникам\n" +
-		"• Результаты выводятся по 5, листайте кнопками\n" +
-		"• На кнопках видно, какие форматы доступны\n\n" +
-		"Форматы: EPUB, FB2\n\n" +
-		"/settings — выбрать предпочитаемый формат"
-
 	username := strings.ToLower(c.Sender().Username)
-	if b.isAdmin(username) {
-		text += "\n\n*Администрирование:*\n" +
-			"/allowed\\_users — одобренные пользователи\n" +
-			"/blocked\\_users — заблокированные пользователи\n" +
-			"/whats\\_new — рассылка «Что нового» всем пользователям\n" +
-			"/health — состояние сервисов"
-	}
-
-	return c.Send(text, telebot.ModeMarkdown)
+	return c.Send(b.msg.HelpText(b.isAdmin(username)), telebot.ModeMarkdown)
 }
 
 // NotifyProviderError sends a provider error alert to all admin users.
@@ -208,7 +190,7 @@ func (b *Bot) NotifyProviderError(providerName string, err error) {
 		return
 	}
 
-	text := fmt.Sprintf("⚠️ *Ошибка провайдера %s*\n\n`%s`", escapeMarkdown(providerName), escapeMarkdown(err.Error()))
+	text := b.msg.ProviderError(escapeMarkdown(providerName), escapeMarkdown(err.Error()))
 
 	for _, adminID := range adminIDs {
 		recipient := telebot.ChatID(adminID)

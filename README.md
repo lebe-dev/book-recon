@@ -11,7 +11,7 @@ Book recon is a service to find books via Telegram Bot.
   - [Flibusta](http://flibusta.site)
   - RuTracker (via Jackett)
   - [RoyalLib](https://royallib.com)
-- Locales: en, ru
+- Locales: en (default), ru — configured via `LOCALE` env variable
 
 ## Quick start
 

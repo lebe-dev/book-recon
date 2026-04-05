@@ -11,7 +11,7 @@ Book Recon — сервис для поиска и скачивания книг
   - [Flibusta](http://flibusta.site)
   - RuTracker (через Jackett)
   - [RoyalLib](https://royallib.com)
-- Поддержка языков: en, ru
+- Поддержка языков: en (по умолчанию), ru — переключается через переменную `LOCALE`
 
 ## Быстрый старт
 
@@ -90,6 +90,7 @@ docker compose up -d
 | `TELEGRAM_TOKEN` | Токен бота (обязательно) | — |
 | `ALLOWED_USERS` | Список разрешённых пользователей через запятую (без `@`) | — |
 | `ADMIN_USERS` | Список администраторов через запятую | — |
+| `LOCALE` | Язык интерфейса бота: `en`, `ru` | `en` |
 | `DB_PATH` | Путь к файлу SQLite | `book-recon.db` |
 | `LOG_LEVEL` | Уровень логирования | `info` |
 | `FLIBUSTA_BASE_URL` | Базовый URL Flibusta | `https://flibusta.is` |

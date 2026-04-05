@@ -51,7 +51,7 @@ docker compose up -d jackett
 
 ### 3. Add the RuTracker indexer
 
-Jackett port is bound to localhost only. To access the Web UI, use an SSH tunnel:
+Jackett port is bound to localhost only. To access the Web UI, use http://localhost:9117 or use SSH tunnel:
 
 ```bash
 ssh -L 9117:localhost:9117 your-server

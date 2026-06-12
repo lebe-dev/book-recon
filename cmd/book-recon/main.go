@@ -12,13 +12,14 @@ import (
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/flibustav2"
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/royallib"
 	rtprovider "github.com/lebe-dev/book-recon/internal/adapter/provider/rutracker"
+	sentryadapter "github.com/lebe-dev/book-recon/internal/adapter/sentry"
 	"github.com/lebe-dev/book-recon/internal/adapter/storage"
 	"github.com/lebe-dev/book-recon/internal/adapter/telegram"
 	"github.com/lebe-dev/book-recon/internal/domain"
 	"github.com/lebe-dev/book-recon/internal/usecase"
 )
 
-const Version = "0.5.0"
+const Version = "0.6.0"
 
 func main() {
 	logger := log.NewWithOptions(os.Stderr, log.Options{
@@ -36,6 +37,16 @@ func main() {
 		level = log.InfoLevel
 	}
 	logger.SetLevel(level)
+
+	flushSentry, sentryEnabled, err := sentryadapter.Init(cfg.SentryDSN, cfg.SentryEnvironment, Version, logger)
+	if err != nil {
+		logger.Warn("failed to initialize sentry, continuing without it", "error", err)
+	}
+	defer flushSentry()
+	defer sentryadapter.Recover()
+	if sentryEnabled {
+		logger.SetOutput(sentryadapter.WrapLogOutput(os.Stderr))
+	}
 
 	msg, err := i18n.Load(cfg.Locale)
 	if err != nil {
@@ -119,7 +130,10 @@ func main() {
 
 	bookService.SetOnProviderError(bot.NotifyProviderError)
 
-	go bot.Start()
+	go func() {
+		defer sentryadapter.Recover()
+		bot.Start()
+	}()
 	logger.Info("bot started", "version", Version)
 
 	quit := make(chan os.Signal, 1)

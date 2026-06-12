@@ -23,6 +23,10 @@ type Config struct {
 	RoyallibEnabled   bool     `env:"ROYALLIB_ENABLED" envDefault:"false"`
 	FlibustaEnabled   bool     `env:"FLIBUSTA_ENABLED" envDefault:"true"`
 
+	// Sentry error reporting. Empty SentryDSN disables Sentry entirely.
+	SentryDSN         string `env:"SENTRY_DSN"`
+	SentryEnvironment string `env:"SENTRY_ENVIRONMENT"`
+
 	// RuTracker via Jackett
 	RutrackerEnabled         bool          `env:"RUTRACKER_ENABLED" envDefault:"false"`
 	JackettURL               string        `env:"JACKETT_URL" envDefault:"http://localhost:9117"`

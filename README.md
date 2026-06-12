@@ -12,6 +12,7 @@ Book recon is a service to find books via Telegram Bot.
   - RuTracker (via Jackett)
   - [RoyalLib](https://royallib.com)
 - Locales: en (default), ru — configured via `LOCALE` env variable
+- Optional Sentry error reporting — set `SENTRY_DSN` and `SENTRY_ENVIRONMENT`
 
 ## Quick start
 

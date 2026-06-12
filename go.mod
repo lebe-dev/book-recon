@@ -6,6 +6,7 @@ require (
 	github.com/anacrolix/torrent v1.61.0
 	github.com/caarlos0/env/v11 v11.4.0
 	github.com/charmbracelet/log v1.0.0
+	github.com/getsentry/sentry-go v0.46.2
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/net v0.47.0
 	golang.org/x/sync v0.20.0

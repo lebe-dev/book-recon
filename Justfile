@@ -62,3 +62,6 @@ deploy:
 
 port-forward-jackett:
     ssh -N -L 9117:localhost:9117 kaiman
+
+ssh:
+    ssh kaiman

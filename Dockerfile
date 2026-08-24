@@ -1,4 +1,4 @@
-FROM golang:1.26.0-alpine3.23 AS app-build
+FROM golang:1.26.0-alpine AS app-build
 
 WORKDIR /build
 
@@ -7,13 +7,15 @@ RUN apk --no-cache add upx
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY . /build
+COPY cmd ./cmd
+COPY internal ./internal
+COPY VERSION ./VERSION
 
-RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o book-recon ./cmd/book-recon/ && \
+RUN CGO_ENABLED=0 go build -ldflags="-w -s -X main.Version=$(cat VERSION)" -o book-recon ./cmd/book-recon/ && \
     upx -9 --lzma book-recon && \
     chmod +x book-recon
 
-FROM alpine:3.23.3
+FROM alpine:3.24
 
 WORKDIR /app
 

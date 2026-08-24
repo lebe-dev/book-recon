@@ -1,6 +1,6 @@
 # --- Variables ---
 
-version := `cat cmd/book-recon/main.go | grep 'Version' | head -1 | cut -d '"' -f 2`
+version := `cat VERSION`
 imageName := 'tinyops/book-recon'
 
 default:
@@ -17,7 +17,7 @@ bump-deps:
 
 # --- Build ---
 build: format
-    go build -o bin/book-recon ./cmd/book-recon
+    go build -ldflags="-X main.Version={{ version }}" -o bin/book-recon ./cmd/book-recon
 
 # --- Lints ---
 lint: format

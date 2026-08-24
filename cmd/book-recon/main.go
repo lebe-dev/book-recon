@@ -121,6 +121,7 @@ func main() {
 	}
 
 	bookService := usecase.NewBookService(providers, userRepo, searchCache, logger)
+	bookService.SetProviderTimeout(cfg.ProviderTimeout)
 	accessService := usecase.NewAccessService(accessRepo, userRegistry, logger)
 
 	bot, err := telegram.New(cfg.TelegramToken, bookService, accessService, userRegistry, cfg.AllowedUsers, cfg.AdminUsers, Version, msg, logger)

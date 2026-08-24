@@ -23,6 +23,9 @@ type Config struct {
 	RoyallibEnabled   bool     `env:"ROYALLIB_ENABLED" envDefault:"false"`
 	FlibustaEnabled   bool     `env:"FLIBUSTA_ENABLED" envDefault:"true"`
 
+	// ProviderTimeout bounds a single provider's search during a parallel query.
+	ProviderTimeout time.Duration `env:"PROVIDER_TIMEOUT" envDefault:"30s"`
+
 	// Sentry error reporting. Empty SentryDSN disables Sentry entirely.
 	SentryDSN         string `env:"SENTRY_DSN"`
 	SentryEnvironment string `env:"SENTRY_ENVIRONMENT"`

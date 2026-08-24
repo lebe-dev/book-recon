@@ -19,8 +19,12 @@ const (
 	PageSize        = 5
 	SessionTTL      = 30 * time.Minute
 	DownloadTimeout = 60 * time.Second
-	ProviderTimeout = 15 * time.Second
 	ErrorCooldown   = 5 * time.Minute
+
+	// DefaultProviderTimeout bounds one provider's search. Flibusta may need
+	// several round trips (search page, then author pages), so it is generous
+	// enough to cover them on a slow day. Override with PROVIDER_TIMEOUT.
+	DefaultProviderTimeout = 30 * time.Second
 )
 
 // ProviderErrorFunc is called when a provider fails during search.
@@ -33,6 +37,7 @@ type BookService struct {
 	searchCache     domain.SearchCacheRepository
 	onProviderError ProviderErrorFunc
 	errorCooldown   sync.Map // provider name -> time.Time
+	providerTimeout time.Duration
 	logger          *log.Logger
 }
 
@@ -47,12 +52,22 @@ func NewBookService(
 		pm[p.Name()] = p
 	}
 	return &BookService{
-		providers:   providers,
-		providerMap: pm,
-		settings:    settings,
-		searchCache: searchCache,
-		logger:      logger,
+		providers:       providers,
+		providerMap:     pm,
+		settings:        settings,
+		searchCache:     searchCache,
+		providerTimeout: DefaultProviderTimeout,
+		logger:          logger,
 	}
+}
+
+// SetProviderTimeout overrides how long a single provider search may take.
+// Non-positive values keep the current timeout.
+func (s *BookService) SetProviderTimeout(d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	s.providerTimeout = d
 }
 
 // SetOnProviderError sets a callback invoked when a provider fails during search.
@@ -94,7 +109,7 @@ func (s *BookService) Search(ctx context.Context, telegramID int64, query string
 
 	for _, p := range s.providers {
 		g.Go(func() error {
-			pctx, cancel := context.WithTimeout(gctx, ProviderTimeout)
+			pctx, cancel := context.WithTimeout(gctx, s.providerTimeout)
 			defer cancel()
 
 			results, err := p.Search(pctx, query, SearchLimit)

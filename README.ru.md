@@ -93,6 +93,7 @@ docker compose up -d
 | `LOCALE` | Язык интерфейса бота: `en`, `ru` | `en` |
 | `DB_PATH` | Путь к файлу SQLite | `book-recon.db` |
 | `LOG_LEVEL` | Уровень логирования | `info` |
+| `PROVIDER_TIMEOUT` | Таймаут поиска у одного провайдера | `30s` |
 | `FLIBUSTA_BASE_URL` | Базовый URL Flibusta | `https://flibusta.is` |
 | `FLIBUSTA_ENABLED` | Включить Flibusta | `true` |
 | `ROYALLIB_BASE_URL` | Базовый URL RoyalLib | `https://royallib.com` |

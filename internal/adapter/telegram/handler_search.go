@@ -255,33 +255,33 @@ func extractQuery(text string) string {
 }
 
 func (b *Bot) handleError(c telebot.Context, err error) error {
-	code, ok := domain.ErrorCodeFrom(err)
+	de, ok := err.(*domain.DomainError)
 	if !ok {
 		b.logger.Error("unhandled error", "username", c.Sender().Username, "error", err)
 		return c.Send(b.msg.ErrUnexpected)
 	}
 
-	b.logger.Debug("domain error", "username", c.Sender().Username, "code", code, "error", err)
-	return c.Send(b.errorMessage(code))
+	b.logger.Debug("domain error", "username", c.Sender().Username, "code", de.Code, "error", err)
+	return c.Send(b.errorMessage(de))
 }
 
 func (b *Bot) handleDownloadError(c telebot.Context, err error, sourceURL string) error {
-	code, ok := domain.ErrorCodeFrom(err)
+	de, ok := err.(*domain.DomainError)
 	if !ok {
 		b.logger.Error("unhandled error", "username", c.Sender().Username, "error", err)
 		return c.Send(b.msg.ErrUnexpected)
 	}
 
-	b.logger.Debug("domain error", "username", c.Sender().Username, "code", code, "error", err)
-	msg := b.errorMessage(code)
-	if sourceURL != "" {
+	b.logger.Debug("domain error", "username", c.Sender().Username, "code", de.Code, "error", err)
+	msg := b.errorMessage(de)
+	if sourceURL != "" && de.Code != domain.ErrCodeSourceUnavailable {
 		msg += b.msg.DownloadSourceLabel + sourceURL
 	}
 	return c.Send(msg)
 }
 
-func (b *Bot) errorMessage(code domain.ErrorCode) string {
-	switch code {
+func (b *Bot) errorMessage(de *domain.DomainError) string {
+	switch de.Code {
 	case domain.ErrCodeNotFound:
 		return b.msg.ErrNotFound
 	case domain.ErrCodeFormatNA:
@@ -300,6 +300,8 @@ func (b *Bot) errorMessage(code domain.ErrorCode) string {
 		return b.msg.ErrTorrentTooLarge
 	case domain.ErrCodeServiceDown:
 		return b.msg.ErrServiceDown
+	case domain.ErrCodeSourceUnavailable:
+		return b.msg.ErrSourceUnavailable(de.Message)
 	default:
 		return b.msg.ErrUnexpected
 	}

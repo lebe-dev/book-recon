@@ -175,5 +175,8 @@ func loadEN() *Messages {
 		SettingsText: func(format string) string {
 			return fmt.Sprintf("⚙️ Settings\n\nPreferred format: *%s*", format)
 		},
+		ErrSourceUnavailable: func(provider string) string {
+			return fmt.Sprintf(":( Temporarily unable to reach %s. Please try again later.", provider)
+		},
 	}
 }

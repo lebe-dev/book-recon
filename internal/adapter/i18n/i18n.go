@@ -74,23 +74,24 @@ type Messages struct {
 	ErrRTDownload        string
 
 	// --- Parameterized messages ---
-	StartAdmin          func(version string) string
-	StartUser           func(name string) string
-	HelpText            func(isAdmin bool) string
-	FoundBooks          func(n int) string
-	FormatFileSize      func(bytes int64) string
-	FormatTorrentSize   func(bytes int64) string
-	SeedsLabel          func(seeds string) string
-	TorrentPicked       func(count int, format string) string
-	FileSendError       func(name string) string
-	AccessApprovedFor   func(name string) string
-	AccessDeniedFor     func(name string) string
-	AccessRevokedFor    func(name string) string
-	AccessRequestNotify func(id int64, name, username string) string
-	ProviderError       func(provider, errMsg string) string
-	BroadcastTitle      func(text string) string
-	BroadcastComplete   func(sent, failed int) string
-	SettingsText        func(format string) string
+	StartAdmin           func(version string) string
+	StartUser            func(name string) string
+	HelpText             func(isAdmin bool) string
+	FoundBooks           func(n int) string
+	FormatFileSize       func(bytes int64) string
+	FormatTorrentSize    func(bytes int64) string
+	SeedsLabel           func(seeds string) string
+	TorrentPicked        func(count int, format string) string
+	FileSendError        func(name string) string
+	AccessApprovedFor    func(name string) string
+	AccessDeniedFor      func(name string) string
+	AccessRevokedFor     func(name string) string
+	AccessRequestNotify  func(id int64, name, username string) string
+	ProviderError        func(provider, errMsg string) string
+	BroadcastTitle       func(text string) string
+	BroadcastComplete    func(sent, failed int) string
+	SettingsText         func(format string) string
+	ErrSourceUnavailable func(provider string) string
 }
 
 // Load returns the Messages for the given locale.

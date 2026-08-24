@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -102,6 +103,7 @@ func (s *BookService) Search(ctx context.Context, telegramID int64, query string
 	type providerResult struct {
 		results []domain.SearchResult
 		name    string
+		failed  bool
 	}
 
 	ch := make(chan providerResult, len(s.providers))
@@ -116,7 +118,7 @@ func (s *BookService) Search(ctx context.Context, telegramID int64, query string
 			if err != nil {
 				s.logger.Warn("provider search failed", "provider", p.Name(), "error", err)
 				s.notifyProviderError(p.Name(), err)
-				ch <- providerResult{name: p.Name()}
+				ch <- providerResult{name: p.Name(), failed: true}
 				return nil // partial results: don't fail the whole search
 			}
 
@@ -133,12 +135,20 @@ func (s *BookService) Search(ctx context.Context, telegramID int64, query string
 	close(ch)
 
 	var allResults []domain.SearchResult
+	var failedProviders []string
 	for pr := range ch {
 		s.logger.Debug("provider results collected", "provider", pr.name, "count", len(pr.results))
 		allResults = append(allResults, pr.results...)
+		if pr.failed {
+			failedProviders = append(failedProviders, pr.name)
+		}
 	}
 
 	if len(allResults) == 0 {
+		if len(failedProviders) > 0 {
+			s.logger.Info("search failed: source(s) unreachable", "telegram_id", telegramID, "query", query, "providers", failedProviders)
+			return nil, domain.NewError(domain.ErrCodeSourceUnavailable, strings.Join(failedProviders, ", "))
+		}
 		s.logger.Info("search returned no results", "telegram_id", telegramID, "query", query)
 		return nil, domain.NewError(domain.ErrCodeNotFound, "no results found")
 	}
@@ -234,7 +244,8 @@ func (s *BookService) DownloadWithFormat(ctx context.Context, telegramID int64, 
 
 	reader, filename, err := provider.Download(dlCtx, *result, format)
 	if err != nil {
-		return "", "", 0, domain.WrapError(domain.ErrCodeProviderError, "download failed", err)
+		s.logger.Warn("provider download failed", "provider", result.Book.Provider, "error", err)
+		return "", "", 0, domain.WrapError(domain.ErrCodeSourceUnavailable, result.Book.Provider, err)
 	}
 	defer func() { _ = reader.Close() }()
 

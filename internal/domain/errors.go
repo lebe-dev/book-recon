@@ -15,6 +15,11 @@ const (
 	ErrCodeNoSeeders       ErrorCode = "NO_SEEDERS"
 	ErrCodeTorrentTooLarge ErrorCode = "TORRENT_TOO_LARGE"
 	ErrCodeServiceDown     ErrorCode = "SERVICE_DOWN"
+
+	// ErrCodeSourceUnavailable means every provider that would have served the
+	// query failed to connect. Message carries the failed provider name(s) so
+	// the UI can tell the user which source is unreachable.
+	ErrCodeSourceUnavailable ErrorCode = "SOURCE_UNAVAILABLE"
 )
 
 // DomainError is the base error type for all domain-level errors.

@@ -176,5 +176,8 @@ func loadRU() *Messages {
 		SettingsText: func(format string) string {
 			return fmt.Sprintf("⚙️ Настройки\n\nПредпочитаемый формат: *%s*", format)
 		},
+		ErrSourceUnavailable: func(provider string) string {
+			return fmt.Sprintf(":( Временно нет связи с %s. Попробуйте позже.", provider)
+		},
 	}
 }

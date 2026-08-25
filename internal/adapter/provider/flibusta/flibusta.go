@@ -2,7 +2,6 @@ package flibusta
 
 import (
 	"archive/zip"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -17,6 +16,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/lebe-dev/book-recon/internal/domain"
 	"github.com/lebe-dev/book-recon/internal/encoding"
+	"github.com/lebe-dev/book-recon/internal/tempbuf"
 	"golang.org/x/net/html"
 )
 
@@ -258,24 +258,26 @@ func (p *Provider) Download(ctx context.Context, result domain.SearchResult, for
 			"book is not available in "+string(format))
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	// The body is spooled to disk: a book can be tens of megabytes, and holding
+	// it in memory has been enough to get the container OOM-killed.
+	buf, err := tempbuf.Buffer(resp.Body)
 	if err != nil {
-		return nil, "", domain.WrapError(domain.ErrCodeProviderError, "read response body", err)
+		return nil, "", domain.WrapError(domain.ErrCodeProviderError, "buffer response body", err)
 	}
 
 	// Try to interpret the response as a ZIP archive.
-	zr, zipErr := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	zr, zipErr := zip.NewReader(buf.ReaderAt(), buf.Size())
 	if zipErr != nil {
 		// Not a zip — return body directly.
 		filename := encoding.FilenameFromDisposition(resp.Header.Get("Content-Disposition"))
 		if filename == "" {
 			filename = fallbackFilename(result.Book.Author, result.Book.Title, string(format))
 		}
-		p.logger.Info("download ready", "provider", providerName, "filename", filename)
-		return io.NopCloser(bytes.NewReader(data)), filename, nil
+		return p.wholeBuffer(buf, filename)
 	}
 
 	if len(zr.File) == 0 {
+		_ = buf.Close()
 		return nil, "", domain.NewError(domain.ErrCodeProviderError, "zip archive is empty")
 	}
 
@@ -283,19 +285,31 @@ func (p *Provider) Download(ctx context.Context, result domain.SearchResult, for
 	// return the entire buffer as an .epub file.
 	if zr.File[0].Name == "mimetype" {
 		filename := fallbackFilename(result.Book.Author, result.Book.Title, "epub")
-		p.logger.Info("download ready", "provider", providerName, "filename", filename)
-		return io.NopCloser(bytes.NewReader(data)), filename, nil
+		return p.wholeBuffer(buf, filename)
 	}
 
 	f := zr.File[0]
 	rc, err := f.Open()
 	if err != nil {
+		_ = buf.Close()
 		return nil, "", domain.WrapError(domain.ErrCodeProviderError, "open file in zip", err)
 	}
 
 	filename := encoding.DecodeZipFilename(f.Name)
 	if filename == "" {
 		filename = fallbackFilename(result.Book.Author, result.Book.Title, string(format))
+	}
+
+	p.logger.Info("download ready", "provider", providerName, "filename", filename)
+	return buf.Wrap(rc), filename, nil
+}
+
+// wholeBuffer returns the buffered response as-is, rewound to its start.
+func (p *Provider) wholeBuffer(buf *tempbuf.File, filename string) (io.ReadCloser, string, error) {
+	rc, err := buf.Rewound()
+	if err != nil {
+		_ = buf.Close()
+		return nil, "", domain.WrapError(domain.ErrCodeProviderError, "rewind buffered body", err)
 	}
 
 	p.logger.Info("download ready", "provider", providerName, "filename", filename)

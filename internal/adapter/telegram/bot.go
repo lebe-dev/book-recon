@@ -69,6 +69,7 @@ func (b *Bot) Stop() {
 }
 
 func (b *Bot) setupRoutes() {
+	b.bot.Use(b.recoverMiddleware)
 	b.bot.Use(b.accessMiddleware)
 	b.bot.Use(b.contextMiddleware)
 

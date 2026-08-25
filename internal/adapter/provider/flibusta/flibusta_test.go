@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -311,5 +312,63 @@ func TestExtractBookID(t *testing.T) {
 		if got := extractBookID(tt.url); got != tt.want {
 			t.Errorf("extractBookID(%q) = %q, want %q", tt.url, got, tt.want)
 		}
+	}
+}
+
+// TestDownload_BuffersOnDisk verifies that a download is spooled to a temporary
+// file — not held in memory — and that the file is removed once the caller
+// closes the reader.
+func TestDownload_BuffersOnDisk(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("TMPDIR", tmpDir)
+
+	payload := bytes.Repeat([]byte("pdf"), 4096)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write(payload)
+	}))
+	defer srv.Close()
+
+	p := newWithBaseURL(srv.URL, srv.Client(), log.Default())
+
+	sr := domain.NewSearchResult(domain.Book{
+		Title:     "Title",
+		Author:    "Author",
+		Provider:  providerName,
+		SourceURL: "/b/617927",
+	})
+
+	rc, _, err := p.Download(context.Background(), sr, domain.FormatPDF)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	entries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("temp files while downloading = %d, want 1", len(entries))
+	}
+
+	body, err := io.ReadAll(rc)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	if !bytes.Equal(body, payload) {
+		t.Fatal("content mismatch")
+	}
+
+	if err := rc.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	entries, err = os.ReadDir(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("temp files left after close = %d", len(entries))
 	}
 }

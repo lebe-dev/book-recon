@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/lebe-dev/book-recon/internal/domain"
 	"github.com/lebe-dev/book-recon/internal/encoding"
+	"github.com/lebe-dev/book-recon/internal/tempbuf"
 	"golang.org/x/net/html"
 )
 
@@ -143,31 +144,40 @@ func (p *Provider) Download(ctx context.Context, result domain.SearchResult, for
 			fmt.Sprintf("download returned status %d", resp.StatusCode))
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	// The body is spooled to disk: a book can be tens of megabytes, and holding
+	// it in memory has been enough to get the container OOM-killed.
+	buf, err := tempbuf.Buffer(resp.Body)
 	if err != nil {
-		return nil, "", domain.WrapError(domain.ErrCodeProviderError, "read response body", err)
+		return nil, "", domain.WrapError(domain.ErrCodeProviderError, "buffer response body", err)
 	}
 
-	if int64(len(data)) < p.minBookSize {
+	if buf.Size() < p.minBookSize {
+		_ = buf.Close()
 		if err := p.checkAvailability(ctx, result.Book.SourceURL); err != nil {
 			return nil, "", err
 		}
 		return nil, "", domain.NewError(domain.ErrCodeProviderError,
-			fmt.Sprintf("response too small (%d bytes), not a valid book file", len(data)))
+			fmt.Sprintf("response too small (%d bytes), not a valid book file", buf.Size()))
 	}
 
-	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	zr, err := zip.NewReader(buf.ReaderAt(), buf.Size())
 	if err != nil {
 		// Server may return the file directly without a zip wrapper.
 		// Reject HTML responses (error pages); accept anything else.
-		if looksLikeHTML(data) {
+		head, headErr := readHead(buf)
+		if headErr != nil {
+			_ = buf.Close()
+			return nil, "", domain.WrapError(domain.ErrCodeProviderError, "read buffered body", headErr)
+		}
+		if looksLikeHTML(head) {
+			_ = buf.Close()
 			return nil, "", domain.WrapError(domain.ErrCodeProviderError, "open zip archive", err)
 		}
 		filename := fallbackFilename(result.Book.Author, result.Book.Title, string(format))
-		p.logger.Info("download ready (direct)", "provider", providerName, "filename", filename)
-		return io.NopCloser(bytes.NewReader(data)), filename, nil
+		return p.wholeBuffer(buf, filename, "download ready (direct)")
 	}
 	if len(zr.File) == 0 {
+		_ = buf.Close()
 		return nil, "", domain.NewError(domain.ErrCodeProviderError, "zip archive is empty")
 	}
 
@@ -176,13 +186,13 @@ func (p *Provider) Download(ctx context.Context, result domain.SearchResult, for
 	// spec marker). Return the entire buffer as an .epub file.
 	if zr.File[0].Name == "mimetype" {
 		filename := fallbackFilename(result.Book.Author, result.Book.Title, "epub")
-		p.logger.Info("download ready", "provider", providerName, "filename", filename)
-		return io.NopCloser(bytes.NewReader(data)), filename, nil
+		return p.wholeBuffer(buf, filename, "download ready")
 	}
 
 	f := zr.File[0]
 	rc, err := f.Open()
 	if err != nil {
+		_ = buf.Close()
 		return nil, "", domain.WrapError(domain.ErrCodeProviderError, "open file in zip", err)
 	}
 
@@ -192,6 +202,32 @@ func (p *Provider) Download(ctx context.Context, result domain.SearchResult, for
 	}
 
 	p.logger.Info("download ready", "provider", providerName, "filename", filename)
+	return buf.Wrap(rc), filename, nil
+}
+
+// headSize is how much of a buffered response is inspected to tell a book file
+// from an HTML error page.
+const headSize = 512
+
+// readHead returns the first bytes of the buffered response.
+func readHead(buf *tempbuf.File) ([]byte, error) {
+	head := make([]byte, headSize)
+	n, err := buf.ReaderAt().ReadAt(head, 0)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	return head[:n], nil
+}
+
+// wholeBuffer returns the buffered response as-is, rewound to its start.
+func (p *Provider) wholeBuffer(buf *tempbuf.File, filename, logMessage string) (io.ReadCloser, string, error) {
+	rc, err := buf.Rewound()
+	if err != nil {
+		_ = buf.Close()
+		return nil, "", domain.WrapError(domain.ErrCodeProviderError, "rewind buffered body", err)
+	}
+
+	p.logger.Info(logMessage, "provider", providerName, "filename", filename)
 	return rc, filename, nil
 }
 

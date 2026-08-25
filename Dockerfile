@@ -11,9 +11,7 @@ COPY cmd ./cmd
 COPY internal ./internal
 COPY VERSION ./VERSION
 
-RUN CGO_ENABLED=0 go build -ldflags="-w -s -X main.Version=$(cat VERSION)" -o book-recon ./cmd/book-recon/ && \
-    upx -9 --lzma book-recon && \
-    chmod +x book-recon
+RUN CGO_ENABLED=0 go build -ldflags="-w -s -X main.Version=$(cat VERSION)" -o book-recon ./cmd/book-recon/
 
 FROM alpine:3.24
 

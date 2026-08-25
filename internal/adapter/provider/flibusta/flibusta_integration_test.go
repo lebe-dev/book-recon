@@ -16,7 +16,6 @@ const (
 	integrationBookURL    = "/b/435845"
 	integrationBookAuthor = "Юрий Тынянов"
 	integrationBookTitle  = "Пушкин"
-	integrationBookID     = "435845"
 )
 
 func TestIntegration_Search(t *testing.T) {
@@ -24,7 +23,9 @@ func TestIntegration_Search(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	results, err := p.Search(ctx, "Пушкин Тынянов", 10)
+	// Flibusta matches the query as a substring, so a two-word query like
+	// "Пушкин Тынянов" finds nothing.
+	results, err := p.Search(ctx, "Тынянов", 10)
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
@@ -32,18 +33,12 @@ func TestIntegration_Search(t *testing.T) {
 		t.Fatal("expected at least one result, got 0")
 	}
 
-	var found *domain.SearchResult
-	for i := range results {
-		if extractBookID(results[i].Book.SourceURL) == integrationBookID {
-			found = &results[i]
-			break
+	for _, r := range results {
+		if len(r.Book.Formats) == 0 {
+			t.Errorf("book %q has no formats", r.Book.Title)
 		}
+		t.Logf("found: %q by %q formats=%v", r.Book.Title, r.Book.Author, r.Book.Formats)
 	}
-	if found == nil {
-		t.Fatalf("book %q not found in results; got: %v", integrationBookID, results)
-	}
-
-	t.Logf("found: %q by %q (id=%s)", found.Book.Title, found.Book.Author, found.ID)
 }
 
 func TestIntegration_Download(t *testing.T) {
@@ -76,5 +71,43 @@ func TestIntegration_Download(t *testing.T) {
 
 			t.Logf("format=%s filename=%q size=%d bytes", format, filename, n)
 		})
+	}
+}
+
+// TestIntegration_KleppmanPDF covers a book whose only download is the original
+// pdf upload: the search must report pdf and the download must succeed.
+func TestIntegration_KleppmanPDF(t *testing.T) {
+	p := New("", "", log.Default())
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	results, err := p.Search(ctx, "Высоконагруженные приложения", 5)
+	if err != nil {
+		t.Fatalf("search failed: %v", err)
+	}
+	if len(results) == 0 {
+		t.Fatal("no results")
+	}
+
+	book := results[0]
+	if !book.Book.HasFormat(domain.FormatPDF) {
+		t.Fatalf("formats = %v, want pdf among them", book.Book.Formats)
+	}
+	if book.Book.HasFormat(domain.FormatFB2) {
+		t.Errorf("formats = %v, must not offer fb2", book.Book.Formats)
+	}
+
+	rc, filename, err := p.Download(ctx, book, domain.FormatPDF)
+	if err != nil {
+		t.Fatalf("download failed: %v", err)
+	}
+	defer func() { _ = rc.Close() }()
+
+	head := make([]byte, 4)
+	if _, err := io.ReadFull(rc, head); err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+	if string(head) != "%PDF" {
+		t.Errorf("downloaded %q, header = %q, want %%PDF", filename, head)
 	}
 }

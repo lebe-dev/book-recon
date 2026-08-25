@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -26,6 +27,10 @@ const (
 	// maxAuthorsToFollow limits how many author pages are fetched when a query
 	// matches authors but no book titles.
 	maxAuthorsToFollow = 3
+
+	// maxFormatFetchers limits how many book pages are fetched in parallel when
+	// resolving the formats of search results.
+	maxFormatFetchers = 4
 
 	dialTimeout           = 5 * time.Second
 	tlsHandshakeTimeout   = 5 * time.Second
@@ -57,8 +62,31 @@ var bookIDRe = regexp.MustCompile(`/b/(\d+)`)
 // bookPathRe matches a plain book link like /b/435845 (no format suffix).
 var bookPathRe = regexp.MustCompile(`^/b/(\d+)/?$`)
 
-// bookFileRe matches a book action link like /b/435845/fb2 or /b/435845/read.
-var bookFileRe = regexp.MustCompile(`^/b/(\d+)/[a-z0-9]+`)
+// bookActionRe matches a book action link like /b/435845/fb2, /b/435845/read
+// or /b/435845/download, capturing the book ID and the action.
+var bookActionRe = regexp.MustCompile(`^/b/(\d+)/([a-z0-9]+)$`)
+
+// downloadTextRe extracts the format named by an original-file link, whose text
+// reads "(скачать pdf)".
+var downloadTextRe = regexp.MustCompile(`(?i)скачать\s+([a-z0-9]+)`)
+
+// pathFormats are the formats flibusta serves under their own URL path; every
+// other format is the original upload, served from /b/<id>/download.
+var pathFormats = map[string]domain.Format{
+	"fb2":  domain.FormatFB2,
+	"epub": domain.FormatEPUB,
+	"mobi": domain.FormatMOBI,
+}
+
+// downloadFormats are the formats recognised in the text of a /download link.
+var downloadFormats = map[string]domain.Format{
+	"pdf":  domain.FormatPDF,
+	"djvu": domain.FormatDJVU,
+}
+
+// defaultFormats are assumed when a book page cannot be fetched or parsed:
+// most flibusta books are converted to these three.
+var defaultFormats = []domain.Format{domain.FormatFB2, domain.FormatEPUB, domain.FormatMOBI}
 
 // Provider implements domain.BookProvider for flibusta.is.
 type Provider struct {
@@ -123,12 +151,14 @@ func (p *Provider) Search(ctx context.Context, query string, limit int) ([]domai
 		raw = p.booksByAuthors(ctx, authors, limit)
 	}
 
+	p.fillMissingFormats(ctx, raw)
+
 	results := make([]domain.SearchResult, 0, len(raw))
 	for _, r := range raw {
 		book := domain.Book{
 			Title:     r.title,
 			Author:    r.author,
-			Formats:   []domain.Format{domain.FormatFB2, domain.FormatEPUB, domain.FormatMOBI},
+			Formats:   r.formats,
 			Provider:  providerName,
 			SourceURL: r.bookURL,
 		}
@@ -201,7 +231,7 @@ func (p *Provider) Download(ctx context.Context, result domain.SearchResult, for
 		return nil, "", domain.NewError(domain.ErrCodeProviderError, "cannot extract book ID from URL")
 	}
 
-	downloadURL := fmt.Sprintf("%s/b/%s/%s", p.baseURL, bookID, string(format))
+	downloadURL := fmt.Sprintf("%s/b/%s/%s", p.baseURL, bookID, formatPath(format))
 	p.logger.Debug("downloading book", "url", downloadURL, "format", format)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
@@ -219,6 +249,13 @@ func (p *Provider) Download(ctx context.Context, result domain.SearchResult, for
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", domain.NewError(domain.ErrCodeProviderError,
 			fmt.Sprintf("download returned status %d", resp.StatusCode))
+	}
+
+	// A request for a format the book does not have is answered with an HTML
+	// page instead of a file.
+	if strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
+		return nil, "", domain.NewError(domain.ErrCodeBookUnavailable,
+			"book is not available in "+string(format))
 	}
 
 	data, err := io.ReadAll(resp.Body)
@@ -274,6 +311,7 @@ type searchEntry struct {
 	title   string
 	author  string
 	bookURL string
+	formats []domain.Format
 }
 
 // authorEntry holds one author matched by a search query.
@@ -359,8 +397,8 @@ func headingListItems(doc *html.Node, heading string) []*html.Node {
 // parseAuthorBooks extracts the books of one author from their page.
 //
 // The page also links books from unrelated blocks (comments, new arrivals), so
-// only links backed by download links — /b/<id>/fb2, /b/<id>/read and friends —
-// count as the author's own books.
+// only books backed by download links count as the author's own. Those links
+// also name the formats the book is available in.
 func parseAuthorBooks(r io.Reader, author string, limit int) ([]searchEntry, error) {
 	if limit <= 0 {
 		return nil, nil
@@ -371,24 +409,21 @@ func parseAuthorBooks(r io.Reader, author string, limit int) ([]searchEntry, err
 		return nil, fmt.Errorf("parse HTML: %w", err)
 	}
 
+	formats := collectBookFormats(doc)
+
 	titles := make(map[string]string)
-	downloadable := make(map[string]bool)
 	var order []string
 
 	var walk func(*html.Node)
 	walk = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "a" {
-			href := attrVal(n, "href")
-
-			if m := bookPathRe.FindStringSubmatch(href); len(m) == 2 {
+			if m := bookPathRe.FindStringSubmatch(attrVal(n, "href")); len(m) == 2 {
 				if _, seen := titles[m[1]]; !seen {
 					if title := cleanTitle(textContent(n)); title != "" {
 						titles[m[1]] = title
 						order = append(order, m[1])
 					}
 				}
-			} else if m := bookFileRe.FindStringSubmatch(href); len(m) == 2 {
-				downloadable[m[1]] = true
 			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
@@ -402,7 +437,7 @@ func parseAuthorBooks(r io.Reader, author string, limit int) ([]searchEntry, err
 		if len(results) >= limit {
 			break
 		}
-		if !downloadable[id] {
+		if len(formats[id]) == 0 {
 			continue
 		}
 
@@ -410,10 +445,125 @@ func parseAuthorBooks(r io.Reader, author string, limit int) ([]searchEntry, err
 			title:   titles[id],
 			author:  author,
 			bookURL: "/b/" + id,
+			formats: formats[id],
 		})
 	}
 
 	return results, nil
+}
+
+// fillMissingFormats resolves the formats of entries that came from the search
+// page, which lists titles without any download links. Book pages are fetched
+// in parallel, since a search may return up to twenty results.
+func (p *Provider) fillMissingFormats(ctx context.Context, entries []searchEntry) {
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, maxFormatFetchers)
+
+	for i := range entries {
+		if len(entries[i].formats) > 0 {
+			continue
+		}
+
+		wg.Add(1)
+		sem <- struct{}{}
+
+		go func(entry *searchEntry) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			entry.formats = p.bookFormats(ctx, entry.bookURL)
+		}(&entries[i])
+	}
+
+	wg.Wait()
+}
+
+// bookFormats returns the formats offered by one book page. A page that cannot
+// be fetched or parsed falls back to the formats most flibusta books have, so a
+// single failure never hides a result.
+func (p *Provider) bookFormats(ctx context.Context, bookURL string) []domain.Format {
+	bookID := extractBookID(bookURL)
+	if bookID == "" {
+		return defaultFormats
+	}
+
+	body, err := p.fetch(ctx, p.baseURL+bookURL, "book page")
+	if err != nil {
+		p.logger.Warn("book page fetch failed", "provider", providerName, "url", bookURL, "error", err)
+		return defaultFormats
+	}
+
+	doc, err := html.Parse(body)
+	_ = body.Close()
+	if err != nil {
+		p.logger.Warn("book page parse failed", "provider", providerName, "url", bookURL, "error", err)
+		return defaultFormats
+	}
+
+	formats := collectBookFormats(doc)[bookID]
+	if len(formats) == 0 {
+		p.logger.Warn("no formats found on book page", "provider", providerName, "url", bookURL)
+		return defaultFormats
+	}
+	return formats
+}
+
+// collectBookFormats maps each book ID on the page to the formats its download
+// links offer, keeping the order the links appear in.
+func collectBookFormats(root *html.Node) map[string][]domain.Format {
+	formats := make(map[string][]domain.Format)
+	seen := make(map[string]map[domain.Format]bool)
+
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "a" {
+			if bookID, format, ok := formatFromLink(n); ok && !seen[bookID][format] {
+				if seen[bookID] == nil {
+					seen[bookID] = make(map[domain.Format]bool)
+				}
+				seen[bookID][format] = true
+				formats[bookID] = append(formats[bookID], format)
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+	walk(root)
+
+	return formats
+}
+
+// formatFromLink reports the format a book link downloads, if any.
+//
+// Converted formats live under their own path — /b/435845/fb2 — while the
+// original upload is served from /b/435845/download and only the link text
+// names its format: "(скачать pdf)".
+func formatFromLink(a *html.Node) (string, domain.Format, bool) {
+	m := bookActionRe.FindStringSubmatch(attrVal(a, "href"))
+	if len(m) != 3 {
+		return "", "", false
+	}
+	bookID, action := m[1], m[2]
+
+	if action == "download" {
+		name := downloadTextRe.FindStringSubmatch(textContent(a))
+		if len(name) != 2 {
+			return "", "", false
+		}
+		format, ok := downloadFormats[strings.ToLower(name[1])]
+		return bookID, format, ok
+	}
+
+	format, ok := pathFormats[action]
+	return bookID, format, ok
+}
+
+// formatPath returns the URL path segment that serves the given format.
+func formatPath(format domain.Format) string {
+	if _, ok := pathFormats[string(format)]; ok {
+		return string(format)
+	}
+	return "download"
 }
 
 // parseLiEntry extracts book title, URL, and author(s) from a single <li>.

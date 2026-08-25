@@ -80,10 +80,17 @@ func TestSearch_Integration(t *testing.T) {
 		if r.Method != http.MethodGet {
 			t.Errorf("expected GET, got %s", r.Method)
 		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+		// Book pages are fetched afterwards to learn the available formats.
+		if strings.HasPrefix(r.URL.Path, "/b/") {
+			_, _ = io.WriteString(w, `<html><body><a href="`+r.URL.Path+`/fb2">(fb2)</a></body></html>`)
+			return
+		}
+
 		if got := r.URL.Query().Get("ask"); got != "test query" {
 			t.Errorf("expected ask='test query', got %q", got)
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = io.WriteString(w, fakeSearchHTML)
 	}))
 	defer srv.Close()

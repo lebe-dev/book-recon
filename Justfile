@@ -13,7 +13,11 @@ cleanup:
 # --- Dependencies ---
 bump-deps:
     go get -u ./...
+    # restore pins that upstream anacrolix/torrent is not compatible with yet
+    go get github.com/anacrolix/missinggo/v2@v2.10.0
+    go get github.com/anacrolix/stm@v0.5.0
     go mod tidy
+    go build ./...
 
 # --- Build ---
 build: format

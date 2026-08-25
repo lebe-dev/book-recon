@@ -1,6 +1,6 @@
 module github.com/lebe-dev/book-recon
 
-go 1.26.0
+go 1.26
 
 require (
 	github.com/anacrolix/torrent v1.61.0

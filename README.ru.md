@@ -29,6 +29,8 @@ docker compose up -d
 
 RuTracker работает через [Jackett](https://github.com/Jackett/Jackett) — прокси-сервер для торрент-трекеров.
 
+rutracker.org закрыт Cloudflare-челленджем, поэтому рядом с Jackett в `docker-compose.yml` запускается [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) (headless Chromium). Jackett находит его по `FlareSolverrUrl` в `jackett/ServerConfig.json` (`http://flaresolverr:8191`). Наружу порт не открыт. FlareSolverr занимает ~160 МБ в простое и до ~700 МБ во время решения челленджа (лимит 768M / 1.5 CPU).
+
 ### 1. Установить API-ключ
 
 Сгенерируйте случайную строку (например, `openssl rand -hex 16`) и укажите её в двух местах:
@@ -36,7 +38,8 @@ RuTracker работает через [Jackett](https://github.com/Jackett/Jacke
 **jackett/ServerConfig.json** (шаблон уже есть в репозитории):
 ```json
 {
-  "APIKey": "your_key_here"
+  "APIKey": "your_key_here",
+  "FlareSolverrUrl": "http://flaresolverr:8191"
 }
 ```
 
@@ -50,8 +53,10 @@ JACKETT_API_KEY=your_key_here
 ### 2. Запустить Jackett
 
 ```bash
-docker compose up -d jackett
+docker compose up -d flaresolverr jackett
 ```
+
+Если Jackett уже был настроен раньше без FlareSolverr, пропишите `"FlareSolverrUrl": "http://flaresolverr:8191"` в его `ServerConfig.json` при остановленном контейнере (Jackett перезаписывает файл при остановке) или в веб-интерфейсе: **Jackett Configuration → FlareSolverr API URL**.
 
 ### 3. Добавить индексер RuTracker
 
@@ -166,6 +171,7 @@ server {
 | `JACKETT_API_KEY` | API-ключ Jackett | — |
 | `JACKETT_INDEXER` | Имя индексера Jackett | `rutracker` |
 | `JACKETT_CATEGORIES` | ID категорий Torznab через запятую | все |
+| `JACKETT_TIMEOUT` | HTTP-таймаут запросов к Jackett (должен быть больше ожидания FlareSolverr, 55s) | `60s` |
 | `RUTRACKER_DOWNLOAD_TIMEOUT` | Таймаут загрузки торрента | `5m` |
 | `RUTRACKER_MAX_BOOKS` | Максимум книг из одного торрента | `5` |
 | `RUTRACKER_MAX_TORRENT_SIZE` | Максимальный размер торрента в байтах | `52428800` (50 МБ) |

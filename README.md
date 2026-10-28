@@ -30,6 +30,8 @@ docker compose up -d
 
 RuTracker works through [Jackett](https://github.com/Jackett/Jackett) — a proxy server for torrent trackers.
 
+rutracker.org is behind a Cloudflare challenge, so `docker-compose.yml` runs [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) (headless Chromium) next to Jackett. Jackett finds it via `FlareSolverrUrl` in `jackett/ServerConfig.json` (`http://flaresolverr:8191`). Its port is not exposed. FlareSolverr uses ~160 MB idle and up to ~700 MB while solving a challenge (limit 768M / 1.5 CPU).
+
 ### 1. Set the API key
 
 Generate a random string (e.g. `openssl rand -hex 16`) and put it in two places:
@@ -37,7 +39,8 @@ Generate a random string (e.g. `openssl rand -hex 16`) and put it in two places:
 **jackett/ServerConfig.json** (template already exists in the repo):
 ```json
 {
-  "APIKey": "your_key_here"
+  "APIKey": "your_key_here",
+  "FlareSolverrUrl": "http://flaresolverr:8191"
 }
 ```
 
@@ -51,8 +54,10 @@ The keys must match. The `jackett/ServerConfig.json` file is mounted into the co
 ### 2. Start Jackett
 
 ```bash
-docker compose up -d jackett
+docker compose up -d flaresolverr jackett
 ```
+
+If Jackett was configured earlier without FlareSolverr, set `"FlareSolverrUrl": "http://flaresolverr:8191"` in its `ServerConfig.json` while the container is stopped (Jackett rewrites the file on shutdown), or in the Web UI: **Jackett Configuration → FlareSolverr API URL**.
 
 ### 3. Add the RuTracker indexer
 

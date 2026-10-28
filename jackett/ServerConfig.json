@@ -1,3 +1,4 @@
 {
-  "APIKey": "your_key_here"
+  "APIKey": "your_key_here",
+  "FlareSolverrUrl": "http://flaresolverr:8191"
 }

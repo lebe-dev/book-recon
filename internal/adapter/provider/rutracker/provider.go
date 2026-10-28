@@ -16,12 +16,17 @@ import (
 	"github.com/lebe-dev/book-recon/internal/domain"
 )
 
+// defaultJackettTimeout outlasts Jackett's own FlareSolverr wait (55s by default),
+// so a search that has to solve a Cloudflare challenge is not cut off client-side.
+const defaultJackettTimeout = 60 * time.Second
+
 // Config holds RuTracker provider configuration.
 type Config struct {
 	JackettURL        string
 	JackettAPIKey     string
 	JackettIndexer    string
 	JackettCategories []string
+	JackettTimeout    time.Duration
 	DownloadTimeout   time.Duration
 	MaxBooks          int
 	MaxTorrentSize    int64
@@ -38,8 +43,13 @@ type Provider struct {
 
 // New creates a new RuTracker provider.
 func New(cfg Config, torrentMgr *TorrentManager, logger *log.Logger) *Provider {
+	timeout := cfg.JackettTimeout
+	if timeout <= 0 {
+		timeout = defaultJackettTimeout
+	}
+
 	return &Provider{
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: &http.Client{Timeout: timeout},
 		torrentMgr: torrentMgr,
 		config:     cfg,
 		logger:     logger,

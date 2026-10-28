@@ -61,8 +61,9 @@ release-image: build-image push-image
 
 release: release-image
 
+# Pins IMAGE_TAG in the server .env, so a manual `docker compose up` keeps this version
 deploy:
-    ssh kaiman 'cd /opt/book-recon && IMAGE_TAG={{ version }} docker compose pull && docker compose down && IMAGE_TAG={{ version }} docker compose up -d'
+    ssh kaiman 'cd /opt/book-recon && sed -i "/^IMAGE_TAG=/d" .env && echo "IMAGE_TAG={{ version }}" >> .env && docker compose pull book-recon && docker compose up -d && docker compose ps'
 
 port-forward-jackett:
     ssh -N -L 9117:localhost:9117 kaiman

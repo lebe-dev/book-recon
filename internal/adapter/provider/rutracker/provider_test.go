@@ -1,6 +1,31 @@
 package rutracker
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	"github.com/charmbracelet/log"
+)
+
+func TestNewJackettTimeout(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  time.Duration
+		want time.Duration
+	}{
+		{name: "default when unset", cfg: 0, want: defaultJackettTimeout},
+		{name: "explicit value", cfg: 90 * time.Second, want: 90 * time.Second},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(Config{JackettTimeout: tt.cfg}, nil, log.New(nil))
+			if p.httpClient.Timeout != tt.want {
+				t.Errorf("timeout = %v, want %v", p.httpClient.Timeout, tt.want)
+			}
+		})
+	}
+}
 
 func TestParseRutrackerTitle(t *testing.T) {
 	tests := []struct {

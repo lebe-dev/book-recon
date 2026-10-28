@@ -1,6 +1,7 @@
 services:
   book-recon:
-    image: tinyops/book-recon:0.4.0
+    # Fixed version from .env (written by `just deploy`), never latest
+    image: tinyops/book-recon:${IMAGE_TAG:?set IMAGE_TAG in .env}
     restart: unless-stopped
     env_file: .env
     environment:
@@ -22,6 +23,8 @@ services:
   jackett:
     image: linuxserver/jackett
     restart: unless-stopped
+    depends_on:
+      - flaresolverr
     # Port forwarding to access Jackett Web UI:
     # - ssh -L 9117:localhost:9117 your-server
     # - Open http://localhost:9117
@@ -39,6 +42,21 @@ services:
         limits:
           cpus: "0.5"
           memory: 256M
+
+  # Solves Cloudflare challenges for Jackett (rutracker.org). Not exposed on the host:
+  # Jackett reaches it as http://flaresolverr:8191 (FlareSolverrUrl in ServerConfig.json).
+  # Limits are measured: ~160M idle, ~700M peak while Chromium solves a challenge.
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:v3.5.2
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=info
+      - TZ=Europe/Moscow
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 768M
 
 volumes:
   jackett-config:

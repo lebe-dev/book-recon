@@ -37,6 +37,7 @@ type Config struct {
 	JackettAPIKey            string        `env:"JACKETT_API_KEY"`
 	JackettIndexer           string        `env:"JACKETT_INDEXER" envDefault:"rutracker"`
 	JackettCategories        []string      `env:"JACKETT_CATEGORIES" envSeparator:","`
+	JackettTimeout           time.Duration `env:"JACKETT_TIMEOUT" envDefault:"60s"`
 	RutrackerDownloadTimeout time.Duration `env:"RUTRACKER_DOWNLOAD_TIMEOUT" envDefault:"5m"`
 	RutrackerMaxBooks        int           `env:"RUTRACKER_MAX_BOOKS" envDefault:"5"`
 	RutrackerMaxTorrentSize  int64         `env:"RUTRACKER_MAX_TORRENT_SIZE" envDefault:"52428800"`

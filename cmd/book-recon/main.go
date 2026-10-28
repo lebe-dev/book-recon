@@ -110,6 +110,7 @@ func main() {
 			JackettAPIKey:     cfg.JackettAPIKey,
 			JackettIndexer:    cfg.JackettIndexer,
 			JackettCategories: cfg.JackettCategories,
+			JackettTimeout:    cfg.JackettTimeout,
 			DownloadTimeout:   cfg.RutrackerDownloadTimeout,
 			MaxBooks:          cfg.RutrackerMaxBooks,
 			MaxTorrentSize:    cfg.RutrackerMaxTorrentSize,

@@ -179,5 +179,8 @@ func loadRU() *Messages {
 		ErrSourceUnavailable: func(provider string) string {
 			return fmt.Sprintf(":( Временно нет связи с %s. Попробуйте позже.", provider)
 		},
+
+		// --- Audiobooks ---
+		Audio: audioRU(),
 	}
 }

@@ -23,6 +23,7 @@ type Bot struct {
 	bot           *telebot.Bot
 	service       *usecase.BookService
 	accessService *usecase.AccessService
+	audio         *usecase.AudiobookService
 	userRepo      domain.UserRepository
 	allowedUsers  []string
 	adminUsers    []string
@@ -80,6 +81,8 @@ func (b *Bot) setupRoutes() {
 	b.bot.Handle("/allowed_users", b.handleAllowedUsers)
 	b.bot.Handle("/whats_new", b.handleWhatsNew)
 	b.bot.Handle("/health", b.handleHealth)
+	b.bot.Handle("/audio", b.handleAudio)
+	b.bot.Handle("/audiobooks", b.handleAudiobooksAdmin)
 	b.bot.Handle(telebot.OnText, b.handleSearch)
 
 	b.bot.Handle(&telebot.Btn{Unique: "dl"}, b.handleDownload)
@@ -90,6 +93,11 @@ func (b *Bot) setupRoutes() {
 	b.bot.Handle(&telebot.Btn{Unique: "deny"}, b.handleDeny)
 	b.bot.Handle(&telebot.Btn{Unique: "unblock"}, b.handleUnblock)
 	b.bot.Handle(&telebot.Btn{Unique: "revoke"}, b.handleRevoke)
+	b.bot.Handle(&telebot.Btn{Unique: "abr"}, b.handleAudioResult)
+	b.bot.Handle(&telebot.Btn{Unique: "abp"}, b.handleAudioPage)
+	b.bot.Handle(&telebot.Btn{Unique: "abs"}, b.handleAudioSelection)
+	b.bot.Handle(&telebot.Btn{Unique: "abj"}, b.handleAudioCancelJob)
+	b.bot.Handle(&telebot.Btn{Unique: "abt"}, b.handleAudioToggle)
 	b.bot.Handle(&telebot.Btn{Unique: "noop"}, func(c telebot.Context) error { return c.Respond() })
 }
 
@@ -180,7 +188,15 @@ func (b *Bot) handleStart(c telebot.Context) error {
 
 func (b *Bot) handleHelp(c telebot.Context) error {
 	username := strings.ToLower(c.Sender().Username)
-	return c.Send(b.msg.HelpText(b.isAdmin(username)), telebot.ModeMarkdown)
+	isAdmin := b.isAdmin(username)
+	text := b.msg.HelpText(isAdmin)
+	if b.audio != nil {
+		text += "\n\n" + b.msg.Audio.Help
+		if isAdmin {
+			text += "\n" + b.msg.Audio.AdminHelp
+		}
+	}
+	return c.Send(text, telebot.ModeMarkdown)
 }
 
 // NotifyProviderError sends a provider error alert to all admin users.

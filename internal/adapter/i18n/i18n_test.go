@@ -1,7 +1,9 @@
 package i18n
 
 import (
+	"reflect"
 	"testing"
+	"time"
 )
 
 func TestLoadEN(t *testing.T) {
@@ -211,6 +213,39 @@ func TestAllFunctionsNotNil(t *testing.T) {
 			if fn == nil {
 				t.Errorf("[%s] %s is nil", locale, name)
 			}
+		}
+	}
+}
+
+func TestAudioMessagesComplete(t *testing.T) {
+	for _, locale := range []string{"en", "ru"} {
+		msg, _ := Load(locale)
+		v := reflect.ValueOf(msg.Audio)
+		for i := 0; i < v.NumField(); i++ {
+			f := v.Field(i)
+			name := v.Type().Field(i).Name
+			if f.IsZero() {
+				t.Errorf("[%s] Audio.%s is empty", locale, name)
+			}
+		}
+	}
+}
+
+func TestFormatDuration(t *testing.T) {
+	tests := []struct {
+		d    time.Duration
+		want string
+	}{
+		{0, "1 s"},
+		{90 * time.Second, "1 min 30 s"},
+		{time.Hour, "1 h"},
+		{time.Hour + 12*time.Second, "1 h"},
+		{24 * time.Hour, "24 h"},
+		{26*time.Hour + 30*time.Minute, "26 h 30 min"},
+	}
+	for _, tt := range tests {
+		if got := formatDuration(tt.d, "h", "min", "s"); got != tt.want {
+			t.Errorf("formatDuration(%s) = %q, want %q", tt.d, got, tt.want)
 		}
 	}
 }

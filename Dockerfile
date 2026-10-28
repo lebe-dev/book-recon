@@ -29,4 +29,7 @@ RUN chown -R book-recon: /app && chmod +x /app/book-recon
 
 USER book-recon
 
+# Audiobook download pages (AUDIOBOOKS_HTTP_LISTEN)
+EXPOSE 8080
+
 CMD ["/app/book-recon"]

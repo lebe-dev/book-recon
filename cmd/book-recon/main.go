@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/lebe-dev/book-recon/internal/adapter/audiobook"
 	"github.com/lebe-dev/book-recon/internal/adapter/config"
 	"github.com/lebe-dev/book-recon/internal/adapter/i18n"
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/flibusta"
@@ -116,8 +119,49 @@ func main() {
 		logger.Info("provider enabled", "provider", "rutracker")
 	}
 
-	if len(providers) == 0 {
-		logger.Fatal("no providers enabled, set ROYALLIB_ENABLED=true, FLIBUSTA_ENABLED=true, and/or RUTRACKER_ENABLED=true")
+	if len(providers) == 0 && !cfg.AudiobooksEnabled {
+		logger.Fatal("no providers enabled, set ROYALLIB_ENABLED=true, FLIBUSTA_ENABLED=true, RUTRACKER_ENABLED=true and/or AUDIOBOOKS_ENABLED=true")
+	}
+
+	var (
+		audioService    *usecase.AudiobookService
+		audioDownloader *audiobook.Downloader
+	)
+	if cfg.AudiobooksEnabled {
+		audioDownloader, err = audiobook.NewDownloader(audiobook.DownloaderConfig{
+			Dir:          cfg.AudiobooksDownloadDir,
+			StallTimeout: cfg.AudiobooksStallTimeout,
+			AllowUpload:  cfg.AudiobooksAllowUpload,
+		}, logger)
+		if err != nil {
+			logger.Fatal("failed to create audiobook downloader", "error", err)
+		}
+
+		jackett := audiobook.NewJackett(audiobook.JackettConfig{
+			URL:        cfg.JackettURL,
+			APIKey:     cfg.JackettAPIKey,
+			Indexer:    cfg.JackettIndexer,
+			Categories: cfg.AudiobooksCategories,
+			Timeout:    cfg.AudiobooksSearchTimeout,
+		}, logger)
+
+		audioService = usecase.NewAudiobookService(jackett, audioDownloader,
+			storage.NewAudiobookDownloadRepo(db), storage.NewAppSettingsRepo(db),
+			usecase.AudiobookConfig{
+				SearchLimit:      cfg.AudiobooksSearchLimit,
+				MaxDownloadSize:  int64(cfg.AudiobooksMaxDownloadSize),
+				MaxFileSize:      int64(cfg.AudiobooksMaxFileSize),
+				StorageMaxSize:   int64(cfg.AudiobooksStorageMaxSize),
+				LinkTTL:          cfg.AudiobooksLinkTTL,
+				DownloadTimeout:  cfg.AudiobooksDownloadTimeout,
+				MaxConcurrent:    cfg.AudiobooksMaxConcurrent,
+				MaxPerUser:       cfg.AudiobooksMaxPerUser,
+				ProgressInterval: cfg.AudiobooksProgressInterval,
+				FileExtensions:   cfg.AudiobooksFileExtensions,
+				PublicURL:        cfg.AudiobooksPublicURL,
+			}, logger)
+		logger.Info("audiobooks enabled", "categories", cfg.AudiobooksCategories, "dir", cfg.AudiobooksDownloadDir,
+			"public_url", cfg.AudiobooksPublicURL)
 	}
 
 	bookService := usecase.NewBookService(providers, userRepo, searchCache, logger)
@@ -131,6 +175,29 @@ func main() {
 
 	bookService.SetOnProviderError(bot.NotifyProviderError)
 
+	var audioWeb *audiobook.WebServer
+	if audioService != nil {
+		bot.SetAudiobookService(audioService)
+		if err := audioService.Start(context.Background()); err != nil {
+			logger.Fatal("failed to start audiobook service", "error", err)
+		}
+
+		audioWeb = audiobook.NewWebServer(cfg.AudiobooksHTTPListen, cfg.AudiobooksDownloadDir, audioService, audiobook.WebLabels{
+			Lang:        cfg.Locale,
+			Files:       msg.Audio.WebFiles,
+			DownloadAll: msg.Audio.WebDownloadAll,
+			ExpiresAt:   msg.Audio.WebExpires,
+			Download:    msg.Audio.WebDownload,
+			FormatSize:  msg.FormatTorrentSize,
+		}, logger)
+		go func() {
+			defer sentryadapter.Recover()
+			if err := audioWeb.Start(); err != nil {
+				logger.Fatal("audiobook web server failed", "error", err)
+			}
+		}()
+	}
+
 	go func() {
 		defer sentryadapter.Recover()
 		bot.Start()
@@ -143,6 +210,17 @@ func main() {
 
 	logger.Info("shutting down...")
 	bot.Stop()
+	if audioWeb != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		if err := audioWeb.Shutdown(ctx); err != nil {
+			logger.Warn("audiobook web server shutdown", "error", err)
+		}
+		cancel()
+	}
+	if audioService != nil {
+		audioService.Close()
+		audioDownloader.Close()
+	}
 	if rutrackerProvider != nil {
 		rutrackerProvider.Close()
 	}

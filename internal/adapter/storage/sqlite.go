@@ -54,6 +54,23 @@ func migrate(db *sql.DB) error {
 			created_at TEXT NOT NULL DEFAULT (datetime('now')),
 			updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 		)`,
+		`CREATE TABLE IF NOT EXISTS app_settings (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL,
+			updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+		)`,
+		`CREATE TABLE IF NOT EXISTS audiobook_downloads (
+			id TEXT PRIMARY KEY,
+			telegram_id INTEGER NOT NULL,
+			chat_id INTEGER NOT NULL,
+			status_message_id INTEGER NOT NULL DEFAULT 0,
+			title TEXT NOT NULL,
+			status TEXT NOT NULL,
+			files_json TEXT NOT NULL DEFAULT '[]',
+			size INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL,
+			expires_at TEXT NOT NULL DEFAULT ''
+		)`,
 	}
 
 	for _, q := range queries {

@@ -20,6 +20,18 @@ const (
 	// query failed to connect. Message carries the failed provider name(s) so
 	// the UI can tell the user which source is unreachable.
 	ErrCodeSourceUnavailable ErrorCode = "SOURCE_UNAVAILABLE"
+
+	// Audiobooks.
+	ErrCodeFeatureDisabled    ErrorCode = "FEATURE_DISABLED"
+	ErrCodeStalled            ErrorCode = "DOWNLOAD_STALLED"
+	ErrCodeQuotaExceeded      ErrorCode = "STORAGE_QUOTA_EXCEEDED"
+	ErrCodeUserLimitReached   ErrorCode = "USER_LIMIT_REACHED"
+	ErrCodeAlreadyDownloading ErrorCode = "ALREADY_DOWNLOADING"
+	ErrCodeSelectionEmpty     ErrorCode = "SELECTION_EMPTY"
+	ErrCodeSelectionTooLarge  ErrorCode = "SELECTION_TOO_LARGE"
+	ErrCodeSessionExpired     ErrorCode = "SESSION_EXPIRED"
+	ErrCodeNoAudioFiles       ErrorCode = "NO_AUDIO_FILES"
+	ErrCodeInterrupted        ErrorCode = "INTERRUPTED"
 )
 
 // DomainError is the base error type for all domain-level errors.

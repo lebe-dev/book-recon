@@ -178,5 +178,8 @@ func loadEN() *Messages {
 		ErrSourceUnavailable: func(provider string) string {
 			return fmt.Sprintf(":( Temporarily unable to reach %s. Please try again later.", provider)
 		},
+
+		// --- Audiobooks ---
+		Audio: audioEN(),
 	}
 }

@@ -1,6 +1,9 @@
 package i18n
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Messages holds all user-facing strings for a single locale.
 type Messages struct {
@@ -92,6 +95,77 @@ type Messages struct {
 	BroadcastComplete    func(sent, failed int) string
 	SettingsText         func(format string) string
 	ErrSourceUnavailable func(provider string) string
+
+	// --- Audiobooks ---
+	Audio AudioMessages
+}
+
+// AudioMessages holds audiobook strings. Messages are rendered in HTML mode:
+// callers pass already escaped titles and file names.
+type AudioMessages struct {
+	Help             string
+	AdminHelp        string
+	Usage            string
+	DisabledEnv      string
+	Disabled         string
+	NotFound         string
+	SessionExpired   string
+	NoAudioFiles     string
+	LoadingTorrent   string
+	SelectionEmpty   string
+	SelectionClosed  string
+	FileTooLargeMark string
+	RootFolder       string
+	NoDownloads      string
+	ActiveHeader     string
+	ReadyHeader      string
+	AdminEnvOff      string
+	ToggleError      string
+
+	BtnAll            string
+	BtnNone           string
+	BtnFolders        string
+	BtnFiles          string
+	BtnCancel         string
+	BtnCancelDownload string
+	BtnEnable         string
+	BtnDisable        string
+
+	ErrServiceDown  string
+	ErrStalled      string
+	ErrQuota        string
+	ErrUserLimit    string
+	ErrAlready      string
+	ErrTimeout      string
+	ErrNoSeeders    string
+	ErrInterrupted  string
+	ErrDownload     string
+	ErrSelectionBig func(limit string) string
+
+	WebFiles       string
+	WebDownloadAll string
+	WebExpires     string
+	WebDownload    string
+
+	Found        func(query string, n int) string
+	ResultLine   func(num int, title, size, seeds string) string
+	Selection    func(title string, files int, total string) string
+	SelectionSum func(count int, size, limit string) string
+	FolderLine   func(num int, mark, name string, selected, files int, size string) string
+	DownloadBtn  func(count int) string
+	Queued       func(title string, pos, files int, size string) string
+	Progress     func(title string, percent int, done, total, speed string, peers int, eta string) string
+	Started      func(title string) string
+	Ready        func(title, link, ttl string, files int, size string) string
+	ReadyStatus  func(title string) string
+	FailedStatus func(title string) string
+	Failed       func(title, reason string) string
+	Cancelled    func(title string) string
+	ActiveLine   func(title, state string) string
+	ReadyLine    func(title, link, ttl string) string
+	QueuedState  func(pos int) string
+	AdminStatus  func(enabled bool, active, queued, ready int, used, max string) string
+	Duration     func(d time.Duration) string
 }
 
 // Load returns the Messages for the given locale.

@@ -13,6 +13,8 @@ import ru.tinyops.android.bookrecon.core.flibusta.FlibustaSourceImpl
 import ru.tinyops.android.bookrecon.core.rutracker.RuTrackerClientImpl
 import ru.tinyops.android.bookrecon.net.OkHttpHttpClient
 import ru.tinyops.android.bookrecon.storage.db.RoomDownloadRepository
+import ru.tinyops.android.bookrecon.storage.files.AndroidFileStorage
+import ru.tinyops.android.bookrecon.storage.settings.DataStoreSettingsRepository
 import ru.tinyops.android.bookrecon.torrent.LibTorrentEngine
 
 @RunWith(RobolectricTestRunner::class)
@@ -24,7 +26,8 @@ class AppContainerTest {
         val app = AppContainer(ApplicationProvider.getApplicationContext())
 
         assertEquals(2, app.settings.settingsRepository.settings.first().maxConcurrent)
-        assertTrue(app.settings.fileStorage.hasAllFilesAccess())
+        assertTrue(app.settings.settingsRepository is DataStoreSettingsRepository)
+        assertTrue(app.settings.fileStorage is AndroidFileStorage)
         assertTrue(app.flibusta.flibustaSource is FlibustaSourceImpl)
         assertTrue(app.ruTracker.ruTrackerClient is RuTrackerClientImpl)
         assertTrue(app.torrent.torrentEngine is LibTorrentEngine)

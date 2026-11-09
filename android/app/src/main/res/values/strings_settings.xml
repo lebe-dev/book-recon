@@ -1,3 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <string name="settings_section_storage">Файлы</string>
+    <string name="settings_access_granted">Доступ ко всем файлам разрешён</string>
+    <string name="settings_access_missing_title">Нужен доступ ко всем файлам</string>
+    <string name="settings_access_missing_text">Книги и аудиокниги сохраняются в выбранные вами папки, где их видят читалки и плееры. Для этого приложению нужен доступ ко всем файлам. Откройте системные настройки, включите «Доступ ко всем файлам» и вернитесь назад.</string>
+    <string name="settings_access_open">Открыть настройки доступа</string>
+    <string name="settings_access_unavailable">Не удалось открыть системные настройки</string>
+    <string name="settings_root_audio">Папка аудиокниг</string>
+    <string name="settings_root_books">Папка книг</string>
+    <string name="settings_root_not_chosen">Не выбрана, нажмите, чтобы выбрать</string>
+    <string name="settings_root_missing">Папка не найдена, выберите заново</string>
+    <string name="settings_root_not_writable">В папку нельзя записать, выберите другую</string>
+    <string name="settings_root_no_access">Сначала разрешите доступ ко всем файлам</string>
+    <string name="settings_root_issue_unsupported">Эту папку нельзя использовать: выберите папку во внутренней памяти или на карте памяти</string>
+    <string name="settings_root_issue_missing">Выбранная папка не найдена</string>
+    <string name="settings_root_issue_not_writable">В выбранную папку нельзя записать файлы</string>
+    <string name="settings_root_issue_no_access">Сначала разрешите доступ ко всем файлам, затем выберите папку</string>
+    <string name="settings_root_picker_unavailable">Не удалось открыть выбор папки</string>
+
+    <string name="settings_section_rutracker">RuTracker</string>
+    <string name="settings_rutracker_login">Логин</string>
+    <string name="settings_rutracker_password">Пароль</string>
+    <string name="settings_rutracker_password_stored">Пароль сохранён. Оставьте поле пустым, чтобы не менять его</string>
+    <string name="settings_rutracker_hint">Логин и пароль сохраняются при проверке входа</string>
+    <string name="settings_rutracker_show_password">Показать пароль</string>
+    <string name="settings_rutracker_hide_password">Скрыть пароль</string>
+    <string name="settings_rutracker_check">Проверить вход</string>
+    <string name="settings_rutracker_forget">Забыть</string>
+    <string name="settings_rutracker_checking">Входим…</string>
+    <string name="settings_rutracker_success">Вход выполнен</string>
+    <string name="settings_login_error_auth_required">Введите логин и пароль</string>
+    <string name="settings_login_error_failed">Неверный логин или пароль</string>
+    <string name="settings_login_error_captcha">Вход не выполнен: RuTracker просит ввести капчу</string>
+    <string name="settings_login_error_cloudflare">Вход не выполнен: проверка Cloudflare не пройдена</string>
+    <string name="settings_login_error_network">Нет соединения с RuTracker. Проверьте интернет или VPN</string>
+    <string name="settings_login_error_timeout">RuTracker не ответил вовремя</string>
+    <string name="settings_login_error_storage">Не удалось сохранить пароль</string>
+    <string name="settings_login_error_other">Не удалось проверить вход, попробуйте позже</string>
+
+    <string name="settings_section_flibusta">Flibusta</string>
+    <string name="settings_flibusta_url">Адрес сайта</string>
+    <string name="settings_flibusta_url_hint">Пустое поле — адрес по умолчанию</string>
+    <string name="settings_flibusta_url_error">Введите адрес вида https://flibusta.is</string>
+    <string name="settings_save">Сохранить</string>
+
+    <string name="settings_section_downloads">Загрузки</string>
+    <string name="settings_preferred_format">Предпочтительный формат книги</string>
+    <string name="settings_wifi_only">Только Wi-Fi</string>
+    <string name="settings_wifi_only_text">Загружать только по Wi-Fi и другим безлимитным сетям</string>
+    <string name="settings_max_concurrent">Одновременных загрузок</string>
+
+    <string name="settings_section_seeding">Раздача после загрузки</string>
+    <string name="settings_seeding_text">Раздавать скачанные торренты, пока телефон на зарядке и подключён к Wi-Fi</string>
+    <string name="settings_seeding_off">Выкл</string>
+    <string name="settings_seeding_hours">%1$d ч</string>
 </resources>

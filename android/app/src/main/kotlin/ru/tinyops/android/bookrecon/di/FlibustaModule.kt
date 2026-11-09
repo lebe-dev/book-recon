@@ -1,10 +1,14 @@
 package ru.tinyops.android.bookrecon.di
 
-import ru.tinyops.android.bookrecon.core.fake.FakeBehavior
-import ru.tinyops.android.bookrecon.core.fake.FakeFlibustaSource
+import kotlinx.coroutines.flow.first
+import ru.tinyops.android.bookrecon.core.flibusta.FlibustaSourceImpl
 import ru.tinyops.android.bookrecon.core.port.FlibustaSource
 
-@Suppress("unused")
 class FlibustaModule(private val app: AppContainer) {
-    val flibustaSource: FlibustaSource by lazy { FakeFlibustaSource(behavior = FakeBehavior(FakeBehavior.UI_DELAY)) }
+    val flibustaSource: FlibustaSource by lazy {
+        FlibustaSourceImpl(
+            http = app.network.httpClient,
+            baseUrl = { app.settings.settingsRepository.settings.first().flibustaBaseUrl },
+        )
+    }
 }

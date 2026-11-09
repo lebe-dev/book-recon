@@ -11,6 +11,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.fake.FakeData
+import ru.tinyops.android.bookrecon.core.flibusta.FlibustaSourceImpl
 
 @RunWith(RobolectricTestRunner::class)
 // Robolectric 4.17 fails to set up SDK 36+ on JDK 21 (ApplicationSharedMemory), so pin 35.
@@ -22,7 +23,8 @@ class AppContainerTest {
 
         assertEquals(2, app.settings.settingsRepository.settings.first().maxConcurrent)
         assertTrue(app.settings.fileStorage.hasAllFilesAccess())
-        assertTrue(app.flibusta.flibustaSource.search("Булгаков", 10).isNotEmpty())
+        // The real Flibusta source runs over the network module, which is still a fake here.
+        assertTrue(app.flibusta.flibustaSource is FlibustaSourceImpl)
         assertTrue(app.ruTracker.ruTrackerClient.search("мастер", MediaKind.AUDIO, 10).isNotEmpty())
         assertEquals(
             FakeData.torrentInfo(FakeData.AUDIO_TOPIC_CD),

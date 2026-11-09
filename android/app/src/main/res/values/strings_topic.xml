@@ -1,3 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="topic_title_audio">Аудиокнига</string>
+    <string name="topic_title_book">Раздача</string>
+    <string name="topic_back">Назад</string>
+    <string name="topic_loading">Загружаем торрент-файл…</string>
+
+    <string name="topic_torrent_size">Размер раздачи: %1$s</string>
+    <string name="topic_selected_summary">Выбрано: %1$d из %2$d · %3$s</string>
+    <string name="topic_select_all">Выбрать всё</string>
+    <string name="topic_select_none">Снять всё</string>
+    <string name="topic_folder_label">Папка</string>
+    <string name="topic_folder_hint">Аудиокнига будет лежать в этой папке внутри папки аудиокниг</string>
+    <string name="topic_folder_missing">Введите имя папки</string>
+    <string name="topic_expand">Развернуть папку</string>
+    <string name="topic_collapse">Свернуть папку</string>
+
+    <plurals name="topic_download">
+        <item quantity="one">Скачать (%1$d файл, %2$s)</item>
+        <item quantity="few">Скачать (%1$d файла, %2$s)</item>
+        <item quantity="many">Скачать (%1$d файлов, %2$s)</item>
+        <item quantity="other">Скачать (%1$d файла, %2$s)</item>
+    </plurals>
+    <string name="topic_download_nothing">Выберите файлы</string>
+
+    <string name="topic_load_failed">Не удалось открыть раздачу: %1$s</string>
+    <string name="topic_load_cloudflare">RuTracker просит пройти проверку Cloudflare</string>
+    <string name="topic_load_captcha">RuTracker просит войти вручную: на странице входа капча</string>
+    <string name="topic_load_auth">Чтобы скачивать с RuTracker, укажите логин и пароль в настройках</string>
+    <string name="topic_load_login_failed">RuTracker не принял логин или пароль. Проверьте их в настройках</string>
+    <string name="topic_no_audio">В раздаче нет аудиофайлов. Возможно, это не аудиокнига или файлы лежат в архиве</string>
+    <string name="topic_no_books">В раздаче нет файлов электронных книг (EPUB, FB2, MOBI, PDF, DjVu…)</string>
+    <string name="topic_retry">Повторить</string>
+    <string name="topic_pass_verification">Пройти проверку</string>
+    <string name="topic_log_in">Войти</string>
+    <string name="topic_open_settings">Настройки</string>
+
+    <string name="topic_added">Добавлено в загрузки</string>
+    <string name="topic_enqueue_failed">Не удалось добавить в загрузки: %1$s</string>
+    <string name="topic_action_open">Открыть</string>
+    <string name="topic_action_settings">Настройки</string>
+    <string name="topic_action_retry">Повторить</string>
 </resources>

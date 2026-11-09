@@ -30,14 +30,14 @@ abstract class DownloadDao {
     abstract fun observeQueue(): Flow<List<DownloadWithFiles>>
 
     /**
-     * COMPLETED downloads, newest first. [pattern] is a LIKE pattern over [DownloadEntity.searchKey]
+     * Library downloads (COMPLETED and SEEDING), newest first. [pattern] is a LIKE pattern over [DownloadEntity.searchKey]
      * with `\` as the escape character; [kind] null means both kinds.
      */
     @Transaction
     @Query(
         """
         SELECT * FROM downloads
-        WHERE status = 'COMPLETED'
+        WHERE status IN ('COMPLETED', 'SEEDING')
             AND (:kind IS NULL OR kind = :kind)
             AND searchKey LIKE :pattern ESCAPE '\'
         ORDER BY COALESCE(completedAt, createdAt) DESC, id
@@ -53,16 +53,17 @@ abstract class DownloadDao {
     @Query("SELECT * FROM downloads WHERE status IN (:statuses) ORDER BY createdAt, id")
     abstract suspend fun listByStatus(statuses: Collection<DownloadStatus>): List<DownloadWithFiles>
 
+    /** The newest library download (COMPLETED or SEEDING) of one source item. */
     @Transaction
     @Query(
         """
         SELECT * FROM downloads
-        WHERE status = 'COMPLETED' AND source = :source AND sourceId = :sourceId
+        WHERE status IN ('COMPLETED', 'SEEDING') AND source = :source AND sourceId = :sourceId
         ORDER BY COALESCE(completedAt, createdAt) DESC, id
         LIMIT 1
         """,
     )
-    abstract suspend fun findCompleted(source: Source, sourceId: String): DownloadWithFiles?
+    abstract suspend fun findInLibrary(source: Source, sourceId: String): DownloadWithFiles?
 
     @Query("SELECT COUNT(*) FROM download_files")
     abstract suspend fun countFiles(): Int

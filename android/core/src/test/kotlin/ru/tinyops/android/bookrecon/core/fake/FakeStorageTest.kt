@@ -34,16 +34,59 @@ class FakeStorageTest {
     }
 
     @Test
-    fun `findCompleted ignores other sources and unfinished downloads`() = runTest {
+    fun `findInLibrary ignores other sources and unfinished downloads`() = runTest {
         val sample = FakeData.library(clock.now()).first()
         val repository = FakeDownloadRepository(
             listOf(sample, sample.copy(id = "queued", sourceId = "22222", status = DownloadStatus.QUEUED)),
             FakeData::sampleFileExists,
         )
 
-        assertEquals("sample-1", repository.findCompleted(Source.FLIBUSTA, "11111")?.id)
-        assertNull(repository.findCompleted(Source.RUTRACKER, "11111"))
-        assertNull(repository.findCompleted(Source.FLIBUSTA, "22222"))
+        assertEquals("sample-1", repository.findInLibrary(Source.FLIBUSTA, "11111")?.id)
+        assertNull(repository.findInLibrary(Source.RUTRACKER, "11111"))
+        assertNull(repository.findInLibrary(Source.FLIBUSTA, "22222"))
+    }
+
+    @Test
+    fun `seeding downloads are in the library and checked for missing files`() = runTest {
+        val sample = FakeData.library(clock.now()).first()
+        val seeding = sample.copy(
+            id = "seeding",
+            sourceId = "77777",
+            status = DownloadStatus.SEEDING,
+            completedAt = clock.now(),
+            seedUntil = clock.now().plusSeconds(3600),
+        )
+        val gone = seeding.copy(id = "gone", sourceId = "88888", paths = listOf(FakeData.MISSING_SAMPLE_PATH))
+        val repository = FakeDownloadRepository(
+            listOf(sample, seeding, gone, sample.copy(id = "running", sourceId = "99999", status = DownloadStatus.DOWNLOADING)),
+            FakeData::sampleFileExists,
+        )
+
+        val library = repository.observeLibrary().first()
+        assertEquals(setOf("sample-1", "seeding", "gone"), library.map { it.id }.toSet())
+        assertEquals(mapOf("sample-1" to false, "seeding" to false, "gone" to true), library.associate { it.id to it.fileMissing })
+        assertEquals("seeding", repository.findInLibrary(Source.FLIBUSTA, "77777")?.id)
+        assertTrue(repository.findInLibrary(Source.FLIBUSTA, "88888")!!.fileMissing)
+        assertTrue(repository.get("gone")!!.fileMissing)
+        assertNull(repository.findInLibrary(Source.FLIBUSTA, "99999"))
+    }
+
+    @Test
+    fun `seeding that ends keeps its place in the library`() = runTest {
+        val sample = FakeData.library(clock.now()).first()
+        val seeding = sample.copy(
+            id = "seeding",
+            sourceId = "77777",
+            status = DownloadStatus.SEEDING,
+            completedAt = clock.now().minusSeconds(60),
+            seedUntil = clock.now().plusSeconds(3600),
+        )
+        val repository = FakeDownloadRepository(listOf(sample, seeding), FakeData::sampleFileExists)
+        val before = repository.observeLibrary().first().map { it.id }
+
+        repository.update(seeding.copy(status = DownloadStatus.COMPLETED, seedUntil = null))
+
+        assertEquals(before, repository.observeLibrary().first().map { it.id })
     }
 
     @Test

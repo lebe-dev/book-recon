@@ -10,15 +10,18 @@
     <string name="library_kind_book">Книга</string>
     <string name="library_kind_audio">Аудиокнига</string>
     <string name="library_file_missing">Файл отсутствует</string>
+    <string name="library_seeding">Раздаётся</string>
 
     <string name="library_open">Открыть</string>
     <string name="library_more">Ещё</string>
     <string name="library_delete">Удалить</string>
     <string name="library_forget">Убрать из истории</string>
+    <string name="library_stop_seeding">Остановить раздачу</string>
 
     <string name="library_delete_title">Удалить с устройства?</string>
     <string name="library_delete_text_book">«%1$s» — файл книги будет удалён с диска и из библиотеки.</string>
     <string name="library_delete_text_audio">«%1$s» — папка аудиокниги со всеми файлами будет удалена с диска и из библиотеки.</string>
+    <string name="library_delete_stops_seeding">Раздача будет остановлена.</string>
     <string name="library_delete_confirm">Удалить</string>
     <string name="library_delete_keep">Не удалять</string>
 
@@ -34,4 +37,5 @@
     <string name="library_message_no_app">Нет приложения, которое может открыть этот файл</string>
     <string name="library_message_delete_failed">Не удалось удалить: %1$s</string>
     <string name="library_message_forget_failed">Не удалось убрать из истории: %1$s</string>
+    <string name="library_message_stop_seeding_failed">Не удалось остановить раздачу: %1$s</string>
 </resources>

@@ -56,11 +56,23 @@ class LibraryViewModelTest {
 
     private fun runVmTest(block: suspend TestScope.() -> Unit) = runTest(dispatcher) { block() }
 
+    /** IDs passed to stopSeeding, in call order. */
+    private val stopped = mutableListOf<String>()
+
     private fun viewModel(
         repository: DownloadRepository,
         fileStorage: FileStorage = storage,
         savedState: SavedStateHandle = SavedStateHandle(),
-    ) = LibraryViewModel(repository, fileStorage, savedState, io = dispatcher)
+        stopSeeding: suspend (String) -> Unit = { stopped += it },
+    ) = LibraryViewModel(repository, fileStorage, savedState, stopSeeding, io = dispatcher)
+
+    /** Stops seeding like the queue does: the record becomes COMPLETED; checks the files are still there. */
+    private fun queueStop(repository: DownloadRepository, file: File): suspend (String) -> Unit = { id ->
+        assertTrue(file.exists(), "files must still be on disk when seeding stops")
+        stopped += id
+        val download = repository.get(id)!!
+        repository.update(download.copy(status = DownloadStatus.COMPLETED, seedUntil = null))
+    }
 
     @Test
     fun `shows loading, then completed downloads newest first with the missing file flagged`() = runVmTest {
@@ -369,6 +381,145 @@ class LibraryViewModelTest {
 
         assertNull(vm.state.value.deleteCandidate)
     }
+
+    @Test
+    fun `seeding downloads are listed with completed ones`() = runVmTest {
+        val folder = audioFolder("Автор - Книга")
+        val repository = FakeDownloadRepository(listOf(book("b", bookFile("Книга.epub")), seeding("s", folder)))
+        val vm = viewModel(repository)
+        runCurrent()
+
+        val items = vm.state.value.items.associate { it.id to it.status }
+        assertEquals(mapOf("b" to DownloadStatus.COMPLETED, "s" to DownloadStatus.SEEDING), items)
+        assertFalse(vm.state.value.items.first { it.id == "s" }.fileMissing)
+    }
+
+    @Test
+    fun `end of seeding updates the entry in place`() = runVmTest {
+        val folder = audioFolder("Автор - Книга")
+        val repository = FakeDownloadRepository(listOf(book("b", bookFile("Книга.epub")), seeding("s", folder)))
+        val vm = viewModel(repository)
+        runCurrent()
+        val before = vm.state.value.items.map { it.id }
+
+        repository.update(repository.get("s")!!.copy(status = DownloadStatus.COMPLETED, seedUntil = null))
+        runCurrent()
+
+        assertEquals(before, vm.state.value.items.map { it.id })
+        assertEquals(DownloadStatus.COMPLETED, vm.state.value.items.first { it.id == "s" }.status)
+    }
+
+    @Test
+    fun `delete of a seeding download stops seeding before deleting the files`() = runVmTest {
+        val folder = audioFolder("Автор - Книга")
+        val repository = FakeDownloadRepository(listOf(seeding("s", folder)))
+        val vm = viewModel(repository, stopSeeding = queueStop(repository, folder))
+        runCurrent()
+
+        vm.onDeleteRequest("s")
+        vm.onDeleteConfirm()
+        runCurrent()
+
+        assertEquals(listOf("s"), stopped)
+        assertFalse(folder.exists())
+        assertTrue(repository.all.isEmpty())
+        assertNull(vm.state.value.message)
+    }
+
+    @Test
+    fun `failed stop of seeding keeps the files and the record`() = runVmTest {
+        val folder = audioFolder("Автор - Книга")
+        val repository = FakeDownloadRepository(listOf(seeding("s", folder)))
+        val vm = viewModel(repository, stopSeeding = { throw AppError.StorageFailed("busy") })
+        runCurrent()
+
+        vm.onDeleteRequest("s")
+        vm.onDeleteConfirm()
+        runCurrent()
+
+        assertTrue(folder.exists())
+        assertEquals(1, repository.all.size)
+        assertEquals(ErrorCode.STORAGE_FAILED, (vm.state.value.message as LibraryMessage.DeleteFailed).error.code)
+    }
+
+    @Test
+    fun `delete of a completed download does not touch seeding`() = runVmTest {
+        val file = bookFile("Книга.epub")
+        val vm = viewModel(FakeDownloadRepository(listOf(book("b", file))))
+        runCurrent()
+
+        vm.onDeleteRequest("b")
+        vm.onDeleteConfirm()
+        runCurrent()
+
+        assertFalse(file.exists())
+        assertTrue(stopped.isEmpty())
+    }
+
+    @Test
+    fun `remove from history of a seeding download stops seeding and keeps the files`() = runVmTest {
+        val folder = audioFolder("Автор - Книга")
+        val repository = FakeDownloadRepository(listOf(seeding("s", folder)))
+        val vm = viewModel(repository, stopSeeding = queueStop(repository, folder))
+        runCurrent()
+
+        vm.onForget("s")
+        runCurrent()
+
+        assertEquals(listOf("s"), stopped)
+        assertTrue(folder.exists())
+        assertTrue(repository.all.isEmpty())
+    }
+
+    @Test
+    fun `stop seeding leaves the entry in the library as completed`() = runVmTest {
+        val folder = audioFolder("Автор - Книга")
+        val repository = FakeDownloadRepository(listOf(seeding("s", folder)))
+        val vm = viewModel(repository, stopSeeding = queueStop(repository, folder))
+        runCurrent()
+
+        vm.onStopSeeding("s")
+        runCurrent()
+
+        assertEquals(listOf("s"), stopped)
+        assertTrue(folder.exists())
+        assertEquals(DownloadStatus.COMPLETED, vm.state.value.items.single().status)
+        assertEquals(emptySet<String>(), vm.state.value.busy)
+    }
+
+    @Test
+    fun `stop seeding of a completed download does nothing`() = runVmTest {
+        val vm = viewModel(FakeDownloadRepository(listOf(book("b", bookFile("Книга.epub")))))
+        runCurrent()
+
+        vm.onStopSeeding("b")
+        runCurrent()
+
+        assertTrue(stopped.isEmpty())
+    }
+
+    @Test
+    fun `failed stop of seeding becomes a message`() = runVmTest {
+        val folder = audioFolder("Автор - Книга")
+        val vm = viewModel(
+            FakeDownloadRepository(listOf(seeding("s", folder))),
+            stopSeeding = { throw AppError.StorageFailed("busy") },
+        )
+        runCurrent()
+
+        vm.onStopSeeding("s")
+        runCurrent()
+
+        assertEquals(ErrorCode.STORAGE_FAILED, (vm.state.value.message as LibraryMessage.StopSeedingFailed).error.code)
+    }
+
+    private fun audioFolder(name: String): File =
+        File(dir, "Audiobooks/$name").apply { File(this, "01.mp3").apply { parentFile?.mkdirs() }.writeText("x") }
+
+    private fun seeding(id: String, folder: File) = audio(id, folder).copy(
+        status = DownloadStatus.SEEDING,
+        seedUntil = NOW.plusSeconds(3600),
+    )
 
     private fun bookFile(name: String): File =
         File(dir, "Books/$name").apply { parentFile?.mkdirs() }.apply { writeText("book") }

@@ -184,13 +184,56 @@ class RoomDownloadRepositoryTest {
     }
 
     @Test
-    fun libraryHoldsCompletedDownloadsNewestFirst() = runBlocking {
+    fun libraryHoldsCompletedAndSeedingDownloadsNewestFirst() = runBlocking {
         repository.insert(completed(id = "old", title = "Старая", finished = 10))
         repository.insert(completed(id = "new", title = "Новая", finished = 20))
+        repository.insert(seeding(id = "seeding", finished = 15))
         repository.insert(download(id = "queued", status = DownloadStatus.QUEUED))
-        repository.insert(download(id = "seeding", status = DownloadStatus.SEEDING))
+        repository.insert(download(id = "running", status = DownloadStatus.DOWNLOADING))
+        repository.insert(download(id = "failed", status = DownloadStatus.FAILED))
+        repository.insert(download(id = "cancelled", status = DownloadStatus.CANCELLED))
 
-        assertEquals(listOf("new", "old"), repository.observeLibrary().first().map { it.id })
+        assertEquals(listOf("new", "seeding", "old"), repository.observeLibrary().first().map { it.id })
+    }
+
+    @Test
+    fun seedingThatEndsStaysInPlaceWithoutLeavingTheLibrary() = runBlocking {
+        repository.insert(completed(id = "old", finished = 10))
+        repository.insert(seeding(id = "seeding", finished = 15))
+        repository.insert(completed(id = "new", finished = 20))
+
+        repository.observeLibrary().test {
+            assertEquals(listOf("new", "seeding", "old"), awaitItem().map { it.id })
+
+            val record = repository.get("seeding")!!
+            repository.update(record.copy(status = DownloadStatus.COMPLETED, seedUntil = null))
+
+            val after = awaitItem()
+            assertEquals(listOf("new", "seeding", "old"), after.map { it.id })
+            assertEquals(DownloadStatus.COMPLETED, after[1].status)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun seedingDownloadsAreFoundAndCheckedForMissingFiles() = runBlocking {
+        val folder = File(temp.root, "Audiobooks/Пикник").apply { mkdirs() }
+        repository.insert(
+            seeding(id = "seeding", source = Source.RUTRACKER, sourceId = "42", finished = 1)
+                .copy(paths = listOf(folder.absolutePath)),
+        )
+        repository.insert(download(id = "running", source = Source.RUTRACKER, sourceId = "43", status = DownloadStatus.DOWNLOADING))
+
+        val found = repository.findInLibrary(Source.RUTRACKER, "42")!!
+        assertEquals("seeding", found.id)
+        assertFalse(found.fileMissing)
+        assertNull(repository.findInLibrary(Source.RUTRACKER, "43"))
+
+        folder.deleteRecursively()
+
+        assertTrue(repository.findInLibrary(Source.RUTRACKER, "42")!!.fileMissing)
+        assertTrue(repository.get("seeding")!!.fileMissing)
+        assertTrue(repository.observeLibrary().first().single().fileMissing)
     }
 
     @Test
@@ -236,7 +279,7 @@ class RoomDownloadRepositoryTest {
         assertTrue(repository.get("book")!!.fileMissing)
         val missing = repository.observeLibrary().first().associate { it.id to it.fileMissing }
         assertEquals(mapOf("nopaths" to false, "audio" to true, "book" to true), missing)
-        assertTrue(repository.findCompleted(Source.FLIBUSTA, "book")!!.fileMissing)
+        assertTrue(repository.findInLibrary(Source.FLIBUSTA, "book")!!.fileMissing)
     }
 
     @Test
@@ -259,16 +302,16 @@ class RoomDownloadRepositoryTest {
     }
 
     @Test
-    fun findCompletedReturnsTheNewestCompletedOfTheSameItem() = runBlocking {
+    fun findInLibraryReturnsTheNewestOfTheSameItem() = runBlocking {
         repository.insert(completed(id = "old", sourceId = "42", finished = 1))
         repository.insert(completed(id = "new", sourceId = "42", finished = 2))
         repository.insert(completed(id = "other", sourceId = "43", finished = 3))
         repository.insert(completed(id = "tracker", source = Source.RUTRACKER, sourceId = "42", finished = 4))
         repository.insert(download(id = "queued", sourceId = "42", created = 5))
 
-        assertEquals("new", repository.findCompleted(Source.FLIBUSTA, "42")!!.id)
-        assertEquals("tracker", repository.findCompleted(Source.RUTRACKER, "42")!!.id)
-        assertNull(repository.findCompleted(Source.FLIBUSTA, "44"))
+        assertEquals("new", repository.findInLibrary(Source.FLIBUSTA, "42")!!.id)
+        assertEquals("tracker", repository.findInLibrary(Source.RUTRACKER, "42")!!.id)
+        assertNull(repository.findInLibrary(Source.FLIBUSTA, "44"))
     }
 
     @Test
@@ -379,6 +422,14 @@ class RoomDownloadRepositoryTest {
         finished: Long,
     ) = download(id = id, title = title, kind = kind, source = source, sourceId = sourceId, status = DownloadStatus.COMPLETED)
         .copy(author = author, completedAt = at(100 + finished))
+
+    private fun seeding(
+        id: String,
+        source: Source = Source.FLIBUSTA,
+        sourceId: String = id,
+        finished: Long,
+    ) = download(id = id, source = source, sourceId = sourceId, status = DownloadStatus.SEEDING)
+        .copy(completedAt = at(100 + finished), seedUntil = at(100_000))
 
     private companion object {
         val BASE: Instant = Instant.parse("2026-11-01T09:00:00Z")

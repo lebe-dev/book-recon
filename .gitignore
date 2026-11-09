@@ -8,6 +8,7 @@
 
 /book-recon
 /bin/book-recon
+/bin/book-recon-*.apk
 /flibusta-engine
 
 /go-rutracker

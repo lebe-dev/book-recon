@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import ru.tinyops.android.bookrecon.core.port.DownloadQueue
+import ru.tinyops.android.bookrecon.download.BootResume
 import ru.tinyops.android.bookrecon.download.DownloadJobs
 import ru.tinyops.android.bookrecon.download.DownloadNotifications
 import ru.tinyops.android.bookrecon.download.DownloadQueueImpl
@@ -70,6 +71,24 @@ class DownloadModule(private val app: AppContainer) {
         }
     }
 
+    /**
+     * Called after a reboot, with the app not on screen: confirms the persisted jobs are still
+     * there and schedules what the system allows from the background.
+     */
+    suspend fun onBoot() {
+        BootResume(
+            hasWork = { queue.hasWorkNow() },
+            hasSeeding = { seeding.hasSeedingNow() },
+            downloadJobPending = { DownloadJobs.isPending(app.context) },
+            scheduleDownloads = {
+                val wifiOnly = app.settings.settingsRepository.settings.first().wifiOnly
+                DownloadJobs.schedule(app.context, wifiOnly)
+            },
+            scheduleSeeding = { SeedingJobs.schedule(app.context) },
+            log = { Log.i(BOOT_TAG, it) },
+        ).run()
+    }
+
     @Volatile
     private var pausing: Job? = null
 
@@ -112,5 +131,6 @@ class DownloadModule(private val app: AppContainer) {
     private companion object {
         const val TAG = "DownloadQueue"
         const val SEEDING_TAG = "Seeding"
+        const val BOOT_TAG = "BootResume"
     }
 }

@@ -14,7 +14,8 @@ import ru.tinyops.android.bookrecon.download.DownloadJobService
 /**
  * The seeding job: a regular (not user-initiated) job that runs only while the device is
  * charging on an unmetered network. It is served by [DownloadJobService] under its own ID,
- * so no extra service is declared.
+ * so no extra service is declared. The job is persisted, so seeding continues after a reboot
+ * once the conditions are met, without opening the app.
  */
 object SeedingJobs {
     const val JOB_ID = 1002
@@ -32,6 +33,7 @@ object SeedingJobs {
         val job = JobInfo.Builder(JOB_ID, ComponentName(context, DownloadJobService::class.java))
             .setRequiresCharging(true)
             .setRequiredNetworkType(JobInfo.NETWORK_TYPE_UNMETERED)
+            .setPersisted(true)
             .build()
         val scheduled = try {
             scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS

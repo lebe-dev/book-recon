@@ -1,3 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="notif_channel_downloads">Загрузки</string>
+    <string name="notif_channel_downloads_description">Ход загрузок и их итог</string>
+
+    <string name="notif_progress_title">Загрузки</string>
+    <string name="notif_progress_waiting">Ждём начала загрузки</string>
+    <string name="notif_progress_percent">%1$d%%</string>
+    <string name="notif_progress_more_running">ещё загружается: %1$d</string>
+    <string name="notif_progress_queued">в очереди: %1$d</string>
+    <string name="notif_action_cancel">Отменить</string>
+
+    <string name="notif_done_title">Загрузка завершена</string>
+    <string name="notif_failed_title">Не удалось загрузить</string>
+    <string name="notif_result_text">%1$s — %2$s</string>
+
+    <string name="download_error_network">нет соединения</string>
+    <string name="download_error_service_down">сайт недоступен</string>
+    <string name="download_error_timeout">сайт не ответил вовремя</string>
+    <string name="download_error_not_found">книга или раздача не найдена</string>
+    <string name="download_error_parse">не удалось разобрать ответ сайта</string>
+    <string name="download_error_format">нет книги в этом формате</string>
+    <string name="download_error_book_unavailable">книга недоступна для скачивания</string>
+    <string name="download_error_cloudflare">нужна проверка Cloudflare</string>
+    <string name="download_error_auth_required">нужен вход в RuTracker</string>
+    <string name="download_error_login_failed">неверный логин или пароль RuTracker</string>
+    <string name="download_error_captcha">RuTracker просит капчу</string>
+    <string name="download_error_torrent_too_large">торрент-файл слишком большой</string>
+    <string name="download_error_no_seeders">нет сидов</string>
+    <string name="download_error_stalled">загрузка зависла</string>
+    <string name="download_error_already">уже загружается</string>
+    <string name="download_error_selection_empty">не выбрано ни одного файла</string>
+    <string name="download_error_no_matching_files">в раздаче нет подходящих файлов</string>
+    <string name="download_error_storage_not_granted">нет доступа к файлам</string>
+    <string name="download_error_root_not_configured">не выбрана папка для загрузок</string>
+    <string name="download_error_storage_failed">не удалось записать файлы</string>
+    <string name="download_error_interrupted">загрузка прервана</string>
+    <string name="download_error_unknown">неизвестная ошибка</string>
 </resources>

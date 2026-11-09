@@ -2,4 +2,6 @@
 <paths>
     <!-- Library roots are arbitrary folders on shared storage. -->
     <external-path name="external" path="." />
+    <!-- Roots on an SD card or USB drive live under /storage/XXXX-XXXX, outside external-path. -->
+    <root-path name="storage" path="storage" />
 </paths>

@@ -18,15 +18,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import org.libtorrent4j.SessionManager
-import org.libtorrent4j.SessionParams
-import org.libtorrent4j.SettingsPack
-import org.libtorrent4j.TorrentFlags
 import org.libtorrent4j.TorrentInfo
-import org.libtorrent4j.swig.add_torrent_params
-import org.libtorrent4j.swig.error_code
-import org.libtorrent4j.swig.settings_pack
-import org.libtorrent4j.swig.torrent_handle
 import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.DownloadProgress
 import java.io.File
@@ -36,14 +28,15 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Runs the engine against a real libtorrent seeder on the loopback interface. Skipped on
+ * Runs the engine against real libtorrent peers on the loopback interface. Skipped on
  * hosts without a libtorrent4j native library.
  */
 class LibTorrentEngineTest {
     @TempDir
     lateinit var dir: File
 
-    private val seeders = mutableListOf<Seeder>()
+    // Seeders and leechers run in their own processes, see TestPeer.
+    private val testPeers = mutableListOf<TestPeer>()
     private val engines = mutableListOf<LibTorrentEngine>()
 
     // Files are not piece-aligned, so the pieces at the edges of a.mp3 and CD2/d.mp3 also
@@ -67,7 +60,7 @@ class LibTorrentEngineTest {
     @AfterEach
     fun close() {
         engines.forEach { it.close() }
-        seeders.forEach { it.close() }
+        testPeers.forEach { it.close() }
     }
 
     @Test
@@ -224,7 +217,7 @@ class LibTorrentEngineTest {
         val first = engine(peers = listOf(seeder.address), stateDir = stateDir)
         withTimeout(60.seconds) { first.download("job-1", aligned.bytes, setOf(0, 2), staging).toList() }
         seeder.close()
-        seeders -= seeder
+        testPeers -= seeder
 
         val a = File(dir, "library/Автор - Книга/a.mp3")
         val d = File(dir, "library/Автор - Книга/CD2/d.mp3")
@@ -238,9 +231,10 @@ class LibTorrentEngineTest {
 
         val second = engine(stateDir = stateDir)
         second.seed("job-1", 60.seconds)
-        val leecher = engine(peers = listOf(InetSocketAddress("127.0.0.1", second.listenPort)), stateDir = File(dir, "leecher"))
         val leeched = File(dir, "leeched")
-        withTimeout(60.seconds) { leecher.download("job-2", aligned.bytes, setOf(0, 2), leeched).toList() }
+        val leecher = TestPeer.leech(aligned, leeched, InetSocketAddress("127.0.0.1", second.listenPort), setOf(0, 2))
+        testPeers += leecher
+        leecher.awaitComplete(60.seconds)
 
         assertArrayEquals(aligned.files[0].data, File(leeched, "Root/a.mp3").readBytes())
         assertArrayEquals(aligned.files[2].data, File(leeched, "Root/CD2/d.mp3").readBytes())
@@ -329,10 +323,10 @@ class LibTorrentEngineTest {
         logger = PrintTorrentLogger,
     ).also { engines += it }
 
-    private fun seeder(torrent: TestTorrent): Seeder {
-        val seedDir = File(dir, "seed-${seeders.size}")
+    private fun seeder(torrent: TestTorrent): TestPeer {
+        val seedDir = File(dir, "seed-${testPeers.size}")
         torrent.writeTo(seedDir)
-        return Seeder(torrent, seedDir).also { seeders += it }
+        return TestPeer.seed(torrent, seedDir).also { testPeers += it }
     }
 
     private fun filesUnder(root: File): List<String> =
@@ -348,34 +342,5 @@ class LibTorrentEngineTest {
         override fun info(message: String) = println("I torrent: $message")
 
         override fun warn(message: String, error: Throwable?) = println("W torrent: $message ${error ?: ""}")
-    }
-
-    /** Plain libtorrent session seeding [torrent] from [dir] on the loopback interface. */
-    private class Seeder(torrent: TestTorrent, dir: File) : AutoCloseable {
-        private val session = SessionManager(false)
-        private val handle: torrent_handle
-
-        init {
-            val settings = SettingsPack().listenInterfaces("127.0.0.1:0")
-            settings.setEnableDht(false)
-            settings.setEnableLsd(false)
-            settings.setBoolean(settings_pack.bool_types.enable_upnp.swigValue(), false)
-            settings.setBoolean(settings_pack.bool_types.enable_natpmp.swigValue(), false)
-            session.start(SessionParams(settings))
-            val params = add_torrent_params()
-            params.set_ti(TorrentInfo(torrent.bytes).swig())
-            params.setSave_path(dir.absolutePath)
-            params.setFlags(TorrentFlags.SEED_MODE)
-            val error = error_code()
-            handle = session.swig().add_torrent(params, error)
-            check(!error.failed()) { error.message() }
-        }
-
-        val address: InetSocketAddress
-            get() = InetSocketAddress("127.0.0.1", session.swig().listen_port())
-
-        fun limitUpload(bytesPerSecond: Int) = handle.set_upload_limit(bytesPerSecond)
-
-        override fun close() = session.stop()
     }
 }

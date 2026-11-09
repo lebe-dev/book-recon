@@ -256,6 +256,14 @@ class DownloadQueueImpl(
     }
 
     /**
+     * Starts queued downloads that fit a raised `Settings.maxConcurrent`. A lowered limit lets
+     * running downloads finish and starts nothing new until they drop below it.
+     */
+    suspend fun reschedule() {
+        mutex.withLock { scheduleLocked() }
+    }
+
+    /**
      * Stops running downloads and puts them back at the head of the queue. Torrents keep
      * their partial data and continue from it; books start over.
      */

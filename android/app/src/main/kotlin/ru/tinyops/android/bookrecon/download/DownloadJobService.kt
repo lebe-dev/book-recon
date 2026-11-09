@@ -51,6 +51,9 @@ class DownloadJobService : JobService() {
 
         work = scope.launch {
             val queue = module.queue
+            // A replaced job is stopped right before this one starts; its pause must not
+            // land after the start below, or the queue would sit paused with work in it.
+            module.awaitPause()
             queue.start()
             val updates = launch {
                 queue.observe().map(::summarize).distinctUntilChanged().conflate().collect { summary ->
@@ -82,8 +85,7 @@ class DownloadJobService : JobService() {
         Log.i(TAG, "Download job stopped by the system, reason ${params.stopReason}")
         work?.cancel()
         DownloadJobs.running = false
-        val module = appContainer.download
-        module.scope.launch { module.queue.pause() }
+        appContainer.download.pauseQueue()
         return true
     }
 

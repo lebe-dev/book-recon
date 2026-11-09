@@ -1,5 +1,6 @@
 package ru.tinyops.android.bookrecon.ui.nav
 
+import android.util.Log
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
@@ -14,10 +15,15 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -30,7 +36,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import kotlin.reflect.KClass
+import kotlinx.coroutines.flow.first
 import ru.tinyops.android.bookrecon.R
+import ru.tinyops.android.bookrecon.di.appContainer
 import ru.tinyops.android.bookrecon.ui.book.FlibustaBookScreen
 import ru.tinyops.android.bookrecon.ui.downloads.DownloadsScreen
 import ru.tinyops.android.bookrecon.ui.library.LibraryScreen
@@ -56,6 +64,7 @@ fun BookReconNavHost(navController: NavHostController = rememberNavController())
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
     val selected = TopLevelDestination.entries.firstOrNull { destination.isOn(it) }
+    OpenSettingsOnFirstRun(navController)
 
     Scaffold(
         bottomBar = {
@@ -142,6 +151,27 @@ fun BookReconNavHost(navController: NavHostController = rememberNavController())
         }
     }
 }
+
+/**
+ * Opens the settings tab once per launch while storage is not set up, so a fresh install
+ * starts where file access and root folders are granted instead of failing on first download.
+ */
+@Composable
+private fun OpenSettingsOnFirstRun(navController: NavHostController) {
+    val context = LocalContext.current
+    var checked by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (checked) return@LaunchedEffect
+        checked = true
+        val module = context.appContainer.settings
+        val settings = module.settingsRepository.settings.first()
+        if (!needsStorageSetup(module.fileStorage.hasAllFilesAccess(), settings)) return@LaunchedEffect
+        Log.i(TAG, "Storage is not set up, opening settings")
+        navController.navigateToTopLevel(SettingsRoute)
+    }
+}
+
+private const val TAG = "Navigation"
 
 private fun NavDestination?.isOn(item: TopLevelDestination): Boolean =
     this?.hierarchy?.any { it.hasRoute(item.routeClass) } == true

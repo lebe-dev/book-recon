@@ -3,8 +3,13 @@ package ru.tinyops.android.bookrecon.di
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import ru.tinyops.android.bookrecon.core.port.DownloadQueue
 import ru.tinyops.android.bookrecon.download.DownloadJobs
@@ -49,6 +54,7 @@ class DownloadModule(private val app: AppContainer) {
                 DownloadNotifications.ensureChannel(app.context)
                 queue.events.collect { DownloadNotifications.showResult(app.context, it) }
             }
+            scope.launch { applySettingChanges(queue) }
         }
     }
 
@@ -61,6 +67,38 @@ class DownloadModule(private val app: AppContainer) {
     fun onAppVisible() {
         scope.launch {
             if (queue.recover()) scheduleJob()
+        }
+    }
+
+    @Volatile
+    private var pausing: Job? = null
+
+    /** Pauses the queue in the background, for a job the system stopped. */
+    fun pauseQueue() {
+        pausing = scope.launch { queue.pause() }
+    }
+
+    /** Waits for a pause started by [pauseQueue], so a new job's start comes after it. */
+    suspend fun awaitPause() {
+        pausing?.join()
+    }
+
+    /**
+     * Settings that the queue and its job read only at certain moments take effect right
+     * away: a raised parallel limit starts waiting downloads, a changed "Wi-Fi only" setting
+     * replaces the job's network constraint.
+     */
+    private suspend fun applySettingChanges(queue: DownloadQueueImpl) {
+        val settings = app.settings.settingsRepository.settings
+        coroutineScope {
+            launch {
+                settings.map { it.maxConcurrent }.distinctUntilChanged().drop(1).collect { queue.reschedule() }
+            }
+            launch {
+                settings.map { it.wifiOnly }.distinctUntilChanged().drop(1).collect { wifiOnly ->
+                    DownloadJobs.updateNetwork(app.context, wifiOnly)
+                }
+            }
         }
     }
 

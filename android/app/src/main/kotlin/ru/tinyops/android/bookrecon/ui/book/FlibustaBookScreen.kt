@@ -333,11 +333,13 @@ private fun DownloadedMark(download: Download) {
 
 private fun Format.label(): String = extension.uppercase()
 
-// Previews of the main states, built from the same sample data as the fakes.
+// Previews of the main states, built from the same sample data as the fakes. Getters, not
+// stored values: a stored top-level value is built when the screen loads, which would pull
+// the fakes into the release build.
 
-private val previewBook: FlibustaBookDetails = FakeData.flibustaBooks.first()
+private val previewBook: FlibustaBookDetails get() = FakeData.flibustaBooks.first()
 
-private val previewDownloaded = Download(
+private val previewDownloaded get() = Download(
     id = "preview",
     kind = MediaKind.BOOK,
     source = Source.FLIBUSTA,

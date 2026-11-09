@@ -141,6 +141,34 @@ class DownloadQueueImplTest {
     }
 
     @Test
+    fun raisedLimitStartsWaitingDownloads() = runTest {
+        settings.update { it.copy(maxConcurrent = 1) }
+        val queue = queue(backgroundScope)
+        queue.start()
+        val a = queue.enqueue(book("11111"))
+        val b = queue.enqueue(book("22222"))
+        runCurrent()
+        assertEquals(DownloadStatus.QUEUED, status(b))
+
+        settings.update { it.copy(maxConcurrent = 2) }
+        queue.reschedule()
+        runCurrent()
+
+        assertEquals(DownloadStatus.DOWNLOADING, status(a))
+        assertEquals(DownloadStatus.DOWNLOADING, status(b))
+        assertNull(get(b).queuePosition)
+    }
+
+    @Test
+    fun rescheduleBeforeStartRunsNothing() = runTest {
+        val queue = queue(backgroundScope)
+        val a = queue.enqueue(book("11111"))
+        queue.reschedule()
+        advance(BOOK_SECONDS)
+        assertEquals(DownloadStatus.QUEUED, status(a))
+    }
+
+    @Test
     fun nothingRunsUntilStarted() = runTest {
         val queue = queue(backgroundScope)
         val a = queue.enqueue(book("11111"))

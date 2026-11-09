@@ -371,7 +371,9 @@ private fun CenteredText(text: String) {
 private const val PREVIEW_TOPIC_SIZE = 734_003_200L
 private const val PREVIEW_CHALLENGE_URL = "https://rutracker.org/forum/tracker.php"
 
-private val previewBooks: List<BookResult> = FakeData.flibustaBooks.take(3).mapIndexed { index, book ->
+// A getter, not a stored value: a stored top-level value is built when the screen loads,
+// which would pull the fakes into the release build.
+private val previewBooks: List<BookResult> get() = FakeData.flibustaBooks.take(3).mapIndexed { index, book ->
     BookResult(Source.FLIBUSTA, book.id, book.title, book.author, MediaKind.BOOK, book.formats, alreadyDownloaded = index == 0)
 }
 

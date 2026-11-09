@@ -116,7 +116,7 @@ fun BookReconNavHost(navController: NavHostController = rememberNavController())
                 )
             }
             composable<DownloadsRoute> {
-                DownloadsScreen()
+                DownloadsScreen(onOpenSettings = { navController.navigateToTopLevel(SettingsRoute) })
             }
             composable<LibraryRoute> {
                 LibraryScreen(onOpenSearch = { navController.navigateToTopLevel(SearchRoute) })

@@ -9,10 +9,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import ru.tinyops.android.bookrecon.core.fake.FakeData
 import ru.tinyops.android.bookrecon.core.flibusta.FlibustaSourceImpl
 import ru.tinyops.android.bookrecon.core.rutracker.RuTrackerClientImpl
 import ru.tinyops.android.bookrecon.net.OkHttpHttpClient
+import ru.tinyops.android.bookrecon.torrent.LibTorrentEngine
 
 @RunWith(RobolectricTestRunner::class)
 // Robolectric 4.17 fails to set up SDK 36+ on JDK 21 (ApplicationSharedMemory), so pin 35.
@@ -26,10 +26,7 @@ class AppContainerTest {
         assertTrue(app.settings.fileStorage.hasAllFilesAccess())
         assertTrue(app.flibusta.flibustaSource is FlibustaSourceImpl)
         assertTrue(app.ruTracker.ruTrackerClient is RuTrackerClientImpl)
-        assertEquals(
-            FakeData.torrentInfo(FakeData.AUDIO_TOPIC_CD),
-            app.torrent.torrentEngine.parse(FakeData.torrentBytes(FakeData.AUDIO_TOPIC_CD)),
-        )
+        assertTrue(app.torrent.torrentEngine is LibTorrentEngine)
         assertEquals(3, app.database.downloadRepository.observeLibrary().first().size)
         assertTrue(app.network.httpClient is OkHttpHttpClient)
         assertTrue(app.download.downloadQueue.observe().first().isEmpty())

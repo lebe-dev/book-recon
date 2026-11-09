@@ -70,6 +70,8 @@ junit4 = { module = "junit:junit", version.ref = "junit4" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-test-core" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+libtorrent4j-macos = { module = "org.libtorrent4j:libtorrent4j-macos", version.ref = "libtorrent4j" }
+libtorrent4j-linux = { module = "org.libtorrent4j:libtorrent4j-linux", version.ref = "libtorrent4j" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

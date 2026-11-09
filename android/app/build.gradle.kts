@@ -166,5 +166,8 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.okhttp.mockwebserver)
+    // Host native libraries so torrent engine tests run real libtorrent on the JVM.
+    testImplementation(libs.libtorrent4j.macos)
+    testImplementation(libs.libtorrent4j.linux)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

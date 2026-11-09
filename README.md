@@ -6,7 +6,7 @@ Book recon is a service to find books via Telegram Bot.
 
 ## Features
 
-- UI: Telegram bot
+- UI: Telegram bot and a standalone [Android app](#android-app)
 - Supported providers:
   - [Flibusta](http://flibusta.site)
   - RuTracker (via Jackett)
@@ -131,3 +131,75 @@ server {
 Links are not protected: they rely on a random 128-bit ID. Add basic auth or an IP allowlist in nginx if you need protection.
 
 Admins use `/audiobooks` to see the status and turn the feature on or off at runtime. `AUDIOBOOKS_ENABLED=false` always wins: it disables the feature entirely. All settings are documented in `.env.example`.
+
+## Android app
+
+The Android app does what the bot does, right on the phone and without a server: it searches
+and downloads books from Flibusta and e-books and audiobooks from RuTracker. It needs no
+Jackett or FlareSolverr. The UI is in Russian only.
+
+### Install
+
+1. Download `book-recon-<version>.apk` from the
+   [GitHub releases](https://github.com/lebe-dev/book-recon/releases) page. Android 14 or
+   newer is required.
+2. Open the file on the phone and allow installing apps from this source when Android asks.
+
+Flibusta and RuTracker are blocked in Russia: turn on a VPN on the phone before searching.
+The app has no built-in proxy.
+
+### First run
+
+Until the storage is set up, the app opens **Настройки** (Settings) at every start:
+
+1. **Доступ ко всем файлам** (all files access): tap the button, enable the permission in
+   the system settings and go back. Books and audiobooks are saved to ordinary folders where
+   readers and players see them, which needs this permission.
+2. **Папка книг** and **Папка аудиокниг**: pick the folders for books and audiobooks, in
+   the internal storage or on an SD card. Cloud folders and the system Downloads provider
+   are not supported.
+3. **RuTracker**: enter the login and password and tap **Проверить вход**. The password is
+   encrypted with a key from Android Keystore. If RuTracker asks for a captcha or Cloudflare
+   asks for a check, the app opens the page in a browser view: complete it there.
+
+Android asks for the notification permission when the first download starts: downloads run
+in the background and show their progress in a notification.
+
+While a download is running, its files live in a hidden `.book-recon` folder inside the
+chosen folder, and they are moved into place once the download finishes.
+
+### Update
+
+Install the new APK over the old one: settings, history and downloaded files are kept.
+Android accepts an update only when it is signed with the same key. A debug build is
+signed with a different key, so remove it before installing a release build.
+
+### Build
+
+Requirements: JDK 17+ and the Android SDK with `ANDROID_HOME` pointing to it.
+
+```bash
+just android-build    # debug APK in android/app/build/outputs/apk/debug
+just android-test     # unit tests
+just android-lint     # Android Lint
+just android-install  # install the debug APK with adb
+just android-release  # release APK in bin/book-recon-<VERSION>.apk
+```
+
+The app version comes from the root `VERSION` file, shared with the bot. The release APK
+is signed with the keystore set in `.env` (or in the environment):
+
+```
+ANDROID_KEYSTORE=/path/to/release.jks
+ANDROID_KEYSTORE_PASSWORD=...
+ANDROID_KEY_ALIAS=...
+ANDROID_KEY_PASSWORD=...
+```
+
+Without these variables `just android-release` builds an unsigned APK that cannot be
+installed. Keep the keystore outside the repository and back it up: without it an
+installed app cannot be updated, only removed and installed again.
+
+`just release` builds the signed APK and then builds and pushes the Docker image. It fails
+before pushing the image if signing is not configured. Attach
+`bin/book-recon-<VERSION>.apk` to the GitHub release.

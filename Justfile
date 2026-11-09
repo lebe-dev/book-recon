@@ -59,7 +59,9 @@ push-image:
 
 release-image: build-image push-image
 
-release: release-image
+# Builds the signed APK first, so missing signing fails before the image is pushed.
+# Attach bin/book-recon-<VERSION>.apk to the GitHub release.
+release: android-release-signed release-image
 
 # Pins IMAGE_TAG in the server .env, so a manual `docker compose up` keeps this version
 deploy:
@@ -109,3 +111,13 @@ android-release: android-check
     cp "$out/app-release-unsigned.apk" "bin/book-recon-{{ version }}.apk"
     echo "WARNING: release signing is not configured, bin/book-recon-{{ version }}.apk is UNSIGNED and cannot be installed." >&2
     echo "Set ANDROID_KEYSTORE, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD in the environment or .env." >&2
+
+# Release APK that must be signed: an unsigned APK cannot be installed or published
+[private]
+android-release-signed: android-release
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then exit 0; fi
+    rm -f "bin/book-recon-{{ version }}.apk"
+    echo "Release signing is not configured: set ANDROID_KEYSTORE, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD." >&2
+    exit 1

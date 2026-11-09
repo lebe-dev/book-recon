@@ -12,6 +12,7 @@ import org.robolectric.annotation.Config
 import ru.tinyops.android.bookrecon.core.flibusta.FlibustaSourceImpl
 import ru.tinyops.android.bookrecon.core.rutracker.RuTrackerClientImpl
 import ru.tinyops.android.bookrecon.net.OkHttpHttpClient
+import ru.tinyops.android.bookrecon.storage.db.RoomDownloadRepository
 import ru.tinyops.android.bookrecon.torrent.LibTorrentEngine
 
 @RunWith(RobolectricTestRunner::class)
@@ -27,7 +28,7 @@ class AppContainerTest {
         assertTrue(app.flibusta.flibustaSource is FlibustaSourceImpl)
         assertTrue(app.ruTracker.ruTrackerClient is RuTrackerClientImpl)
         assertTrue(app.torrent.torrentEngine is LibTorrentEngine)
-        assertEquals(3, app.database.downloadRepository.observeLibrary().first().size)
+        assertTrue(app.database.downloadRepository is RoomDownloadRepository)
         assertTrue(app.network.httpClient is OkHttpHttpClient)
         assertTrue(app.download.downloadQueue.observe().first().isEmpty())
     }

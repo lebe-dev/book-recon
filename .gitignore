@@ -13,3 +13,6 @@
 /go-rutracker
 
 .DS_Store
+
+# Agent task tracker for the Android client, local only
+/tasks/

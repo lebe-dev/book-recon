@@ -1,3 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="book_title">Книга</string>
+    <string name="book_back">Назад</string>
+    <string name="book_loading">Загружаем страницу книги…</string>
+    <string name="book_formats">Формат</string>
+    <string name="book_download">Скачать</string>
+    <string name="book_download_again">Скачать ещё раз</string>
+    <string name="book_downloaded">Уже скачано</string>
+    <string name="book_downloaded_format">Уже скачано в %1$s</string>
+    <string name="book_no_downloads">Книга недоступна для скачивания: на странице нет ссылок на файлы</string>
+
+    <string name="book_load_failed">Не удалось открыть книгу: %1$s</string>
+    <string name="book_load_cloudflare">Flibusta просит пройти проверку Cloudflare</string>
+    <string name="book_retry">Повторить</string>
+    <string name="book_pass_verification">Пройти проверку</string>
+
+    <string name="book_added">Добавлено в загрузки</string>
+    <string name="book_enqueue_failed">Не удалось добавить в загрузки: %1$s</string>
+    <string name="book_action_open">Открыть</string>
+    <string name="book_action_settings">Настройки</string>
+    <string name="book_action_retry">Повторить</string>
 </resources>

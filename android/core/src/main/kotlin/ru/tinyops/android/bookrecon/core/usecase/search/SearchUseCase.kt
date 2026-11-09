@@ -91,15 +91,15 @@ class SearchUseCase(
     }.take(SEARCH_LIMIT)
 
     private suspend fun markDownloaded(result: BookResult): BookResult {
-        val completed = try {
-            downloads.findCompleted(result.source, result.sourceId)
+        val downloaded = try {
+            downloads.findInLibrary(result.source, result.sourceId)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             // The mark is a hint; a failed lookup must not hide the result.
             null
         }
-        val onDisk = completed != null && !completed.fileMissing
+        val onDisk = downloaded != null && !downloaded.fileMissing
         return result.copy(alreadyDownloaded = onDisk)
     }
 

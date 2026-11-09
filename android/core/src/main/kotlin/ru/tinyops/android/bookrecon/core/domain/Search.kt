@@ -9,8 +9,8 @@ package ru.tinyops.android.bookrecon.core.domain
  * @property sourceId Flibusta book ID or RuTracker topic ID, as digits.
  * @property kind what the result contains; Flibusta results are always [MediaKind.BOOK].
  * @property size total torrent size in bytes, null for Flibusta.
- * @property alreadyDownloaded a completed download with the same [source] and [sourceId]
- *   exists and its files are still on disk.
+ * @property alreadyDownloaded a library download (completed or still seeding) with the same
+ *   [source] and [sourceId] exists and its files are still on disk.
  */
 data class BookResult(
     val source: Source,

@@ -23,8 +23,8 @@ import java.time.Instant
 /**
  * [DownloadRepository] on Room.
  *
- * [Download.fileMissing] is computed on every read of a COMPLETED download by checking its
- * paths through [storage], on [io]. An update that changes nothing but the progress is
+ * [Download.fileMissing] is computed on every read of a library download (COMPLETED or
+ * SEEDING) by checking its paths through [storage], on [io]. An update that changes nothing but the progress is
  * written at most once per [progressInterval] per download; any other change is written at
  * once, with the latest progress.
  */
@@ -55,8 +55,8 @@ class RoomDownloadRepository(
         return dao.listByStatus(statuses).map { it.toDomain() }
     }
 
-    override suspend fun findCompleted(source: Source, sourceId: String): Download? =
-        read { dao.findCompleted(source, sourceId) }
+    override suspend fun findInLibrary(source: Source, sourceId: String): Download? =
+        read { dao.findInLibrary(source, sourceId) }
 
     override suspend fun insert(download: Download) {
         val stored = download.copy(fileMissing = false)
@@ -94,7 +94,7 @@ class RoomDownloadRepository(
     }
 
     private fun withFileCheck(download: Download): Download {
-        if (download.status != DownloadStatus.COMPLETED || download.paths.isEmpty()) return download
+        if (!download.status.isInLibrary || download.paths.isEmpty()) return download
         return download.copy(fileMissing = download.paths.none { storage.exists(File(it)) })
     }
 

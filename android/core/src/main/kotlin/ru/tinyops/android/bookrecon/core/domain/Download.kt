@@ -69,7 +69,8 @@ sealed interface DownloadRequest {
 }
 
 /**
- * A download record: an entry of the queue while active and of the library once completed.
+ * A download record: an entry of the queue while active and of the library once its files
+ * are placed (completed or seeding; a seeding download is in both).
  *
  * @property id stable job ID; also names the staging folder `<root>/.book-recon/<id>/`.
  * @property sourceId Flibusta book ID or RuTracker topic ID.
@@ -81,8 +82,9 @@ sealed interface DownloadRequest {
  *   or every e-book file. Empty until the download completes.
  * @property size bytes on disk once completed, or the expected size before that.
  * @property seedUntil when seeding stops; set only while [status] is SEEDING.
- * @property fileMissing computed when read: the download is completed but none of [paths]
- *   exists on disk any more. Never stored.
+ * @property fileMissing computed when read: the download is in the library (COMPLETED or
+ *   SEEDING, see [DownloadStatus.isInLibrary]) but none of [paths] exists on disk any more.
+ *   Never stored.
  */
 data class Download(
     val id: String,

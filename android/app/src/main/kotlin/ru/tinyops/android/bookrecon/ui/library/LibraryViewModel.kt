@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.Download
+import ru.tinyops.android.bookrecon.core.domain.DownloadStatus
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.port.DownloadRepository
 import ru.tinyops.android.bookrecon.core.port.FileStorage
@@ -48,6 +49,9 @@ sealed interface LibraryMessage {
 
     /** Removing the record failed. */
     data class ForgetFailed(val error: AppError) : LibraryMessage
+
+    /** Stopping the seeding of an entry failed; it keeps seeding. */
+    data class StopSeedingFailed(val error: AppError) : LibraryMessage
 }
 
 /**
@@ -55,7 +59,8 @@ sealed interface LibraryMessage {
  *
  * @property loading the library has not answered yet.
  * @property loadError reading the library failed; [items] are empty then.
- * @property items completed downloads matching [query] and [filter], newest first.
+ * @property items library downloads (completed and seeding) matching [query] and [filter],
+ *   newest first.
  * @property deleteCandidate the entry whose deletion waits for confirmation.
  * @property busy IDs of entries with an action in flight; their buttons are disabled.
  * @property open a file the screen should open now.
@@ -81,15 +86,23 @@ data class LibraryUiState(
 }
 
 /**
- * Shows completed downloads with search and a type filter; opens, deletes and forgets them.
+ * Shows library downloads with search and a type filter; opens, deletes and forgets them.
  * Missing files are re-checked on every [onRefresh], which the screen calls when it comes
  * back to the foreground.
+ *
+ * A SEEDING entry is already in the library: its files are in place and can be opened.
+ * Deleting or forgetting it first calls [stopSeeding], so the torrent leaves the session
+ * before its files or its record go away; if that fails, nothing is deleted.
+ *
+ * @param stopSeeding the queue's stopSeeding: the torrent leaves the session and the
+ *   download becomes COMPLETED with its files kept.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryViewModel(
     private val repository: DownloadRepository,
     private val storage: FileStorage,
     private val savedState: SavedStateHandle,
+    private val stopSeeding: suspend (String) -> Unit,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(
@@ -180,13 +193,27 @@ class LibraryViewModel(
         val download = mutableState.value.deleteCandidate ?: return
         onDeleteDismiss()
         run(download.id, LibraryMessage::DeleteFailed) {
+            stopSeedingOf(download)
             deleteFiles(download)
             repository.delete(download.id)
         }
     }
 
     /** Removes the entry from the history and leaves its files on disk. */
-    fun onForget(id: String) = run(id, LibraryMessage::ForgetFailed) { repository.delete(it) }
+    fun onForget(id: String) {
+        val download = find(id) ?: return
+        run(id, LibraryMessage::ForgetFailed) {
+            stopSeedingOf(download)
+            repository.delete(it)
+        }
+    }
+
+    /** Stops seeding; the entry stays in the library as completed, with its files. */
+    fun onStopSeeding(id: String) {
+        val download = find(id) ?: return
+        if (download.status != DownloadStatus.SEEDING) return
+        run(id, LibraryMessage::StopSeedingFailed) { stopSeedingOf(download) }
+    }
 
     fun onMessageShown() {
         mutableState.update { it.copy(message = null) }
@@ -202,6 +229,12 @@ class LibraryViewModel(
             )
         }
         if (mutableState.value.deleteCandidate == null) deleteId = null
+    }
+
+    /** Takes a SEEDING download out of the torrent session; a completed one needs nothing. */
+    private suspend fun stopSeedingOf(download: Download) {
+        if (download.status != DownloadStatus.SEEDING) return
+        stopSeeding(download.id)
     }
 
     /**

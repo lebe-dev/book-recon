@@ -52,4 +52,11 @@ enum class DownloadStatus {
     /** True while the download occupies the queue screen. */
     val isActive: Boolean
         get() = this == QUEUED || this == DOWNLOADING || this == SEEDING
+
+    /**
+     * True when the files are already placed into the roots: COMPLETED, or SEEDING, which
+     * keeps the placed files in the torrent session for a while.
+     */
+    val isInLibrary: Boolean
+        get() = this == COMPLETED || this == SEEDING
 }

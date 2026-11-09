@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.MoreVert
@@ -45,6 +46,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -106,6 +108,7 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
                     repository = app.database.downloadRepository,
                     storage = app.settings.fileStorage,
                     savedState = createSavedStateHandle(),
+                    stopSeeding = app.download.downloadQueue::stopSeeding,
                 )
             }
         }
@@ -139,6 +142,7 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
             onDeleteConfirm = viewModel::onDeleteConfirm,
             onDeleteDismiss = viewModel::onDeleteDismiss,
             onForget = viewModel::onForget,
+            onStopSeeding = viewModel::onStopSeeding,
             onOpenSearch = onOpenSearch,
         ),
     )
@@ -176,6 +180,7 @@ class LibraryActions(
     val onDeleteConfirm: () -> Unit = {},
     val onDeleteDismiss: () -> Unit = {},
     val onForget: (String) -> Unit = {},
+    val onStopSeeding: (String) -> Unit = {},
     val onOpenSearch: () -> Unit = {},
 )
 
@@ -190,6 +195,8 @@ private fun MessageSnackbar(message: LibraryMessage?, hostState: SnackbarHostSta
             stringResource(R.string.library_message_delete_failed, stringResource(message.error.downloadMessage()))
         is LibraryMessage.ForgetFailed ->
             stringResource(R.string.library_message_forget_failed, stringResource(message.error.downloadMessage()))
+        is LibraryMessage.StopSeedingFailed ->
+            stringResource(R.string.library_message_stop_seeding_failed, stringResource(message.error.downloadMessage()))
     }
     val currentOnShown by rememberUpdatedState(onShown)
     LaunchedEffect(message) {
@@ -339,6 +346,7 @@ private fun LibraryItem(download: Download, busy: Boolean, actions: LibraryActio
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (download.status == DownloadStatus.SEEDING) SeedingBadge()
                     if (download.fileMissing) {
                         Text(
                             stringResource(R.string.library_file_missing),
@@ -364,6 +372,26 @@ private fun LibraryItem(download: Download, busy: Boolean, actions: LibraryActio
     }
 }
 
+/** Marks an entry whose files are still shared in the torrent session. */
+@Composable
+private fun SeedingBadge() {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.padding(top = 2.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Filled.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+            Text(stringResource(R.string.library_seeding), style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
 @Composable
 private fun MoreMenu(download: Download, busy: Boolean, actions: LibraryActions) {
     var expanded by rememberSaveable(download.id) { mutableStateOf(false) }
@@ -372,6 +400,15 @@ private fun MoreMenu(download: Download, busy: Boolean, actions: LibraryActions)
             Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.library_more))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            if (download.status == DownloadStatus.SEEDING) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.library_stop_seeding)) },
+                    onClick = {
+                        expanded = false
+                        actions.onStopSeeding(download.id)
+                    },
+                )
+            }
             if (!download.fileMissing) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_delete)) },
@@ -414,7 +451,11 @@ private fun DeleteDialog(download: Download, actions: LibraryActions) {
     AlertDialog(
         onDismissRequest = actions.onDeleteDismiss,
         title = { Text(stringResource(R.string.library_delete_title)) },
-        text = { Text(stringResource(text, download.displayTitle())) },
+        text = {
+            val message = stringResource(text, download.displayTitle())
+            val seeding = download.status == DownloadStatus.SEEDING
+            Text(if (seeding) "$message ${stringResource(R.string.library_delete_stops_seeding)}" else message)
+        },
         confirmButton = {
             TextButton(onClick = actions.onDeleteConfirm) {
                 Text(stringResource(R.string.library_delete_confirm), color = MaterialTheme.colorScheme.error)
@@ -469,12 +510,13 @@ private val previewItems = listOf(
         title = "Стругацкие - Пикник на обочине [Читает Кузнецов, 2020, MP3]",
         author = "",
         targetName = "Стругацкие - Пикник на обочине",
-        status = DownloadStatus.COMPLETED,
+        status = DownloadStatus.SEEDING,
         files = listOf(TorrentFile(0, "Пикник/01.mp3", 40_000_000), TorrentFile(1, "Пикник/02.mp3", 40_000_000)),
         paths = listOf("/storage/emulated/0/Audiobooks/Стругацкие - Пикник на обочине"),
         size = 432_000_000,
         createdAt = previewNow.minusSeconds(86_400),
         completedAt = previewNow.minusSeconds(86_000),
+        seedUntil = previewNow.plusSeconds(3_600),
     ),
     Download(
         id = "b2",

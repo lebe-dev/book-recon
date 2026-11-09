@@ -58,7 +58,7 @@ sealed interface BookMessage {
  *
  * @property selectedFormat the format to download; null while loading or when the book offers
  *   no downloads.
- * @property downloaded the newest completed download of this book whose file is still on disk.
+ * @property downloaded the newest library download of this book whose file is still on disk.
  * @property enqueuing a download request is being sent to the queue.
  * @property pendingVerification a Cloudflare check to open now; the screen acknowledges it with
  *   [FlibustaBookViewModel.onVerificationOpened].
@@ -175,7 +175,7 @@ class FlibustaBookViewModel(
 
     /** A failed lookup only hides the mark; it never blocks the download. */
     private suspend fun findDownloaded(): Download? = try {
-        downloads.findCompleted(Source.FLIBUSTA, bookId)?.takeUnless { it.fileMissing }
+        downloads.findInLibrary(Source.FLIBUSTA, bookId)?.takeUnless { it.fileMissing }
     } catch (e: CancellationException) {
         throw e
     } catch (_: Exception) {

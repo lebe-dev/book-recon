@@ -12,6 +12,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.BookResult
+import ru.tinyops.android.bookrecon.core.domain.DownloadStatus
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Settings
 import ru.tinyops.android.bookrecon.core.domain.Source
@@ -195,6 +196,33 @@ class SearchUseCaseTest {
 
         val audio = useCase.search("Пикник", MediaKind.AUDIO).toList().last()
         assertEquals(listOf(FakeData.AUDIO_TOPIC_FLAT to true), audio.results.map { it.sourceId to it.alreadyDownloaded })
+    }
+
+    @Test
+    fun `seeding downloads with files on disk are marked too`() = runTest {
+        val library = FakeData.library(Instant.EPOCH)
+        val seeding = library.map {
+            if (it.source != Source.RUTRACKER) return@map it
+            it.copy(status = DownloadStatus.SEEDING, seedUntil = Instant.EPOCH.plusSeconds(3600))
+        }
+        val repository = FakeDownloadRepository(seeding, FakeData::sampleFileExists)
+        val useCase = SearchUseCase(flibusta, ruTracker, settings, repository)
+
+        val audio = useCase.search("Пикник", MediaKind.AUDIO).toList().last()
+        assertEquals(listOf(FakeData.AUDIO_TOPIC_FLAT to true), audio.results.map { it.sourceId to it.alreadyDownloaded })
+    }
+
+    @Test
+    fun `seeding download with missing files is not marked`() = runTest {
+        val sample = FakeData.library(Instant.EPOCH).first { it.source == Source.RUTRACKER }
+        val repository = FakeDownloadRepository(
+            listOf(sample.copy(status = DownloadStatus.SEEDING, paths = listOf(FakeData.MISSING_SAMPLE_PATH))),
+            FakeData::sampleFileExists,
+        )
+        val useCase = SearchUseCase(flibusta, ruTracker, settings, repository)
+
+        val audio = useCase.search("Пикник", MediaKind.AUDIO).toList().last()
+        assertEquals(listOf(false), audio.results.map { it.alreadyDownloaded })
     }
 
     @ParameterizedTest

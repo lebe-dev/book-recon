@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" />
+    <!-- Persisted jobs: downloads and seeding continue after a reboot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Books and audiobooks go to user-chosen folders that readers and players must see. -->
     <uses-permission
         android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
@@ -36,6 +38,14 @@
             android:name=".download.DownloadJobService"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <receiver
+            android:name=".download.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

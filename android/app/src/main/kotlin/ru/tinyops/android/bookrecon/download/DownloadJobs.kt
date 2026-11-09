@@ -6,7 +6,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 
-/** Schedules the single user-initiated data transfer job that runs the download queue. */
+/**
+ * Schedules the single user-initiated data transfer job that runs the download queue. The job
+ * is persisted: a reboot in the middle of a download does not lose it, and the system starts
+ * it again once the network is up, with no need to open the app.
+ */
 object DownloadJobs {
     const val JOB_ID = 1001
     private const val TAG = "DownloadJobs"
@@ -23,11 +27,13 @@ object DownloadJobs {
      * the app is on screen; returns false when the system refused.
      */
     fun schedule(context: Context, wifiOnly: Boolean): Boolean {
-        if (running) return true
-        val scheduler = context.getSystemService(JobScheduler::class.java)
-        if (scheduler.getPendingJob(JOB_ID) != null) return true
-        return scheduleJob(context, scheduler, wifiOnly)
+        if (isPending(context)) return true
+        return scheduleJob(context, context.getSystemService(JobScheduler::class.java), wifiOnly)
     }
+
+    /** True when the job runs or waits for its network, for example after a reboot. */
+    fun isPending(context: Context): Boolean =
+        running || context.getSystemService(JobScheduler::class.java).getPendingJob(JOB_ID) != null
 
     /**
      * Applies a changed "Wi-Fi only" setting to the job that is already scheduled or running:
@@ -36,10 +42,9 @@ object DownloadJobs {
      * new job may run. Nothing happens when there is no job.
      */
     fun updateNetwork(context: Context, wifiOnly: Boolean) {
-        val scheduler = context.getSystemService(JobScheduler::class.java)
-        if (!running && scheduler.getPendingJob(JOB_ID) == null) return
+        if (!isPending(context)) return
         Log.i(TAG, "The Wi-Fi only setting changed, rescheduling the download job")
-        scheduleJob(context, scheduler, wifiOnly)
+        scheduleJob(context, context.getSystemService(JobScheduler::class.java), wifiOnly)
     }
 
     private fun scheduleJob(context: Context, scheduler: JobScheduler, wifiOnly: Boolean): Boolean {
@@ -47,6 +52,7 @@ object DownloadJobs {
         val job = JobInfo.Builder(JOB_ID, ComponentName(context, DownloadJobService::class.java))
             .setUserInitiated(true)
             .setRequiredNetworkType(networkType)
+            .setPersisted(true)
             .build()
         val scheduled = try {
             scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS

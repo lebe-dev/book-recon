@@ -26,6 +26,23 @@ object DownloadJobs {
         if (running) return true
         val scheduler = context.getSystemService(JobScheduler::class.java)
         if (scheduler.getPendingJob(JOB_ID) != null) return true
+        return scheduleJob(context, scheduler, wifiOnly)
+    }
+
+    /**
+     * Applies a changed "Wi-Fi only" setting to the job that is already scheduled or running:
+     * the job is replaced by one with the new network constraint. A running job is stopped by
+     * the system first, which puts its downloads back in the queue; they continue once the
+     * new job may run. Nothing happens when there is no job.
+     */
+    fun updateNetwork(context: Context, wifiOnly: Boolean) {
+        val scheduler = context.getSystemService(JobScheduler::class.java)
+        if (!running && scheduler.getPendingJob(JOB_ID) == null) return
+        Log.i(TAG, "The Wi-Fi only setting changed, rescheduling the download job")
+        scheduleJob(context, scheduler, wifiOnly)
+    }
+
+    private fun scheduleJob(context: Context, scheduler: JobScheduler, wifiOnly: Boolean): Boolean {
         val networkType = if (wifiOnly) JobInfo.NETWORK_TYPE_UNMETERED else JobInfo.NETWORK_TYPE_ANY
         val job = JobInfo.Builder(JOB_ID, ComponentName(context, DownloadJobService::class.java))
             .setUserInitiated(true)

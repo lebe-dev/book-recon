@@ -70,7 +70,10 @@ android {
             }
         }
         release {
-            isMinifyEnabled = false
+            // Shrinking drops code nothing reaches, the fakes used by previews among it.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             ndk {
                 abiFilters += listOf("arm64-v8a", "armeabi-v7a")
             }

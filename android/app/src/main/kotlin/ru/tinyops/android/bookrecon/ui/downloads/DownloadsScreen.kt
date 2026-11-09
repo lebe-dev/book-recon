@@ -59,6 +59,7 @@ import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.di.appContainer
 import ru.tinyops.android.bookrecon.download.downloadMessage
+import ru.tinyops.android.bookrecon.ui.common.displayTitle
 import ru.tinyops.android.bookrecon.ui.search.formatSize
 import ru.tinyops.android.bookrecon.ui.search.label
 import java.time.Instant
@@ -380,13 +381,6 @@ private fun CancelDialog(download: Download, actions: DownloadsActions) {
             }
         },
     )
-}
-
-/** The audiobook folder name or the book title, prefixed with the author when known. */
-private fun Download.displayTitle(): String {
-    val name = targetName?.takeIf { kind == MediaKind.AUDIO && it.isNotBlank() } ?: title
-    if (author.isBlank()) return name
-    return "$author — $name"
 }
 
 @StringRes

@@ -70,3 +70,42 @@ port-forward-jackett:
 
 ssh:
     ssh kaiman
+
+# --- Android ---
+# Recipes run the Gradle wrapper in android/ and need JDK 17+ and the Android SDK.
+
+[private]
+android-check:
+    @if [ -z "${ANDROID_HOME:-}" ]; then echo "ANDROID_HOME is not set: install the Android SDK and export ANDROID_HOME=/path/to/sdk" >&2; exit 1; fi
+    @if [ ! -d "${ANDROID_HOME}" ]; then echo "ANDROID_HOME points to a missing directory: ${ANDROID_HOME}" >&2; exit 1; fi
+
+# Debug APK in android/app/build/outputs/apk/debug
+android-build: android-check
+    cd android && ./gradlew :app:assembleDebug
+
+# Tests of :core and unit tests of :app
+android-test: android-check
+    cd android && ./gradlew :core:test :app:testDebugUnitTest
+
+android-lint: android-check
+    cd android && ./gradlew :app:lintDebug
+
+android-install: android-build
+    adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+
+# Release APK in bin/book-recon-<VERSION>.apk, signed when ANDROID_* signing variables are set
+android-release: android-check
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out=android/app/build/outputs/apk/release
+    rm -rf "$out"
+    (cd android && ./gradlew :app:assembleRelease)
+    mkdir -p bin
+    if [ -f "$out/app-release.apk" ]; then
+        cp "$out/app-release.apk" "bin/book-recon-{{ version }}.apk"
+        echo "Signed APK: bin/book-recon-{{ version }}.apk"
+        exit 0
+    fi
+    cp "$out/app-release-unsigned.apk" "bin/book-recon-{{ version }}.apk"
+    echo "WARNING: release signing is not configured, bin/book-recon-{{ version }}.apk is UNSIGNED and cannot be installed." >&2
+    echo "Set ANDROID_KEYSTORE, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD in the environment or .env." >&2

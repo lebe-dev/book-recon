@@ -13,3 +13,15 @@
 /go-rutracker
 
 .DS_Store
+
+# Agent task tracker for the Android client, local only
+/tasks/
+
+# Android
+android/.gradle/
+android/.kotlin/
+android/build/
+android/**/build/
+local.properties
+*.keystore
+*.jks

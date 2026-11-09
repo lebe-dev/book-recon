@@ -17,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.libtorrent4j.AlertListener
 import org.libtorrent4j.MoveFlags
 import org.libtorrent4j.Priority
@@ -29,6 +30,8 @@ import org.libtorrent4j.TorrentHandle
 import org.libtorrent4j.Vectors
 import org.libtorrent4j.alerts.Alert
 import org.libtorrent4j.alerts.AlertType
+import org.libtorrent4j.alerts.FileRenameFailedAlert
+import org.libtorrent4j.alerts.FileRenamedAlert
 import org.libtorrent4j.alerts.StorageMovedAlert
 import org.libtorrent4j.alerts.StorageMovedFailedAlert
 import org.libtorrent4j.swig.add_torrent_params
@@ -98,14 +101,27 @@ class LibTorrentEngine(
 
     private val moves = ConcurrentHashMap<String, CompletableDeferred<String?>>()
 
+    // Keyed by "<infoHash>:<file index>".
+    private val renames = ConcurrentHashMap<String, CompletableDeferred<String?>>()
+
     private val moveListener = object : AlertListener {
-        override fun types(): IntArray = intArrayOf(AlertType.STORAGE_MOVED.swig(), AlertType.STORAGE_MOVED_FAILED.swig())
+        override fun types(): IntArray = intArrayOf(
+            AlertType.STORAGE_MOVED.swig(),
+            AlertType.STORAGE_MOVED_FAILED.swig(),
+            AlertType.FILE_RENAMED.swig(),
+            AlertType.FILE_RENAME_FAILED.swig(),
+        )
 
         override fun alert(alert: Alert<*>) {
             when (alert) {
                 is StorageMovedAlert -> moves.remove(alert.handle().infoHash().toHex())?.complete(null)
                 is StorageMovedFailedAlert ->
                     moves.remove(alert.handle().infoHash().toHex())?.complete(alert.error().message ?: "unknown error")
+                is FileRenamedAlert ->
+                    renames.remove(renameKey(alert.handle().infoHash().toHex(), alert.index()))?.complete(null)
+                is FileRenameFailedAlert ->
+                    renames.remove(renameKey(alert.handle().infoHash().toHex(), alert.getIndex()))
+                        ?.complete(alert.getError().message ?: "unknown error")
             }
         }
     }
@@ -115,6 +131,10 @@ class LibTorrentEngine(
 
     internal val isSessionRunning: Boolean
         get() = runBlocking { lock.withLock { session != null } }
+
+    /** Port the running session listens on; for tests. */
+    internal val listenPort: Int
+        get() = runBlocking { lock.withLock { session?.swig()?.listen_port() ?: 0 } }
 
     override fun parse(bytes: ByteArray): TorrentInfo = TorrentParser.parse(bytes)
 
@@ -218,6 +238,51 @@ class LibTorrentEngine(
             throw AppError.StorageFailed("cannot move torrent data: $error")
         }
         logger.info("Torrent data moved: job $jobId")
+    }
+
+    override suspend fun moveFiles(jobId: String, targets: Map<Int, File>) = withContext(Dispatchers.IO) {
+        val job = store.load(jobId) ?: throw AppError.NotFound("no saved torrent for job $jobId")
+        val unknown = targets.keys - job.indexes
+        if (unknown.isNotEmpty()) throw AppError.Validation("files $unknown are not selected in job $jobId")
+        if (targets.isEmpty()) return@withContext
+        val absolute = targets.mapValues { it.value.absoluteFile }
+        absolute.values.forEach { target ->
+            if (target.exists()) throw AppError.StorageFailed("a file already exists at the target")
+            val parent = target.parentFile
+            if (parent != null && !parent.isDirectory && !parent.mkdirs()) {
+                throw AppError.StorageFailed("cannot create the target folder")
+            }
+        }
+        val pending = absolute.mapValues { CompletableDeferred<String?>() }
+        val current = lock.withLock {
+            val current = active[jobId] ?: attach(jobId, Mode.MOVING)
+            pending.forEach { (index, done) -> renames[renameKey(current.infoHash, index)] = done }
+            // An absolute name puts the file outside the save path; libtorrent renames it on
+            // disk and keeps the new path in resume data.
+            absolute.forEach { (index, target) -> current.handle.renameFile(index, target.path) }
+            current
+        }
+        val errors = try {
+            withTimeoutOrNull(RENAME_TIMEOUT) { pending.values.forEach { it.await() } }
+            pending.mapNotNull { (index, done) ->
+                if (!done.isCompleted) return@mapNotNull "file $index: no answer from libtorrent"
+                done.await()?.let { "file $index: $it" }
+            }
+        } finally {
+            pending.forEach { (index, done) -> renames.remove(renameKey(current.infoHash, index), done) }
+            withContext(NonCancellable) {
+                lock.withLock {
+                    if (active[jobId] !== current) return@withLock
+                    saveResume(jobId, current)
+                    if (current.mode == Mode.MOVING) removeFromSession(jobId, current, deletePartFile = false)
+                }
+            }
+        }
+        if (errors.isNotEmpty()) {
+            logger.warn("Torrent files move failed: job $jobId, ${errors.joinToString()}")
+            throw AppError.StorageFailed("cannot move torrent files: ${errors.first()}")
+        }
+        logger.info("Torrent files moved: job $jobId, ${absolute.size} files")
     }
 
     /** Removes every torrent from the session and stops it; for tests and shutdown. */
@@ -333,6 +398,8 @@ class LibTorrentEngine(
         return add(job, info, store.loadResume(jobId), mode)
     }
 
+    private fun renameKey(infoHash: String, index: Int): String = "$infoHash:$index"
+
     private fun ensureNotBusy(jobId: String, infoHash: String) {
         if (jobId in active || active.values.any { it.infoHash == infoHash }) throw AppError.AlreadyDownloading()
     }
@@ -354,7 +421,10 @@ class LibTorrentEngine(
         params.set_ti(native.swig())
         if (params.save_path.isNullOrEmpty()) params.setSave_path(job.stagingDir.absolutePath)
         params.set_file_priorities(priorities(native, job.indexes))
-        params.set_renamed_files(renames(native, info, job.indexes))
+        // Files moved by moveFiles keep their places from resume data.
+        val renamed = renames(native, info, job.indexes)
+        params.get_renamed_files().forEach { (index, path) -> renamed[index] = path }
+        params.set_renamed_files(renamed)
         params.setFlags(flagsFor(mode))
         if (config.peers.isNotEmpty()) {
             val peers = tcp_endpoint_vector()
@@ -464,5 +534,9 @@ class LibTorrentEngine(
         manager.removeListener(moveListener)
         manager.stop()
         logger.info("Torrent session stopped")
+    }
+
+    private companion object {
+        val RENAME_TIMEOUT = 2.minutes
     }
 }

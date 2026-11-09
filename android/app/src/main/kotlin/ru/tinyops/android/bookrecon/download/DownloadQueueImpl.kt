@@ -32,9 +32,7 @@ import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Settings
 import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.core.domain.TorrentFile
-import ru.tinyops.android.bookrecon.core.naming.audioTargetDir
 import ru.tinyops.android.bookrecon.core.naming.bookTargetName
-import ru.tinyops.android.bookrecon.core.naming.mapTorrentPath
 import ru.tinyops.android.bookrecon.core.naming.splitExtension
 import ru.tinyops.android.bookrecon.core.port.Clock
 import ru.tinyops.android.bookrecon.core.port.DownloadQueue
@@ -408,46 +406,27 @@ class DownloadQueueImpl(
         if (settings.settings.first().seedHours > 0) {
             seeding.takeOver(download, staging)?.let { return it }
         }
-        val paths = when (download.kind) {
-            MediaKind.AUDIO -> placeAudio(download, staging)
-            MediaKind.BOOK -> placeTorrentBooks(download, staging)
-        }
+        val layout = planTorrentLayout(download, storage)
+        placeTorrent(layout, staging)
         runCatching { torrents.cancel(download.id) }
         storage.delete(staging)
         deleteTorrent(download.id)
-        return completed(download, paths, download.files.sumOf { it.size })
+        return completed(download, layout.paths, download.files.sumOf { it.size })
     }
 
-    private suspend fun placeAudio(download: Download, staging: File): List<String> {
-        val root = storage.root(MediaKind.AUDIO)
-        val folder = download.targetName?.takeIf { it.isNotBlank() } ?: download.title
-        val target = File(audioTargetDir(root.path, folder) { storage.exists(File(it)) })
-        try {
-            download.files.forEach { file ->
-                storage.move(stagedFile(staging, file), File(target, mapTorrentPath(file.path, MediaKind.AUDIO)))
-            }
-        } catch (e: Throwable) {
-            storage.delete(target)
-            throw e
-        }
-        return listOf(target.path)
-    }
-
-    private suspend fun placeTorrentBooks(download: Download, staging: File): List<String> {
-        val root = storage.root(MediaKind.BOOK)
+    /** Moves the files by [layout]; on failure whatever was placed is removed again. */
+    private suspend fun placeTorrent(layout: TorrentLayout, staging: File) {
         val placed = mutableListOf<File>()
         try {
-            download.files.forEach { file ->
-                val (stem, extension) = splitExtension(mapTorrentPath(file.path, MediaKind.BOOK))
-                val target = File(root, bookTargetName(stem, download.author, extension) { storage.exists(File(root, it)) })
+            layout.targets.forEach { (file, target) ->
                 storage.move(stagedFile(staging, file), target)
                 placed += target
             }
         } catch (e: Throwable) {
             placed.forEach { storage.delete(it) }
+            layout.folder?.let { storage.delete(it) }
             throw e
         }
-        return placed.map { it.path }
     }
 
     private fun stagedFile(staging: File, file: TorrentFile): File {

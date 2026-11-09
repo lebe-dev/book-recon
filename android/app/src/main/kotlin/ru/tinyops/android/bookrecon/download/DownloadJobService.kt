@@ -20,10 +20,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import ru.tinyops.android.bookrecon.di.appContainer
+import ru.tinyops.android.bookrecon.download.seeding.SeedingJobRunner
+import ru.tinyops.android.bookrecon.download.seeding.SeedingJobs
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Runs the download queue as a user-initiated data transfer job. The job starts the queue,
+ * Runs the download queue as a user-initiated data transfer job, and the seeding job
+ * ([SeedingJobs.JOB_ID]) under the same service. The job starts the queue,
  * keeps the progress notification up to date and finishes once nothing is queued or
  * downloading. When the system stops it (network lost, user stop), running downloads go back
  * to the queue and the job asks to be rescheduled.
@@ -32,8 +35,13 @@ class DownloadJobService : JobService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var work: Job? = null
     private var cancelReceiver: BroadcastReceiver? = null
+    private val seeding by lazy { SeedingJobRunner(appContainer.download.seeding, appContainer.download.scope) }
 
     override fun onStartJob(params: JobParameters): Boolean {
+        if (params.jobId == SeedingJobs.JOB_ID) {
+            seeding.start { jobFinished(params, false) }
+            return true
+        }
         val module = appContainer.download
         DownloadJobs.running = true
         DownloadNotifications.ensureChannel(this)
@@ -67,6 +75,10 @@ class DownloadJobService : JobService() {
     }
 
     override fun onStopJob(params: JobParameters): Boolean {
+        if (params.jobId == SeedingJobs.JOB_ID) {
+            Log.i(TAG, "Seeding job stopped by the system, reason ${params.stopReason}")
+            return seeding.stop()
+        }
         Log.i(TAG, "Download job stopped by the system, reason ${params.stopReason}")
         work?.cancel()
         DownloadJobs.running = false

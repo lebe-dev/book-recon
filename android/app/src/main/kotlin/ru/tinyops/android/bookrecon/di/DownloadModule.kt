@@ -10,15 +10,27 @@ import ru.tinyops.android.bookrecon.core.port.DownloadQueue
 import ru.tinyops.android.bookrecon.download.DownloadJobs
 import ru.tinyops.android.bookrecon.download.DownloadNotifications
 import ru.tinyops.android.bookrecon.download.DownloadQueueImpl
-import ru.tinyops.android.bookrecon.download.SeedingHandoff
+import ru.tinyops.android.bookrecon.download.seeding.SeedingJobs
+import ru.tinyops.android.bookrecon.download.seeding.SeedingManager
 import java.io.File
 
 class DownloadModule(private val app: AppContainer) {
     /** Lives as long as the process; downloads must outlive any screen. */
     val scope: CoroutineScope by lazy { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
 
-    /** Torrents stay with their partial data until seeding takes them over. */
-    val seeding: SeedingHandoff by lazy { SeedingHandoff.None }
+    /** Seeding after download; its job runs on Wi-Fi and charger only. */
+    val seeding: SeedingManager by lazy {
+        SeedingManager(
+            repository = app.database.downloadRepository,
+            settings = app.settings.settingsRepository,
+            storage = app.settings.fileStorage,
+            torrents = app.torrent.torrentEngine,
+            scope = scope,
+            stopSeeding = { queue.stopSeeding(it) },
+            onSeeding = { SeedingJobs.schedule(app.context) },
+            log = { Log.i(SEEDING_TAG, it) },
+        )
+    }
 
     val queue: DownloadQueueImpl by lazy {
         DownloadQueueImpl(
@@ -61,5 +73,6 @@ class DownloadModule(private val app: AppContainer) {
 
     private companion object {
         const val TAG = "DownloadQueue"
+        const val SEEDING_TAG = "Seeding"
     }
 }

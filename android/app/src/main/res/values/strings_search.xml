@@ -3,6 +3,7 @@
     <string name="search_field_label">Название или автор</string>
     <string name="search_action">Найти</string>
     <string name="search_clear">Очистить</string>
+    <string name="search_history_remove">Удалить из истории</string>
     <string name="search_query_too_short">Введите хотя бы 2 символа</string>
     <string name="search_kind_books">Книги</string>
     <string name="search_kind_audio">Аудиокниги</string>

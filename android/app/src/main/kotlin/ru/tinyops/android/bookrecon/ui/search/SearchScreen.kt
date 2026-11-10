@@ -1,5 +1,14 @@
 package ru.tinyops.android.bookrecon.ui.search
 
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -81,8 +90,8 @@ fun SearchScreen(
 ) {
     val context = LocalContext.current
     val factory = remember(context) {
-        val searchUseCase = context.appContainer.search.searchUseCase
-        viewModelFactory { initializer { SearchViewModel(searchUseCase, createSavedStateHandle()) } }
+        val search = context.appContainer.search
+        viewModelFactory { initializer { SearchViewModel(search.searchUseCase, search.searchHistory, createSavedStateHandle()) } }
     }
     val viewModel: SearchViewModel = viewModel(factory = factory)
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -103,6 +112,8 @@ fun SearchScreen(
         onQueryChange = viewModel::onQueryChange,
         onKindChange = viewModel::onKindChange,
         onSearch = viewModel::onSearch,
+        onHistorySelect = viewModel::onHistorySelect,
+        onHistoryRemove = viewModel::onHistoryRemove,
         onRetry = viewModel::onRetry,
         onOpenResult = { result ->
             when (result.source) {
@@ -132,20 +143,37 @@ fun SearchContent(
     onOpenVerification: (VerificationRequest) -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    onHistorySelect: (String) -> Unit = {},
+    onHistoryRemove: (String) -> Unit = {},
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    var fieldFocused by remember { mutableStateOf(false) }
     val submit = {
         keyboard?.hide()
+        focusManager.clearFocus()
         onSearch()
     }
     val search = state.search
+    val history = if (fieldFocused) historyFor(state.history, state.query) else emptyList()
 
     Column(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp, bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SearchField(state.query, state.queryTooShort, onQueryChange, submit)
+            SearchField(state.query, state.queryTooShort, onQueryChange, submit, onFocusChange = { fieldFocused = it })
+            if (history.isNotEmpty()) {
+                SearchHistoryList(
+                    history,
+                    onSelect = { query ->
+                        keyboard?.hide()
+                        focusManager.clearFocus()
+                        onHistorySelect(query)
+                    },
+                    onRemove = onHistoryRemove,
+                )
+            }
             KindSelector(state.kind, onKindChange)
         }
 
@@ -180,12 +208,50 @@ fun SearchContent(
     }
 }
 
+/** History entries shown under the focused field: all of them, or those containing the typed text. */
+internal fun historyFor(history: List<String>, query: String): List<String> {
+    val typed = query.trim()
+    if (typed.isEmpty()) return history
+    return history.filter { it.contains(typed, ignoreCase = true) && !it.equals(typed, ignoreCase = true) }
+}
+
 @Composable
-private fun SearchField(query: String, tooShort: Boolean, onQueryChange: (String) -> Unit, onSubmit: () -> Unit) {
+private fun SearchHistoryList(history: List<String>, onSelect: (String) -> Unit, onRemove: (String) -> Unit) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+            history.forEach { query ->
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable { onSelect(query) },
+                    leadingContent = { Icon(Icons.Filled.History, contentDescription = null) },
+                    headlineContent = { Text(query, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    trailingContent = {
+                        IconButton(onClick = { onRemove(query) }) {
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.search_history_remove))
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchField(
+    query: String,
+    tooShort: Boolean,
+    onQueryChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    onFocusChange: (Boolean) -> Unit = {},
+) {
     TextField(
         value = query,
         onValueChange = onQueryChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().onFocusChanged { onFocusChange(it.isFocused) },
         placeholder = { Text(stringResource(R.string.search_field_label)) },
         singleLine = true,
         isError = tooShort,

@@ -28,6 +28,7 @@ import ru.tinyops.android.bookrecon.core.fake.FakeData
 import ru.tinyops.android.bookrecon.core.fake.FakeDownloadRepository
 import ru.tinyops.android.bookrecon.core.fake.FakeFlibustaSource
 import ru.tinyops.android.bookrecon.core.fake.FakeRuTrackerClient
+import ru.tinyops.android.bookrecon.core.fake.FakeSearchHistory
 import ru.tinyops.android.bookrecon.core.fake.FakeSettingsRepository
 import ru.tinyops.android.bookrecon.core.usecase.search.SearchUseCase
 import ru.tinyops.android.bookrecon.core.usecase.search.SourceState
@@ -42,6 +43,7 @@ class SearchViewModelTest {
     private val ruTracker = FakeRuTrackerClient(behavior = FakeBehavior(2.seconds))
     private val settings = FakeSettingsRepository(Settings(rutrackerLogin = "reader"), password = "secret")
     private var downloads = FakeDownloadRepository(fileExists = { true })
+    private val history = FakeSearchHistory()
 
     @BeforeEach
     fun setUp() {
@@ -54,7 +56,7 @@ class SearchViewModelTest {
     }
 
     private fun viewModel(handle: SavedStateHandle = SavedStateHandle()) =
-        SearchViewModel(SearchUseCase(flibusta, ruTracker, settings, downloads), handle)
+        SearchViewModel(SearchUseCase(flibusta, ruTracker, settings, downloads), history, handle)
 
     private fun runVmTest(block: suspend TestScope.() -> Unit) = runTest(dispatcher) { block() }
 
@@ -67,6 +69,50 @@ class SearchViewModelTest {
         assertEquals(MediaKind.BOOK, state.kind)
         assertNull(state.search)
         assertFalse(state.queryTooShort)
+    }
+
+    @Test
+    fun `submitted queries go to the history, newest first`() = runVmTest {
+        val vm = viewModel()
+        runCurrent()
+
+        vm.onQueryChange("Токарчук")
+        vm.onSearch()
+        vm.onQueryChange("Пелевин")
+        vm.onSearch()
+        vm.onQueryChange("а")
+        vm.onSearch()
+        runCurrent()
+
+        assertEquals(listOf("Пелевин", "Токарчук"), vm.state.value.history)
+    }
+
+    @Test
+    fun `choosing a history entry searches it`() = runVmTest {
+        history.add("Веди свой плуг")
+        val vm = viewModel()
+        runCurrent()
+        assertEquals(listOf("Веди свой плуг"), vm.state.value.history)
+
+        vm.onHistorySelect("Веди свой плуг")
+        runCurrent()
+
+        assertEquals("Веди свой плуг", vm.state.value.query)
+        assertEquals("Веди свой плуг", vm.state.value.submittedQuery)
+        assertTrue(vm.state.value.search != null)
+    }
+
+    @Test
+    fun `a history entry can be removed`() = runVmTest {
+        history.add("Пелевин")
+        history.add("Токарчук")
+        val vm = viewModel()
+        runCurrent()
+
+        vm.onHistoryRemove("Пелевин")
+        runCurrent()
+
+        assertEquals(listOf("Токарчук"), vm.state.value.history)
     }
 
     @Test

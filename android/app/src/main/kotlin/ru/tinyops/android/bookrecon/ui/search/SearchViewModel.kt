@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
+import ru.tinyops.android.bookrecon.core.port.SearchHistory
 import ru.tinyops.android.bookrecon.core.usecase.search.SearchState
 import ru.tinyops.android.bookrecon.core.usecase.search.SearchUseCase
 import ru.tinyops.android.bookrecon.core.usecase.search.Verification
@@ -26,6 +27,7 @@ data class VerificationRequest(val url: String, val purpose: VerificationPurpose
  * @property submittedQuery the last query sent to the sources; switching the tab repeats it.
  * @property search the latest snapshot of the running or finished search, null before the first one.
  * @property queryTooShort the user submitted a query the sources would not accept.
+ * @property history the last submitted queries, newest first.
  * @property pendingVerification a web check to open now; the screen acknowledges it with
  *   [SearchViewModel.onVerificationOpened].
  */
@@ -36,15 +38,17 @@ data class SearchUiState(
     val search: SearchState? = null,
     val queryTooShort: Boolean = false,
     val pendingVerification: VerificationRequest? = null,
+    val history: List<String> = emptyList(),
 )
 
 /**
  * Runs searches through [searchUseCase]. The query, the tab and the last submitted query live
  * in [savedState], so they survive rotation and process death; a restored submitted query is
- * searched again.
+ * searched again. Every accepted query goes to [history].
  */
 class SearchViewModel(
     private val searchUseCase: SearchUseCase,
+    private val history: SearchHistory,
     private val savedState: SavedStateHandle,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(
@@ -64,6 +68,9 @@ class SearchViewModel(
 
     init {
         mutableState.value.submittedQuery?.let { start(it, mutableState.value.kind) }
+        viewModelScope.launch {
+            history.queries.collect { queries -> mutableState.update { it.copy(history = queries) } }
+        }
     }
 
     fun onQueryChange(query: String) {
@@ -88,6 +95,17 @@ class SearchViewModel(
         savedState[KEY_SUBMITTED] = query
         mutableState.update { it.copy(submittedQuery = query, queryTooShort = false) }
         start(query, mutableState.value.kind)
+        viewModelScope.launch { history.add(query) }
+    }
+
+    /** Puts a history entry into the field and searches it. */
+    fun onHistorySelect(query: String) {
+        onQueryChange(query)
+        onSearch()
+    }
+
+    fun onHistoryRemove(query: String) {
+        viewModelScope.launch { history.remove(query) }
     }
 
     /** Repeats the last submitted search, for example after a source failed. */

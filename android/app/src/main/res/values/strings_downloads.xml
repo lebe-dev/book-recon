@@ -4,6 +4,7 @@
     <string name="downloads_section_queued">В очереди</string>
     <string name="downloads_section_seeding">Раздаются</string>
     <string name="downloads_section_failed">Не удалось загрузить</string>
+    <string name="downloads_section_cancelled">Отменены</string>
 
     <string name="downloads_kind_book">Книга</string>
     <string name="downloads_kind_audio">Аудиокнига</string>
@@ -30,6 +31,7 @@
     <string name="downloads_cancel">Отменить</string>
     <string name="downloads_stop_seeding">Остановить раздачу</string>
     <string name="downloads_retry">Повторить</string>
+    <string name="downloads_restart">Загрузить снова</string>
     <string name="downloads_dismiss">Убрать</string>
     <string name="downloads_settings">Настройки</string>
 

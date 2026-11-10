@@ -210,6 +210,9 @@ private fun DownloadsList(state: DownloadsUiState, actions: DownloadsActions, no
         section(R.string.downloads_section_failed, state.failed) { download ->
             FailedItem(download, download.id in state.busy, actions)
         }
+        section(R.string.downloads_section_cancelled, state.cancelled) { download ->
+            CancelledItem(download, download.id in state.busy, actions)
+        }
     }
 }
 
@@ -360,6 +363,21 @@ private fun SeedingItem(download: Download, busy: Boolean, actions: DownloadsAct
     }
 }
 
+/** A cancelled download keeps its torrent, so it can start again; partial files are gone. */
+@Composable
+private fun CancelledItem(download: Download, busy: Boolean, actions: DownloadsActions) {
+    DownloadCard(download) {
+        ActionRow {
+            TextButton(onClick = { actions.onDismiss(download.id) }, enabled = !busy) {
+                Text(stringResource(R.string.downloads_dismiss))
+            }
+            Button(onClick = { actions.onRetry(download.id) }, enabled = !busy) {
+                Text(stringResource(R.string.downloads_restart))
+            }
+        }
+    }
+}
+
 @Composable
 private fun FailedItem(download: Download, busy: Boolean, actions: DownloadsActions) {
     val error = download.error ?: AppError.Unknown()
@@ -483,6 +501,9 @@ private val previewFull = DownloadsUiState(
         previewDownload("f1", DownloadStatus.FAILED, error = AppError.NoSeeders()),
         previewDownload("f2", DownloadStatus.FAILED, error = AppError.Stalled()),
         previewDownload("f3", DownloadStatus.FAILED, kind = MediaKind.BOOK, error = AppError.StorageNotGranted()),
+    ),
+    cancelled = listOf(
+        previewDownload("c1", DownloadStatus.CANCELLED),
     ),
 )
 

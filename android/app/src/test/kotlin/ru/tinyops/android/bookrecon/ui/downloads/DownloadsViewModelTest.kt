@@ -79,6 +79,8 @@ class DownloadsViewModelTest {
                 record("seed", DownloadStatus.SEEDING, seedUntil = Instant.parse("2026-11-09T18:00:00Z"), minute = 5),
                 record("new-fail", DownloadStatus.FAILED, error = AppError.Stalled(), minute = 6),
                 record("done", DownloadStatus.COMPLETED, minute = 7),
+                record("old-cancel", DownloadStatus.CANCELLED, minute = 8),
+                record("new-cancel", DownloadStatus.CANCELLED, minute = 9),
             ),
         )
         val vm = DownloadsViewModel(queue(repository))
@@ -89,6 +91,7 @@ class DownloadsViewModelTest {
         assertEquals(listOf("q1", "q2"), state.queued.map { it.id })
         assertEquals(listOf("seed"), state.seeding.map { it.id })
         assertEquals(listOf("new-fail", "old-fail"), state.failed.map { it.id })
+        assertEquals(listOf("new-cancel", "old-cancel"), state.cancelled.map { it.id })
         assertFalse(state.isEmpty)
     }
 
@@ -206,6 +209,26 @@ class DownloadsViewModelTest {
         val queued = vm.state.value.queued.single()
         assertEquals("fail", queued.id)
         assertNull(queued.error)
+    }
+
+    @Test
+    fun `a cancelled download stays on the screen and can be started again`() = runVmTest {
+        val repository = FakeDownloadRepository(listOf(record("q", DownloadStatus.QUEUED, position = 1)))
+        val vm = DownloadsViewModel(queue(repository, maxConcurrent = 0))
+        runCurrent()
+
+        vm.onCancelRequest("q")
+        vm.onCancelConfirm()
+        runCurrent()
+
+        assertTrue(vm.state.value.queued.isEmpty())
+        assertEquals(listOf("q"), vm.state.value.cancelled.map { it.id })
+
+        vm.onRetry("q")
+        runCurrent()
+
+        assertTrue(vm.state.value.cancelled.isEmpty())
+        assertEquals(listOf("q"), vm.state.value.queued.map { it.id })
     }
 
     @Test

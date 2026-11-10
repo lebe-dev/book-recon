@@ -28,6 +28,7 @@ data class DownloadsMessage(val action: DownloadAction, val error: AppError)
  * @property queued downloads waiting for a slot, by queue position.
  * @property seeding finished torrents that are still shared.
  * @property failed failed downloads, newest first.
+ * @property cancelled downloads the user cancelled, newest first; they can be started again.
  * @property cancelCandidate the download whose cancellation waits for confirmation.
  * @property busy IDs of downloads with an action in flight; their buttons are disabled.
  */
@@ -38,12 +39,13 @@ data class DownloadsUiState(
     val queued: List<Download> = emptyList(),
     val seeding: List<Download> = emptyList(),
     val failed: List<Download> = emptyList(),
+    val cancelled: List<Download> = emptyList(),
     val cancelCandidate: Download? = null,
     val busy: Set<String> = emptySet(),
     val message: DownloadsMessage? = null,
 ) {
     val isEmpty: Boolean
-        get() = active.isEmpty() && queued.isEmpty() && seeding.isEmpty() && failed.isEmpty()
+        get() = active.isEmpty() && queued.isEmpty() && seeding.isEmpty() && failed.isEmpty() && cancelled.isEmpty()
 }
 
 /** Shows the download queue with live progress and runs cancel, retry, stop seeding and dismiss. */
@@ -103,6 +105,7 @@ class DownloadsViewModel(private val queue: DownloadQueue) : ViewModel() {
                     .sortedWith(compareBy<Download> { it.queuePosition ?: Int.MAX_VALUE }.thenBy { it.createdAt }),
                 seeding = downloads.filter { it.status == DownloadStatus.SEEDING },
                 failed = downloads.filter { it.status == DownloadStatus.FAILED }.sortedByDescending { it.createdAt },
+                cancelled = downloads.filter { it.status == DownloadStatus.CANCELLED }.sortedByDescending { it.createdAt },
             )
             next.copy(cancelCandidate = cancelId?.let { cancellable(next, it) })
         }

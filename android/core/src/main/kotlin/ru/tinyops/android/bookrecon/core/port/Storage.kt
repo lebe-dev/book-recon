@@ -32,7 +32,8 @@ interface SettingsRepository {
 interface DownloadRepository {
     /**
      * Downloads shown on the downloads screen: DOWNLOADING, then SEEDING, then QUEUED by
-     * queue position, then FAILED; ties are ordered by creation time, oldest first.
+     * queue position, then FAILED, then CANCELLED; ties are ordered by creation time, oldest
+     * first.
      */
     fun observeQueue(): Flow<List<Download>>
 

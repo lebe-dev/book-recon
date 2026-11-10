@@ -163,7 +163,7 @@ class RoomDownloadRepositoryTest {
 
         val ids = repository.observeQueue().first().map { it.id }
 
-        assertEquals(listOf("down1", "down2", "seed", "q1", "q2", "q0", "failed"), ids)
+        assertEquals(listOf("down1", "down2", "seed", "q1", "q2", "q0", "failed", "cancelled"), ids)
     }
 
     @Test

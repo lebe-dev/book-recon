@@ -160,6 +160,7 @@ class FakeDownloadRepository(
             DownloadStatus.SEEDING,
             DownloadStatus.QUEUED,
             DownloadStatus.FAILED,
+            DownloadStatus.CANCELLED,
         )
 
         val queueOrder: Comparator<Download> = compareBy<Download> {
@@ -167,7 +168,8 @@ class FakeDownloadRepository(
                 DownloadStatus.DOWNLOADING -> 0
                 DownloadStatus.SEEDING -> 1
                 DownloadStatus.QUEUED -> 2
-                else -> 3
+                DownloadStatus.FAILED -> 3
+                else -> 4
             }
         }.thenBy { it.queuePosition ?: Int.MAX_VALUE }.thenBy { it.createdAt }
     }

@@ -3,6 +3,7 @@ package ru.tinyops.android.bookrecon.net
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Proxy
+import java.net.ProxySelector
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ScheduledFuture
@@ -39,14 +40,17 @@ data class NetworkConfig(
 
 /**
  * Builds the single OkHttp client of the app. [userAgent] is read on every request and must be
- * the one WebView uses: Cloudflare binds `cf_clearance` to it.
+ * the one WebView uses: Cloudflare binds `cf_clearance` to it. [proxySelector] routes blocked
+ * hosts through the Book Recon server; null means the system default.
  */
 fun buildOkHttpClient(
     cookieJar: CookieJar,
     solver: ChallengeSolver,
     userAgent: () -> String,
     config: NetworkConfig = NetworkConfig(),
+    proxySelector: ProxySelector? = null,
 ): OkHttpClient = OkHttpClient.Builder()
+    .apply { if (proxySelector != null) proxySelector(proxySelector) }
     .cookieJar(cookieJar)
     .connectTimeout(config.connectTimeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)
     .readTimeout(config.readTimeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)

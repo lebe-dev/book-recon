@@ -67,7 +67,8 @@ func (b *Bot) handleAccessDecision(c telebot.Context, approved bool) error {
 	return c.Respond()
 }
 
-func (b *Bot) notifyAdminsAboutRequest(ctx context.Context, sender *telebot.User) {
+// notifyAdminsAboutRequest sends the approve/deny buttons to admins; extra is appended to the text.
+func (b *Bot) notifyAdminsAboutRequest(ctx context.Context, sender *telebot.User, extra string) {
 	adminIDs := b.accessService.ResolveAdminIDs(ctx, b.adminUsers)
 	if len(adminIDs) == 0 {
 		b.logger.Warn("no admin IDs resolved, cannot notify about access request", "admin_users", b.adminUsers)
@@ -79,7 +80,7 @@ func (b *Bot) notifyAdminsAboutRequest(ctx context.Context, sender *telebot.User
 		name += " " + sender.LastName
 	}
 
-	text := b.msg.AccessRequestNotify(sender.ID, escapeMarkdown(name), escapeMarkdown(sender.Username))
+	text := b.msg.AccessRequestNotify(sender.ID, escapeMarkdown(name), escapeMarkdown(sender.Username)) + extra
 
 	idStr := strconv.FormatInt(sender.ID, 10)
 	markup := &telebot.ReplyMarkup{}
@@ -113,6 +114,7 @@ func (b *Bot) handleBlockedUsers(c telebot.Context) error {
 	if len(denied) == 0 {
 		return c.Send(b.msg.AccessNoDenied)
 	}
+	devices := b.linkedAppClients(ctx)
 
 	for _, req := range denied {
 		name := req.FirstName
@@ -128,6 +130,7 @@ func (b *Bot) handleBlockedUsers(c telebot.Context) error {
 			text += fmt.Sprintf(" (@%s)", escapeMarkdown(req.Username))
 		}
 		text += fmt.Sprintf("\nID: `%d`", req.TelegramID)
+		text += b.appClientsSuffix(devices, req.TelegramID)
 
 		idStr := strconv.FormatInt(req.TelegramID, 10)
 		markup := &telebot.ReplyMarkup{}
@@ -189,6 +192,7 @@ func (b *Bot) handleAllowedUsers(c telebot.Context) error {
 	if len(approved) == 0 {
 		return c.Send(b.msg.AccessNoApproved)
 	}
+	devices := b.linkedAppClients(ctx)
 
 	for _, req := range approved {
 		name := req.FirstName
@@ -204,6 +208,7 @@ func (b *Bot) handleAllowedUsers(c telebot.Context) error {
 			text += fmt.Sprintf(" (@%s)", escapeMarkdown(req.Username))
 		}
 		text += fmt.Sprintf("\nID: `%d`", req.TelegramID)
+		text += b.appClientsSuffix(devices, req.TelegramID)
 
 		idStr := strconv.FormatInt(req.TelegramID, 10)
 		markup := &telebot.ReplyMarkup{}

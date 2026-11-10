@@ -3,23 +3,49 @@ package usecase
 import (
 	"context"
 	"database/sql"
+	"slices"
+	"strings"
 
 	"github.com/charmbracelet/log"
 	"github.com/lebe-dev/book-recon/internal/domain"
 )
 
 type AccessService struct {
-	accessRepo domain.AccessRepository
-	userRepo   domain.UserRepository
-	logger     *log.Logger
+	accessRepo   domain.AccessRepository
+	userRepo     domain.UserRepository
+	allowedUsers []string
+	adminUsers   []string
+	logger       *log.Logger
 }
 
-func NewAccessService(accessRepo domain.AccessRepository, userRepo domain.UserRepository, logger *log.Logger) *AccessService {
+// NewAccessService takes the static ALLOWED_USERS and ADMIN_USERS lists as lowercase
+// usernames without '@'.
+func NewAccessService(accessRepo domain.AccessRepository, userRepo domain.UserRepository, allowedUsers, adminUsers []string, logger *log.Logger) *AccessService {
 	return &AccessService{
-		accessRepo: accessRepo,
-		userRepo:   userRepo,
-		logger:     logger,
+		accessRepo:   accessRepo,
+		userRepo:     userRepo,
+		allowedUsers: allowedUsers,
+		adminUsers:   adminUsers,
+		logger:       logger,
 	}
+}
+
+// EffectiveStatus decides access the way the bot does: the static allow and admin lists
+// first, then the stored decision. An empty status means nobody has decided yet.
+func (s *AccessService) EffectiveStatus(ctx context.Context, telegramID int64, username string) (domain.AccessStatus, error) {
+	if s.IsStaticallyAllowed(username) {
+		return domain.AccessStatusApproved, nil
+	}
+	return s.accessRepo.GetStatus(ctx, telegramID)
+}
+
+// IsStaticallyAllowed reports whether the username is in ALLOWED_USERS or ADMIN_USERS.
+func (s *AccessService) IsStaticallyAllowed(username string) bool {
+	username = strings.ToLower(username)
+	if username == "" {
+		return false
+	}
+	return slices.Contains(s.allowedUsers, username) || slices.Contains(s.adminUsers, username)
 }
 
 func (s *AccessService) CheckAccess(ctx context.Context, telegramID int64) (domain.AccessStatus, error) {

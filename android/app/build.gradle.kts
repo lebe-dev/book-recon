@@ -192,6 +192,7 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
 
     implementation(libs.okhttp)
+    implementation(libs.androidx.webkit)
     implementation(libs.jsoup)
 
     implementation(libs.sentry.android.core)

@@ -10,6 +10,8 @@ services:
     # Audiobook download pages. Bound to localhost: publish via nginx on the host.
     ports:
       - "127.0.0.1:8080:8080"
+      # Android app API (APP_API_ENABLED). Publish /api/v1/ via nginx with WebSocket support.
+      - "127.0.0.1:8081:8081"
     volumes:
       - ./data:/app/data
     depends_on:

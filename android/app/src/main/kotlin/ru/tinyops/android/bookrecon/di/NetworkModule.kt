@@ -22,7 +22,12 @@ class NetworkModule(private val app: AppContainer) {
 
     /** The single OkHttp client of the app. */
     val okHttpClient: OkHttpClient by lazy {
-        buildOkHttpClient(SharedCookieJar(cookieStore), challengeSolver, userAgent = { userAgent })
+        buildOkHttpClient(
+            SharedCookieJar(cookieStore),
+            challengeSolver,
+            userAgent = { userAgent },
+            proxySelector = app.server.proxySelector,
+        )
     }
 
     val httpClient: HttpClient by lazy { OkHttpHttpClient(okHttpClient) }

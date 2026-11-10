@@ -63,6 +63,12 @@ type Config struct {
 	AudiobooksAllowUpload      bool          `env:"AUDIOBOOKS_ALLOW_UPLOAD" envDefault:"true"`
 	AudiobooksHTTPListen       string        `env:"AUDIOBOOKS_HTTP_LISTEN" envDefault:":8080"`
 	AudiobooksPublicURL        string        `env:"AUDIOBOOKS_PUBLIC_URL"`
+
+	// Android app API: registration, Telegram linking and the tunnel to blocked sites.
+	AppAPIEnabled  bool     `env:"APP_API_ENABLED" envDefault:"false"`
+	AppAPIListen   string   `env:"APP_API_LISTEN" envDefault:":8081"`
+	AppTunnelHosts []string `env:"APP_TUNNEL_HOSTS" envSeparator:"," envDefault:"rutracker.org,rutracker.cc,t-ru.org,flibusta.is,challenges.cloudflare.com"`
+	AppTunnelPorts []int    `env:"APP_TUNNEL_PORTS" envSeparator:"," envDefault:"443,80"`
 }
 
 func Load() (*Config, error) {
@@ -75,6 +81,7 @@ func Load() (*Config, error) {
 
 	cfg.AllowedUsers = normalizeUsernames(cfg.AllowedUsers)
 	cfg.AdminUsers = normalizeUsernames(cfg.AdminUsers)
+	cfg.AppTunnelHosts = normalizeHosts(cfg.AppTunnelHosts)
 	cfg.AudiobooksPublicURL = strings.TrimRight(strings.TrimSpace(cfg.AudiobooksPublicURL), "/")
 
 	if err := cfg.validate(); err != nil {
@@ -85,11 +92,14 @@ func Load() (*Config, error) {
 }
 
 func (c *Config) validate() error {
+	var errs []error
+	if c.AppAPIEnabled && len(c.AppTunnelHosts) == 0 {
+		errs = append(errs, errors.New("APP_TUNNEL_HOSTS must not be empty when APP_API_ENABLED=true"))
+	}
 	if !c.AudiobooksEnabled {
-		return nil
+		return errors.Join(errs...)
 	}
 
-	var errs []error
 	if c.AudiobooksPublicURL == "" {
 		errs = append(errs, errors.New("AUDIOBOOKS_PUBLIC_URL is required when AUDIOBOOKS_ENABLED=true"))
 	}
@@ -120,6 +130,18 @@ func normalizeUsernames(names []string) []string {
 		n = strings.ToLower(n)
 		if n != "" {
 			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// normalizeHosts lowercases host names and drops blanks and surrounding dots.
+func normalizeHosts(hosts []string) []string {
+	out := make([]string, 0, len(hosts))
+	for _, h := range hosts {
+		h = strings.Trim(strings.ToLower(strings.TrimSpace(h)), ".")
+		if h != "" {
+			out = append(out, h)
 		}
 	}
 	return out

@@ -26,6 +26,10 @@ func loadRU() *Messages {
 		AccessUnblocked:         "\n\n✅ Разблокирован",
 		AccessRequestNamePrefix: "Имя: ",
 
+		AppLinkInvalid:     "Ссылка для подключения приложения устарела или уже использована. Нажмите «Подключить» в приложении ещё раз.",
+		AppLinkApproved:    "📱 Приложение подключено, можно возвращаться в него.",
+		AppLinkRequestSent: "📨 Запрос на доступ отправлен администраторам. Приложение подключится, как только его одобрят.",
+
 		// --- Search ---
 		SearchEmpty:        "Введите название книги или имя автора для поиска.",
 		SearchCacheMiss:    "Книга не найдена в кэше. Повторите поиск.",
@@ -163,6 +167,15 @@ func loadRU() *Messages {
 				text += fmt.Sprintf("\nUsername: @%s", username)
 			}
 			return text
+		},
+		AccessRequestFromApp: func(device string) string {
+			if device == "" {
+				return "\n📱 Из Android-приложения"
+			}
+			return "\n📱 Из Android-приложения: " + device
+		},
+		AppClientsCount: func(n int) string {
+			return fmt.Sprintf("\n📱 Устройств с приложением: %d", n)
 		},
 		ProviderError: func(provider, errMsg string) string {
 			return fmt.Sprintf("⚠️ *Ошибка провайдера %s*\n\n`%s`", provider, errMsg)

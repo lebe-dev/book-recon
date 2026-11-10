@@ -26,6 +26,10 @@ func loadEN() *Messages {
 		AccessUnblocked:         "\n\n✅ Unblocked",
 		AccessRequestNamePrefix: "Name: ",
 
+		AppLinkInvalid:     "The app link has expired or was already used. Tap \"Connect\" in the app again.",
+		AppLinkApproved:    "📱 The app is connected, you can go back to it.",
+		AppLinkRequestSent: "📨 Access request sent to the admins. The app connects as soon as it is approved.",
+
 		// --- Search ---
 		SearchEmpty:        "Enter a book title or author name to search.",
 		SearchCacheMiss:    "Book not found in cache. Repeat the search.",
@@ -162,6 +166,15 @@ func loadEN() *Messages {
 				text += fmt.Sprintf("\nUsername: @%s", username)
 			}
 			return text
+		},
+		AccessRequestFromApp: func(device string) string {
+			if device == "" {
+				return "\n📱 From the Android app"
+			}
+			return "\n📱 From the Android app: " + device
+		},
+		AppClientsCount: func(n int) string {
+			return fmt.Sprintf("\n📱 Devices with the app: %d", n)
 		},
 		ProviderError: func(provider, errMsg string) string {
 			return fmt.Sprintf("⚠️ *Provider error: %s*\n\n`%s`", provider, errMsg)

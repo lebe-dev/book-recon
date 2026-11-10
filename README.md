@@ -360,7 +360,9 @@ app to a Book Recon server (see [Through the Book Recon server](#through-the-boo
 
 ### First run
 
-Until the storage is set up, the app opens **Настройки** (Settings) at every start:
+Settings is a list of subpages: **Оформление**, **Файлы**, **Сервер Book Recon**,
+**Источники** (RuTracker login, Flibusta address), **Загрузки** and **Диагностика**.
+Until the storage is set up, the app opens the **Файлы** subpage at every start:
 
 1. **Доступ ко всем файлам** (all files access): tap the button, enable the permission in
    the system settings and go back. Books and audiobooks are saved to ordinary folders where

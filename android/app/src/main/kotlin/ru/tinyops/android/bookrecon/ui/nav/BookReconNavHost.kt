@@ -44,6 +44,8 @@ import ru.tinyops.android.bookrecon.ui.library.LibraryScreen
 import ru.tinyops.android.bookrecon.ui.log.LogScreen
 import ru.tinyops.android.bookrecon.ui.search.SearchScreen
 import ru.tinyops.android.bookrecon.ui.settings.SettingsScreen
+import ru.tinyops.android.bookrecon.ui.settings.SettingsSection
+import ru.tinyops.android.bookrecon.ui.settings.SettingsSectionScreen
 import ru.tinyops.android.bookrecon.ui.topic.RuTrackerTopicScreen
 import ru.tinyops.android.bookrecon.ui.web.WebVerificationScreen
 
@@ -130,9 +132,15 @@ fun BookReconNavHost(navController: NavHostController = rememberNavController())
             composable<LibraryRoute> {
                 LibraryScreen(onOpenSearch = { navController.navigateToTopLevel(SearchRoute) })
             }
-            composable<SettingsRoute> { entry ->
+            composable<SettingsRoute> {
+                SettingsScreen(onOpenSection = { section -> navController.navigate(SettingsSectionRoute(section)) })
+            }
+            composable<SettingsSectionRoute> { entry ->
+                val route = entry.toRoute<SettingsSectionRoute>()
                 val verificationResults = remember(entry) { entry.savedStateHandle.verificationResults() }
-                SettingsScreen(
+                SettingsSectionScreen(
+                    section = route.section,
+                    onBack = { navController.popBackStack() },
                     onOpenVerification = { url, purpose -> navController.navigate(WebVerificationRoute(url, purpose)) },
                     onOpenLog = { navController.navigate(LogRoute) },
                     verificationResults = verificationResults,
@@ -172,6 +180,7 @@ private fun OpenSettingsOnFirstRun(navController: NavHostController) {
         if (!needsStorageSetup(module.fileStorage.hasAllFilesAccess(), settings)) return@LaunchedEffect
         context.appContainer.log.appLog.info(TAG, "Storage is not set up, opening settings")
         navController.navigateToTopLevel(SettingsRoute)
+        navController.navigate(SettingsSectionRoute(SettingsSection.STORAGE))
     }
 }
 

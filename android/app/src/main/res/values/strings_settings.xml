@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <string name="settings_back">Назад</string>
+    <string name="settings_hub_appearance">Цветовая тема и тёмный режим</string>
+    <string name="settings_hub_storage">Доступ к файлам и папки для книг и аудиокниг</string>
+    <string name="settings_hub_server">Доступ к RuTracker и Flibusta через свой сервер</string>
+    <string name="settings_hub_sources_title">Источники</string>
+    <string name="settings_hub_sources">Вход в RuTracker и адрес Flibusta</string>
+    <string name="settings_hub_downloads">Формат, сеть, очередь и раздача</string>
+    <string name="settings_hub_diagnostics_title">Диагностика</string>
+    <string name="settings_hub_diagnostics">Отчёты об ошибках и журнал приложения</string>
     <string name="settings_section_appearance">Оформление</string>
     <string name="settings_theme">Цветовая тема</string>
     <string name="settings_theme_blueberry">Черника</string>

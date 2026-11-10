@@ -1,6 +1,8 @@
 package ru.tinyops.android.bookrecon.ui.nav
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -87,6 +89,10 @@ fun BookReconNavHost(navController: NavHostController = rememberNavController())
             navController = navController,
             startDestination = SearchRoute,
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+            enterTransition = { EnterTransition.None },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
+            popExitTransition = { ExitTransition.None },
         ) {
             composable<SearchRoute> { entry ->
                 val verificationResults = remember(entry) { entry.savedStateHandle.verificationResults() }

@@ -45,9 +45,9 @@ enum class SettingsSection(
 ) {
     APPEARANCE(R.string.settings_section_appearance, R.string.settings_hub_appearance, Icons.Filled.Star),
     STORAGE(R.string.settings_section_storage, R.string.settings_hub_storage, Icons.Filled.Folder),
-    SERVER(R.string.settings_section_server, R.string.settings_hub_server, Icons.Filled.Settings),
-    SOURCES(R.string.settings_hub_sources_title, R.string.settings_hub_sources, Icons.Filled.Search),
     DOWNLOADS(R.string.settings_section_downloads, R.string.settings_hub_downloads, Icons.Filled.Download),
+    SOURCES(R.string.settings_hub_sources_title, R.string.settings_hub_sources, Icons.Filled.Search),
+    SERVER(R.string.settings_section_server, R.string.settings_hub_server, Icons.Filled.Settings),
     DIAGNOSTICS(R.string.settings_hub_diagnostics_title, R.string.settings_hub_diagnostics, Icons.Filled.Info),
 }
 

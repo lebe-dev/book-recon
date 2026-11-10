@@ -52,6 +52,15 @@ class SearchUseCaseTest {
     }
 
     @Test
+    fun `sources switched off in the settings are not searched`() = runTest {
+        settings.update { it.copy(flibustaEnabled = false) }
+
+        val final = useCase().search("Достоевский", MediaKind.BOOK).toList().last()
+
+        assertEquals(listOf(Source.RUTRACKER), final.sources.keys.toList())
+    }
+
+    @Test
     fun `RuTracker topic becomes a result with size, seeders and peers`() = runTest {
         val final = useCase().search("Преступление", MediaKind.BOOK).toList().last()
 

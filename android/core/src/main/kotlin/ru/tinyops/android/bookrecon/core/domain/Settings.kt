@@ -10,6 +10,8 @@ package ru.tinyops.android.bookrecon.core.domain
  * @property flibustaBaseUrl Flibusta mirror without a trailing slash.
  * @property flibustaTimeoutSeconds how long to wait for a Flibusta response (headers, and then
  *   each chunk of a body) before a request fails, [MIN_FLIBUSTA_TIMEOUT_SECONDS]..[MAX_FLIBUSTA_TIMEOUT_SECONDS].
+ * @property flibustaEnabled search Flibusta.
+ * @property rutrackerEnabled search RuTracker.
  * @property wifiOnly run downloads on unmetered networks only.
  * @property maxConcurrent downloads running at the same time, 1..[MAX_CONCURRENT_LIMIT].
  * @property seedHours keep seeding on Wi-Fi and charger for this many hours after a torrent
@@ -29,6 +31,8 @@ data class Settings(
     val rutrackerLogin: String = "",
     val flibustaBaseUrl: String = DEFAULT_FLIBUSTA_BASE_URL,
     val flibustaTimeoutSeconds: Int = DEFAULT_FLIBUSTA_TIMEOUT_SECONDS,
+    val flibustaEnabled: Boolean = true,
+    val rutrackerEnabled: Boolean = true,
     val preferredFormat: Format = Format.EPUB,
     val wifiOnly: Boolean = true,
     val maxConcurrent: Int = DEFAULT_MAX_CONCURRENT,

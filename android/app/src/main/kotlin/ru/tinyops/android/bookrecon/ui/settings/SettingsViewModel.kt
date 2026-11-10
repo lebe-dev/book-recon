@@ -212,6 +212,10 @@ class SettingsViewModel(
         )
     }
 
+    fun onFlibustaEnabledChange(enabled: Boolean) = save { it.copy(flibustaEnabled = enabled) }
+
+    fun onRuTrackerEnabledChange(enabled: Boolean) = save { it.copy(rutrackerEnabled = enabled) }
+
     fun onPreferredFormatChange(format: Format) = save { it.copy(preferredFormat = format) }
 
     fun onWifiOnlyChange(wifiOnly: Boolean) = save { it.copy(wifiOnly = wifiOnly) }

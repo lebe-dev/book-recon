@@ -175,6 +175,8 @@ fun SettingsSectionScreen(
             onFlibustaUrlChange = viewModel::onFlibustaUrlChange,
             onSaveFlibustaUrl = viewModel::onSaveFlibustaUrl,
             onFlibustaTimeoutChange = viewModel::onFlibustaTimeoutChange,
+            onFlibustaEnabledChange = viewModel::onFlibustaEnabledChange,
+            onRuTrackerEnabledChange = viewModel::onRuTrackerEnabledChange,
             onPreferredFormatChange = viewModel::onPreferredFormatChange,
             onWifiOnlyChange = viewModel::onWifiOnlyChange,
             onTorrentPeersThroughServerChange = viewModel::onTorrentPeersThroughServerChange,
@@ -236,6 +238,8 @@ data class SettingsActions(
     val onFlibustaUrlChange: (String) -> Unit = {},
     val onSaveFlibustaUrl: () -> Unit = {},
     val onFlibustaTimeoutChange: (Int) -> Unit = {},
+    val onFlibustaEnabledChange: (Boolean) -> Unit = {},
+    val onRuTrackerEnabledChange: (Boolean) -> Unit = {},
     val onPreferredFormatChange: (Format) -> Unit = {},
     val onWifiOnlyChange: (Boolean) -> Unit = {},
     val onTorrentPeersThroughServerChange: (Boolean) -> Unit = {},
@@ -320,9 +324,11 @@ fun SettingsSectionContent(
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                             )
                         }
+                        SourceSwitch(R.string.settings_source_enabled_rutracker, state.settings.rutrackerEnabled, actions.onRuTrackerEnabledChange)
                         RuTrackerBlock(state, actions)
                     }
                     Section(R.string.settings_section_flibusta) {
+                        SourceSwitch(R.string.settings_source_enabled_flibusta, state.settings.flibustaEnabled, actions.onFlibustaEnabledChange)
                         FlibustaBlock(state, actions)
                     }
                 }
@@ -535,6 +541,15 @@ private fun LoginStatus(check: LoginCheck) {
             color = MaterialTheme.colorScheme.error,
         )
     }
+}
+
+@Composable
+private fun SourceSwitch(@StringRes label: Int, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    ListItem(
+        modifier = Modifier.clickable { onChange(!enabled) },
+        headlineContent = { Text(stringResource(label)) },
+        trailingContent = { Switch(checked = enabled, onCheckedChange = onChange) },
+    )
 }
 
 @Composable

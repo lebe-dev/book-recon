@@ -26,7 +26,7 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Searches all sources of a media kind in parallel: e-books on Flibusta and RuTracker,
  * audiobooks on RuTracker. Every source has its own deadline, and a failed source never hides
- * the results of the others.
+ * the results of the others. Sources switched off in the settings are not searched.
  *
  * @param sourceTimeout deadline of one source; RuTracker may spend tens of seconds on a
  *   Cloudflare check, so it stays at a minute.
@@ -46,9 +46,9 @@ class SearchUseCase(
      */
     fun search(query: String, kind: MediaKind): Flow<SearchState> {
         val normalized = normalize(query) ?: return emptyFlow()
-        val sources = sourcesFor(kind)
 
         return channelFlow {
+            val sources = enabledSources(kind)
             val lock = Mutex()
             var state = SearchState(normalized, kind, sources.associateWith { SourceState.Loading })
             send(state)
@@ -61,6 +61,16 @@ class SearchUseCase(
                         send(state)
                     }
                 }
+            }
+        }
+    }
+
+    private suspend fun enabledSources(kind: MediaKind): List<Source> {
+        val current = settings.settings.first()
+        return sourcesFor(kind).filter {
+            when (it) {
+                Source.FLIBUSTA -> current.flibustaEnabled
+                Source.RUTRACKER -> current.rutrackerEnabled
             }
         }
     }

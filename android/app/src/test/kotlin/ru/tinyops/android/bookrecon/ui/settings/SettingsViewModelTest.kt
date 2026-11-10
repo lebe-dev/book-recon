@@ -306,6 +306,19 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun sourcesCanBeSwitchedOff() = runVmTest { vm ->
+        assertTrue(vm.state.value.settings.flibustaEnabled)
+        assertTrue(vm.state.value.settings.rutrackerEnabled)
+
+        vm.onFlibustaEnabledChange(false)
+        vm.onRuTrackerEnabledChange(false)
+        advanceUntilIdle()
+
+        assertFalse(settings.settings.first().flibustaEnabled)
+        assertFalse(settings.settings.first().rutrackerEnabled)
+    }
+
+    @Test
     fun errorReportsAreOffUntilTurnedOn() = runVmTest { vm ->
         assertFalse(vm.state.value.settings.sendErrorReports)
 

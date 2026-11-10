@@ -31,6 +31,8 @@ internal object SettingsKeys {
     val RUTRACKER_LOGIN = stringPreferencesKey("rutracker_login")
     val FLIBUSTA_BASE_URL = stringPreferencesKey("flibusta_base_url")
     val FLIBUSTA_TIMEOUT_SECONDS = intPreferencesKey("flibusta_timeout_seconds")
+    val FLIBUSTA_ENABLED = booleanPreferencesKey("flibusta_enabled")
+    val RUTRACKER_ENABLED = booleanPreferencesKey("rutracker_enabled")
     val PREFERRED_FORMAT = stringPreferencesKey("preferred_format")
     val WIFI_ONLY = booleanPreferencesKey("wifi_only")
     val MAX_CONCURRENT = intPreferencesKey("max_concurrent")
@@ -121,6 +123,8 @@ private fun Preferences.toSettings(): Settings {
         rutrackerLogin = this[SettingsKeys.RUTRACKER_LOGIN] ?: defaults.rutrackerLogin,
         flibustaBaseUrl = this[SettingsKeys.FLIBUSTA_BASE_URL] ?: defaults.flibustaBaseUrl,
         flibustaTimeoutSeconds = this[SettingsKeys.FLIBUSTA_TIMEOUT_SECONDS] ?: defaults.flibustaTimeoutSeconds,
+        flibustaEnabled = this[SettingsKeys.FLIBUSTA_ENABLED] ?: defaults.flibustaEnabled,
+        rutrackerEnabled = this[SettingsKeys.RUTRACKER_ENABLED] ?: defaults.rutrackerEnabled,
         preferredFormat = this[SettingsKeys.PREFERRED_FORMAT]
             ?.let { name -> Format.entries.firstOrNull { it.name == name } }
             ?: defaults.preferredFormat,
@@ -143,6 +147,8 @@ private fun MutablePreferences.write(settings: Settings) {
     this[SettingsKeys.RUTRACKER_LOGIN] = settings.rutrackerLogin
     this[SettingsKeys.FLIBUSTA_BASE_URL] = settings.flibustaBaseUrl
     this[SettingsKeys.FLIBUSTA_TIMEOUT_SECONDS] = settings.flibustaTimeoutSeconds
+    this[SettingsKeys.FLIBUSTA_ENABLED] = settings.flibustaEnabled
+    this[SettingsKeys.RUTRACKER_ENABLED] = settings.rutrackerEnabled
     this[SettingsKeys.PREFERRED_FORMAT] = settings.preferredFormat.name
     this[SettingsKeys.WIFI_ONLY] = settings.wifiOnly
     this[SettingsKeys.MAX_CONCURRENT] = settings.maxConcurrent

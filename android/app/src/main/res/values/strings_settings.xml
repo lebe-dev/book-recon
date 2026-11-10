@@ -1,6 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <string name="settings_section_appearance">Оформление</string>
+    <string name="settings_theme">Цветовая тема</string>
+    <string name="settings_theme_blueberry">Черника</string>
+    <string name="settings_theme_pistachio">Фисташка</string>
+    <string name="settings_theme_apple">Яблоко</string>
+    <string name="settings_theme_bilberry">Голубика</string>
+    <string name="settings_theme_marshmallow">Зефир</string>
+    <string name="settings_theme_cocoa">Какао</string>
+    <string name="settings_dark_mode">Тёмная тема</string>
+    <string name="settings_dark_mode_system">Системная</string>
+    <string name="settings_dark_mode_light">Светлая</string>
+    <string name="settings_dark_mode_dark">Тёмная</string>
+
     <string name="settings_section_storage">Файлы</string>
     <string name="settings_access_granted">Доступ ко всем файлам разрешён</string>
     <string name="settings_access_missing_title">Нужен доступ ко всем файлам</string>

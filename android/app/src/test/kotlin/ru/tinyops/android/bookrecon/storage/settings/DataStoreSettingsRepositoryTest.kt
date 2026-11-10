@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import ru.tinyops.android.bookrecon.core.domain.ColorTheme
+import ru.tinyops.android.bookrecon.core.domain.DarkMode
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.Settings
 import java.io.File
@@ -63,6 +65,8 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(0, settings.seedHours)
         assertEquals(15, settings.noSeedersRetryMinutes)
         assertFalse(settings.sendErrorReports)
+        assertEquals(ColorTheme.BLUEBERRY, settings.colorTheme)
+        assertEquals(DarkMode.SYSTEM, settings.darkMode)
         assertNull(settings.audioRoot)
         assertNull(settings.booksRoot)
         assertEquals("", settings.rutrackerLogin)
@@ -81,6 +85,8 @@ class DataStoreSettingsRepositoryTest {
             seedHours = 6,
             noSeedersRetryMinutes = 60,
             sendErrorReports = true,
+            colorTheme = ColorTheme.COCOA,
+            darkMode = DarkMode.DARK,
         )
         repository().update { changed }
         closeStores()
@@ -142,9 +148,13 @@ class DataStoreSettingsRepositoryTest {
         store.edit {
             it[SettingsKeys.PREFERRED_FORMAT] = "DOCX"
             it[SettingsKeys.MAX_CONCURRENT] = 42
+            it[SettingsKeys.COLOR_THEME] = "GRAPE"
+            it[SettingsKeys.DARK_MODE] = "DIM"
         }
 
         val settings = repository(store).settings.first()
+        assertEquals(ColorTheme.BLUEBERRY, settings.colorTheme)
+        assertEquals(DarkMode.SYSTEM, settings.darkMode)
         assertEquals(Format.EPUB, settings.preferredFormat)
         assertEquals(Settings.MAX_CONCURRENT_LIMIT, settings.maxConcurrent)
     }

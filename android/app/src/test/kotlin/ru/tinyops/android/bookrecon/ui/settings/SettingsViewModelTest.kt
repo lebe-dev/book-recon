@@ -17,6 +17,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import ru.tinyops.android.bookrecon.core.domain.AppError
+import ru.tinyops.android.bookrecon.core.domain.ColorTheme
+import ru.tinyops.android.bookrecon.core.domain.DarkMode
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Settings
@@ -269,5 +271,20 @@ class SettingsViewModelTest {
         vm.onSendErrorReportsChange(false)
         advanceUntilIdle()
         assertFalse(settings.settings.first().sendErrorReports)
+    }
+
+    @Test
+    fun colorThemeAndDarkModeAreSaved() = runVmTest { vm ->
+        assertEquals(ColorTheme.BLUEBERRY, vm.state.value.settings.colorTheme)
+        assertEquals(DarkMode.SYSTEM, vm.state.value.settings.darkMode)
+
+        vm.onColorThemeChange(ColorTheme.MARSHMALLOW)
+        vm.onDarkModeChange(DarkMode.LIGHT)
+        advanceUntilIdle()
+
+        val stored = settings.settings.first()
+        assertEquals(ColorTheme.MARSHMALLOW, stored.colorTheme)
+        assertEquals(DarkMode.LIGHT, stored.darkMode)
+        assertEquals(ColorTheme.MARSHMALLOW, vm.state.value.settings.colorTheme)
     }
 }

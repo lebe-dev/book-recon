@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -81,6 +82,7 @@ import ru.tinyops.android.bookrecon.ui.nav.TopicKind
 import ru.tinyops.android.bookrecon.ui.nav.VerificationPurpose
 import ru.tinyops.android.bookrecon.ui.search.formatSize
 import ru.tinyops.android.bookrecon.ui.search.leadsToSettings
+import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
 
 @Composable
 fun RuTrackerTopicScreen(
@@ -459,11 +461,11 @@ private fun FileRow(node: TreeNode.File, onToggleFile: (Int) -> Unit) {
 @Composable
 private fun DownloadBar(state: RuTrackerTopicUiState, onDownload: () -> Unit) {
     val selection = state.selection ?: return
-    Surface(tonalElevation = 3.dp) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         Button(
             onClick = onDownload,
             enabled = state.canDownload,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).height(56.dp),
         ) {
             if (state.enqueuing) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -521,7 +523,7 @@ private fun previewState(
 
 @Composable
 private fun TopicPreview(state: RuTrackerTopicUiState) {
-    MaterialTheme {
+    BookReconTheme {
         RuTrackerTopicContent(state, remember { SnackbarHostState() }, TopicActions())
     }
 }

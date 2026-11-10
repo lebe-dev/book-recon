@@ -16,6 +16,8 @@ package ru.tinyops.android.bookrecon.core.domain
  *   seeders (or stalled) is retried this many minutes later; 0 turns retries off.
  * @property sendErrorReports send crashes and unexpected errors to Sentry; off until the user
  *   turns it on.
+ * @property colorTheme color theme of the app.
+ * @property darkMode light or dark app, or following the system.
  */
 data class Settings(
     val audioRoot: String? = null,
@@ -28,6 +30,8 @@ data class Settings(
     val seedHours: Int = 0,
     val noSeedersRetryMinutes: Int = DEFAULT_NO_SEEDERS_RETRY_MINUTES,
     val sendErrorReports: Boolean = false,
+    val colorTheme: ColorTheme = ColorTheme.BLUEBERRY,
+    val darkMode: DarkMode = DarkMode.SYSTEM,
 ) {
     /** Root folder for downloads of the given kind, null until chosen. */
     fun rootFor(kind: MediaKind): String? = when (kind) {

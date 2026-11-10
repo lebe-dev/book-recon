@@ -15,19 +15,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,7 +39,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -59,9 +60,12 @@ import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.di.appContainer
 import ru.tinyops.android.bookrecon.download.downloadMessage
+import ru.tinyops.android.bookrecon.ui.common.KindTile
+import ru.tinyops.android.bookrecon.ui.common.ScreenTitle
 import ru.tinyops.android.bookrecon.ui.common.displayTitle
 import ru.tinyops.android.bookrecon.ui.search.formatSize
 import ru.tinyops.android.bookrecon.ui.search.label
+import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
 import java.time.Instant
 import java.time.ZoneId
 
@@ -188,9 +192,12 @@ private fun CenteredBody(content: @Composable ColumnScope.() -> Unit) {
 private fun DownloadsList(state: DownloadsUiState, actions: DownloadsActions, now: Instant, zone: ZoneId) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        item(key = "title", contentType = "title") {
+            ScreenTitle(stringResource(R.string.nav_downloads), inset = 8.dp)
+        }
         section(R.string.downloads_section_active, state.active) { download ->
             ActiveItem(download, download.id in state.busy, actions)
         }
@@ -217,19 +224,29 @@ private fun LazyListScope.section(
             stringResource(title),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+            modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp),
         )
     }
     items(downloads, key = { it.id }, contentType = { it.status }) { content(it) }
 }
 
 @Composable
-private fun DownloadCard(download: Download, icon: ImageVector, content: @Composable ColumnScope.() -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+private fun DownloadCard(
+    download: Download,
+    failed: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        color = if (failed) colors.errorContainer else colors.surfaceContainer,
+        contentColor = if (failed) colors.onErrorContainer else colors.onSurface,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Column(modifier = Modifier.weight(1f)) {
+                KindTile(download.kind, size = 40.dp)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         download.displayTitle(),
                         style = MaterialTheme.typography.titleMedium,
@@ -243,7 +260,7 @@ private fun DownloadCard(download: Download, icon: ImageVector, content: @Compos
                             stringResource(download.source.label()),
                         ),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (failed) LocalContentColor.current else colors.onSurfaceVariant,
                     )
                 }
             }
@@ -255,15 +272,20 @@ private fun DownloadCard(download: Download, icon: ImageVector, content: @Compos
 @Composable
 private fun ActiveItem(download: Download, busy: Boolean, actions: DownloadsActions) {
     val progress = download.progress
-    DownloadCard(download, Icons.Filled.Download) {
+    DownloadCard(download) {
+        val track = MaterialTheme.colorScheme.surfaceContainerHighest
         if (progress.total > 0) {
-            LinearProgressIndicator(progress = { progress.fraction }, modifier = Modifier.fillMaxWidth())
+            LinearProgressIndicator(progress = { progress.fraction }, trackColor = track, modifier = Modifier.fillMaxWidth())
         } else {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            LinearProgressIndicator(trackColor = track, modifier = Modifier.fillMaxWidth())
         }
-        Text(progressText(download), style = MaterialTheme.typography.bodySmall)
+        Text(
+            progressText(download),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         ActionRow {
-            TextButton(onClick = { actions.onCancel(download.id) }, enabled = !busy) {
+            OutlinedButton(onClick = { actions.onCancel(download.id) }, enabled = !busy) {
                 Text(stringResource(R.string.downloads_cancel))
             }
         }
@@ -298,9 +320,13 @@ private fun progressText(download: Download): String {
 
 @Composable
 private fun QueuedItem(download: Download, busy: Boolean, actions: DownloadsActions) {
-    DownloadCard(download, Icons.Filled.Schedule) {
+    DownloadCard(download) {
         download.queuePosition?.let {
-            Text(stringResource(R.string.downloads_queue_position, it), style = MaterialTheme.typography.bodySmall)
+            Text(
+                stringResource(R.string.downloads_queue_position, it),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         ActionRow {
             TextButton(onClick = { actions.onCancel(download.id) }, enabled = !busy) {
@@ -312,7 +338,7 @@ private fun QueuedItem(download: Download, busy: Boolean, actions: DownloadsActi
 
 @Composable
 private fun SeedingItem(download: Download, busy: Boolean, actions: DownloadsActions, now: Instant, zone: ZoneId) {
-    DownloadCard(download, Icons.Filled.CloudUpload) {
+    DownloadCard(download) {
         download.seedUntil?.let { until ->
             val text = when (val end = seedUntil(until, now, zone)) {
                 is SeedUntil.Today -> stringResource(R.string.downloads_seeding_today, end.time)
@@ -337,22 +363,35 @@ private fun SeedingItem(download: Download, busy: Boolean, actions: DownloadsAct
 @Composable
 private fun FailedItem(download: Download, busy: Boolean, actions: DownloadsActions) {
     val error = download.error ?: AppError.Unknown()
-    DownloadCard(download, Icons.Filled.ErrorOutline) {
+    DownloadCard(download, failed = true) {
         Text(
             stringResource(R.string.downloads_error, stringResource(error.downloadMessage())),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error,
         )
         ActionRow {
-            TextButton(onClick = { actions.onDismiss(download.id) }, enabled = !busy) {
+            TextButton(
+                onClick = { actions.onDismiss(download.id) },
+                enabled = !busy,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onErrorContainer),
+            ) {
                 Text(stringResource(R.string.downloads_dismiss))
             }
             if (error.fixableInSettings()) {
-                TextButton(onClick = actions.onOpenSettings) {
+                TextButton(
+                    onClick = actions.onOpenSettings,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onErrorContainer),
+                ) {
                     Text(stringResource(R.string.downloads_settings))
                 }
             }
-            TextButton(onClick = { actions.onRetry(download.id) }, enabled = !busy) {
+            Button(
+                onClick = { actions.onRetry(download.id) },
+                enabled = !busy,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.onErrorContainer,
+                    contentColor = MaterialTheme.colorScheme.errorContainer,
+                ),
+            ) {
                 Text(stringResource(R.string.downloads_retry))
             }
         }
@@ -361,7 +400,11 @@ private fun FailedItem(download: Download, busy: Boolean, actions: DownloadsActi
 
 @Composable
 private fun ActionRow(content: @Composable () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { content() }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically,
+    ) { content() }
 }
 
 @Composable
@@ -445,7 +488,7 @@ private val previewFull = DownloadsUiState(
 
 @Composable
 private fun DownloadsPreview(state: DownloadsUiState) {
-    MaterialTheme {
+    BookReconTheme {
         DownloadsContent(state, remember { SnackbarHostState() }, DownloadsActions(), now = previewNow, zone = previewZone)
     }
 }

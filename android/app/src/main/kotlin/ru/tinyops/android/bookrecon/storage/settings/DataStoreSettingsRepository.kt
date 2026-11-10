@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import ru.tinyops.android.bookrecon.core.domain.AppError
+import ru.tinyops.android.bookrecon.core.domain.ColorTheme
+import ru.tinyops.android.bookrecon.core.domain.DarkMode
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.Settings
 import ru.tinyops.android.bookrecon.core.port.SettingsRepository
@@ -34,6 +36,8 @@ internal object SettingsKeys {
     val SEED_HOURS = intPreferencesKey("seed_hours")
     val NO_SEEDERS_RETRY_MINUTES = intPreferencesKey("no_seeders_retry_minutes")
     val SEND_ERROR_REPORTS = booleanPreferencesKey("send_error_reports")
+    val COLOR_THEME = stringPreferencesKey("color_theme")
+    val DARK_MODE = stringPreferencesKey("dark_mode")
 
     /** Base64 of the password sealed by [SecretCipher]. */
     val RUTRACKER_PASSWORD = stringPreferencesKey("rutracker_password_sealed")
@@ -120,6 +124,8 @@ private fun Preferences.toSettings(): Settings {
         seedHours = this[SettingsKeys.SEED_HOURS] ?: defaults.seedHours,
         noSeedersRetryMinutes = this[SettingsKeys.NO_SEEDERS_RETRY_MINUTES] ?: defaults.noSeedersRetryMinutes,
         sendErrorReports = this[SettingsKeys.SEND_ERROR_REPORTS] ?: defaults.sendErrorReports,
+        colorTheme = enumOrNull<ColorTheme>(this[SettingsKeys.COLOR_THEME]) ?: defaults.colorTheme,
+        darkMode = enumOrNull<DarkMode>(this[SettingsKeys.DARK_MODE]) ?: defaults.darkMode,
     ).normalized()
 }
 
@@ -134,7 +140,13 @@ private fun MutablePreferences.write(settings: Settings) {
     this[SettingsKeys.SEED_HOURS] = settings.seedHours
     this[SettingsKeys.NO_SEEDERS_RETRY_MINUTES] = settings.noSeedersRetryMinutes
     this[SettingsKeys.SEND_ERROR_REPORTS] = settings.sendErrorReports
+    this[SettingsKeys.COLOR_THEME] = settings.colorTheme.name
+    this[SettingsKeys.DARK_MODE] = settings.darkMode.name
 }
+
+/** The constant named [name], null for a missing or unknown name (written by another version). */
+private inline fun <reified E : Enum<E>> enumOrNull(name: String?): E? =
+    enumValues<E>().firstOrNull { it.name == name }
 
 private fun MutablePreferences.setOrRemove(key: Preferences.Key<String>, value: String?) {
     if (value == null) remove(key) else this[key] = value

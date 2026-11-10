@@ -381,6 +381,13 @@ server. If the admin denies the request, the settings say so. Turning the switch
 the phone from the server. The Telegram link is valid for 15 minutes: if it expires, tap
 **Подключить** again.
 
+### Appearance
+
+**Настройки → Оформление** picks one of six pastel color themes: Черника (blue, the default),
+Фисташка (green), Яблоко (red), Голубика (light blue), Зефир (pink) and Какао (brown). Every
+theme has a light and a dark variant: by default the app follows the system setting, and
+**Тёмная тема** can fix it to light or dark.
+
 ### Error reports
 
 Error reports are off by default. **Настройки → Отчёты об ошибках** turns them on: crashes

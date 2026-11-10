@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import ru.tinyops.android.bookrecon.core.domain.AppError
+import ru.tinyops.android.bookrecon.core.domain.ColorTheme
+import ru.tinyops.android.bookrecon.core.domain.DarkMode
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Settings
@@ -208,6 +210,10 @@ class SettingsViewModel(
     fun onNoSeedersRetryChange(minutes: Int) = save { it.copy(noSeedersRetryMinutes = minutes.coerceAtLeast(0)) }
 
     fun onSendErrorReportsChange(enabled: Boolean) = save { it.copy(sendErrorReports = enabled) }
+
+    fun onColorThemeChange(theme: ColorTheme) = save { it.copy(colorTheme = theme) }
+
+    fun onDarkModeChange(mode: DarkMode) = save { it.copy(darkMode = mode) }
 
     private fun save(transform: (Settings) -> Settings) {
         viewModelScope.launch { settings.update(transform) }

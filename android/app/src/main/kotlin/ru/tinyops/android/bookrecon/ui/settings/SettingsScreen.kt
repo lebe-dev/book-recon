@@ -11,6 +11,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,10 +33,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
@@ -54,6 +55,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -71,6 +73,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.flow.Flow
 import ru.tinyops.android.bookrecon.R
 import ru.tinyops.android.bookrecon.core.domain.AppError
+import ru.tinyops.android.bookrecon.core.domain.ColorTheme
+import ru.tinyops.android.bookrecon.core.domain.DarkMode
 import ru.tinyops.android.bookrecon.core.domain.ErrorCode
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
@@ -78,6 +82,7 @@ import ru.tinyops.android.bookrecon.core.domain.Settings
 import ru.tinyops.android.bookrecon.di.appContainer
 import ru.tinyops.android.bookrecon.storage.files.RootCheck
 import ru.tinyops.android.bookrecon.ui.nav.VerificationPurpose
+import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
 import android.provider.Settings as SystemSettings
 
 @Composable
@@ -164,6 +169,8 @@ fun SettingsScreen(
             onSeedHoursChange = viewModel::onSeedHoursChange,
             onNoSeedersRetryChange = viewModel::onNoSeedersRetryChange,
             onSendErrorReportsChange = viewModel::onSendErrorReportsChange,
+            onColorThemeChange = viewModel::onColorThemeChange,
+            onDarkModeChange = viewModel::onDarkModeChange,
         ),
         server = serverState,
         serverActions = ServerActions(
@@ -220,6 +227,8 @@ data class SettingsActions(
     val onSeedHoursChange: (Int) -> Unit = {},
     val onNoSeedersRetryChange: (Int) -> Unit = {},
     val onSendErrorReportsChange: (Boolean) -> Unit = {},
+    val onColorThemeChange: (ColorTheme) -> Unit = {},
+    val onDarkModeChange: (DarkMode) -> Unit = {},
 )
 
 /** Stateless body of the settings screen, also used by previews. */
@@ -239,59 +248,64 @@ fun SettingsContent(
     ) {
         Text(
             text = stringResource(R.string.nav_settings),
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 8.dp),
         )
 
-        SectionTitle(R.string.settings_section_storage)
-        AccessBlock(state.hasAllFilesAccess, actions.onOpenAccessSettings)
-        RootItem(MediaKind.AUDIO, state, actions.onPickRoot)
-        RootItem(MediaKind.BOOK, state, actions.onPickRoot)
-        state.rootProblem?.let { problem ->
-            ErrorLine(stringResource(problem.issue.message()))
+        Section(R.string.settings_section_appearance) {
+            AppearanceBlock(state.settings, actions)
         }
-
-        SectionDivider()
-        SectionTitle(R.string.settings_section_server)
-        ServerBlock(server, serverActions)
-
-        SectionDivider()
-        SectionTitle(R.string.settings_section_rutracker)
-        RuTrackerBlock(state, actions)
-
-        SectionDivider()
-        SectionTitle(R.string.settings_section_flibusta)
-        FlibustaBlock(state, actions)
-
-        SectionDivider()
-        SectionTitle(R.string.settings_section_downloads)
-        DownloadsBlock(state.settings, actions)
-        NoSeedersRetryBlock(state.settings.noSeedersRetryMinutes, actions.onNoSeedersRetryChange)
-
-        SectionDivider()
-        SectionTitle(R.string.settings_section_seeding)
-        SeedingBlock(state.settings.seedHours, actions.onSeedHoursChange)
-
-        SectionDivider()
-        SectionTitle(R.string.settings_section_reports)
-        ErrorReportsBlock(state.settings.sendErrorReports, actions.onSendErrorReportsChange)
+        Section(R.string.settings_section_storage) {
+            AccessBlock(state.hasAllFilesAccess, actions.onOpenAccessSettings)
+            RootItem(MediaKind.AUDIO, state, actions.onPickRoot)
+            RootItem(MediaKind.BOOK, state, actions.onPickRoot)
+            state.rootProblem?.let { problem ->
+                ErrorLine(stringResource(problem.issue.message()))
+            }
+        }
+        Section(R.string.settings_section_server) {
+            ServerBlock(server, serverActions)
+        }
+        Section(R.string.settings_section_rutracker) {
+            RuTrackerBlock(state, actions)
+        }
+        Section(R.string.settings_section_flibusta) {
+            FlibustaBlock(state, actions)
+        }
+        Section(R.string.settings_section_downloads) {
+            DownloadsBlock(state.settings, actions)
+            NoSeedersRetryBlock(state.settings.noSeedersRetryMinutes, actions.onNoSeedersRetryChange)
+        }
+        Section(R.string.settings_section_seeding) {
+            SeedingBlock(state.settings.seedHours, actions.onSeedHoursChange)
+        }
+        Section(R.string.settings_section_reports) {
+            ErrorReportsBlock(state.settings.sendErrorReports, actions.onSendErrorReportsChange)
+        }
     }
 }
 
+/** A titled group of settings on a rounded container card. */
 @Composable
-private fun SectionTitle(@StringRes title: Int) {
+private fun Section(@StringRes title: Int, content: @Composable ColumnScope.() -> Unit) {
     Text(
         text = stringResource(title),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 4.dp),
+        modifier = Modifier.padding(horizontal = 24.dp).padding(top = 16.dp, bottom = 8.dp),
     )
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.extraLarge,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    ) {
+        Column(modifier = Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+    }
 }
 
+/** List item colors for rows on a [Section] card, which has its own background. */
 @Composable
-private fun SectionDivider() {
-    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-}
+internal fun cardListItemColors() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
 @Composable
 private fun ErrorLine(text: String) {
@@ -307,6 +321,7 @@ private fun ErrorLine(text: String) {
 private fun AccessBlock(granted: Boolean, onOpenAccessSettings: () -> Unit) {
     if (granted) {
         ListItem(
+            colors = cardListItemColors(),
             headlineContent = { Text(stringResource(R.string.settings_access_granted)) },
             leadingContent = { Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
         )
@@ -314,7 +329,8 @@ private fun AccessBlock(granted: Boolean, onOpenAccessSettings: () -> Unit) {
     }
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -348,6 +364,7 @@ private fun RootItem(kind: MediaKind, state: SettingsUiState, onPickRoot: (Media
         RootCheck.OK, null -> null
     }
     ListItem(
+        colors = cardListItemColors(),
         modifier = Modifier.clickable { onPickRoot(kind) },
         headlineContent = {
             Text(stringResource(if (kind == MediaKind.AUDIO) R.string.settings_root_audio else R.string.settings_root_books))
@@ -501,6 +518,7 @@ private fun DownloadsBlock(settings: Settings, actions: SettingsActions) {
         )
     }
     ListItem(
+        colors = cardListItemColors(),
         modifier = Modifier.clickable { actions.onWifiOnlyChange(!settings.wifiOnly) },
         headlineContent = { Text(stringResource(R.string.settings_wifi_only)) },
         supportingContent = { Text(stringResource(R.string.settings_wifi_only_text)) },
@@ -571,6 +589,7 @@ private fun SeedingBlock(seedHours: Int, onSeedHoursChange: (Int) -> Unit) {
 @Composable
 private fun ErrorReportsBlock(enabled: Boolean, onChange: (Boolean) -> Unit) {
     ListItem(
+        colors = cardListItemColors(),
         modifier = Modifier.clickable { onChange(!enabled) },
         headlineContent = { Text(stringResource(R.string.settings_reports_send)) },
         supportingContent = { Text(stringResource(R.string.settings_reports_text)) },
@@ -618,7 +637,7 @@ internal fun AppError.loginMessage(): Int = when (code) {
 
 @Composable
 private fun SettingsPreview(state: SettingsUiState) {
-    MaterialTheme {
+    BookReconTheme(colorTheme = state.settings.colorTheme) {
         Surface {
             SettingsContent(state, SettingsActions())
         }
@@ -639,6 +658,7 @@ private fun SettingsConfiguredPreview() = SettingsPreview(
             rutrackerLogin = "reader",
             wifiOnly = true,
             seedHours = 3,
+            colorTheme = ColorTheme.PISTACHIO,
         ),
         loaded = true,
         hasAllFilesAccess = true,

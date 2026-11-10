@@ -32,10 +32,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import java.time.Instant
 import ru.tinyops.android.bookrecon.R
 import ru.tinyops.android.bookrecon.server.ServerProblem
 import ru.tinyops.android.bookrecon.server.ServerState
+import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
+import java.time.Instant
 
 /** What the user can do in the server block. */
 data class ServerActions(
@@ -58,6 +59,7 @@ internal fun ServerBlock(state: ServerUiState, actions: ServerActions) {
     val busy = connection == ServerState.Connecting
 
     ListItem(
+        colors = cardListItemColors(),
         modifier = Modifier.clickable(enabled = !busy) { actions.onEnabledChange(!state.enabled) },
         headlineContent = { Text(stringResource(R.string.settings_server_enable)) },
         supportingContent = { Text(stringResource(R.string.settings_server_text)) },
@@ -175,7 +177,7 @@ private fun ServerState.message(): Int = when (this) {
 
 @Composable
 private fun ServerPreview(connection: ServerState) {
-    MaterialTheme {
+    BookReconTheme {
         Surface {
             ServerBlock(ServerUiState(url = "https://books.example.com", storedUrl = "https://books.example.com", connection = connection), ServerActions())
         }

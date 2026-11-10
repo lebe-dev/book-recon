@@ -1,18 +1,23 @@
 package ru.tinyops.android.bookrecon.ui.book
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.VerifiedUser
@@ -42,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,7 +67,10 @@ import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.core.fake.FakeData
 import ru.tinyops.android.bookrecon.di.appContainer
 import ru.tinyops.android.bookrecon.download.downloadMessage
+import ru.tinyops.android.bookrecon.ui.common.Tag
 import ru.tinyops.android.bookrecon.ui.nav.VerificationPurpose
+import ru.tinyops.android.bookrecon.ui.search.label
+import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
 import java.time.Instant
 
 @Composable
@@ -257,15 +266,10 @@ private fun BookBody(
     modifier: Modifier,
 ) {
     Column(
-        modifier = modifier.verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (book.author.isNotBlank()) {
-                Text(book.author, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text(book.title, style = MaterialTheme.typography.headlineSmall)
-        }
+        BookHeader(book)
 
         state.downloaded?.let { DownloadedMark(it) }
 
@@ -291,7 +295,7 @@ private fun BookBody(
             }
         }
 
-        Button(onClick = onDownload, enabled = state.canDownload, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = onDownload, enabled = state.canDownload, modifier = Modifier.fillMaxWidth().height(56.dp)) {
             if (state.enqueuing) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
             } else {
@@ -305,20 +309,58 @@ private fun BookBody(
     }
 }
 
+/** Cover-like tile, source, title and author. */
+@Composable
+private fun BookHeader(book: FlibustaBookDetails) {
+    Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.Top) {
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            shape = MaterialTheme.shapes.large,
+            modifier = Modifier.width(104.dp).height(148.dp),
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(28.dp))
+                Text(
+                    book.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Tag(stringResource(Source.FLIBUSTA.label()))
+            Text(book.title, style = MaterialTheme.typography.headlineSmall)
+            if (book.author.isNotBlank()) {
+                Text(book.author, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
 @Composable
 private fun DownloadedMark(download: Download) {
     Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(40.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                }
+            }
             val format = download.format
             Text(
                 if (format != null) {
@@ -326,6 +368,7 @@ private fun DownloadedMark(download: Download) {
                 } else {
                     stringResource(R.string.book_downloaded)
                 },
+                style = MaterialTheme.typography.bodyLarge,
             )
         }
     }
@@ -353,7 +396,7 @@ private val previewDownloaded get() = Download(
 
 @Composable
 private fun BookPreview(state: FlibustaBookUiState) {
-    MaterialTheme {
+    BookReconTheme {
         FlibustaBookContent(state, remember { SnackbarHostState() }, {}, {}, {}, {}, {})
     }
 }

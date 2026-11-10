@@ -1,8 +1,9 @@
 package ru.tinyops.android.bookrecon.ui.search
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,26 +16,23 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,8 +63,13 @@ import ru.tinyops.android.bookrecon.core.fake.FakeData
 import ru.tinyops.android.bookrecon.core.usecase.search.SearchState
 import ru.tinyops.android.bookrecon.core.usecase.search.SourceState
 import ru.tinyops.android.bookrecon.di.appContainer
+import ru.tinyops.android.bookrecon.ui.common.KindTile
+import ru.tinyops.android.bookrecon.ui.common.PillShape
+import ru.tinyops.android.bookrecon.ui.common.Tag
+import ru.tinyops.android.bookrecon.ui.common.pillFieldColors
 import ru.tinyops.android.bookrecon.ui.nav.TopicKind
 import ru.tinyops.android.bookrecon.ui.nav.VerificationPurpose
+import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
 
 @Composable
 fun SearchScreen(
@@ -140,7 +143,7 @@ fun SearchContent(
     Column(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp, bottom = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SearchField(state.query, state.queryTooShort, onQueryChange, submit)
             KindSelector(state.kind, onKindChange)
@@ -157,13 +160,16 @@ fun SearchContent(
             return@Column
         }
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             items(search.sources.entries.toList(), key = { "status-${it.key}" }) { (source, sourceState) ->
                 SourceStatusRow(source, sourceState, onRetry, onOpenVerification, onOpenSettings)
             }
             items(search.results, key = { "result-${it.source}-${it.sourceId}" }) { result ->
                 ResultItem(result, onClick = { onOpenResult(result) })
-                HorizontalDivider()
             }
             if (search.isComplete && search.results.isEmpty() && search.errors.isEmpty() && search.verification == null) {
                 item(key = "nothing-found") {
@@ -176,13 +182,15 @@ fun SearchContent(
 
 @Composable
 private fun SearchField(query: String, tooShort: Boolean, onQueryChange: (String) -> Unit, onSubmit: () -> Unit) {
-    OutlinedTextField(
+    TextField(
         value = query,
         onValueChange = onQueryChange,
         modifier = Modifier.fillMaxWidth(),
-        label = { Text(stringResource(R.string.search_field_label)) },
+        placeholder = { Text(stringResource(R.string.search_field_label)) },
         singleLine = true,
         isError = tooShort,
+        shape = PillShape,
+        colors = pillFieldColors(),
         supportingText = if (tooShort) {
             { Text(stringResource(R.string.search_query_too_short)) }
         } else {
@@ -277,7 +285,7 @@ private fun StatusRow(
     icon: @Composable () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -289,70 +297,82 @@ private fun StatusRow(
 
 @Composable
 private fun ResultItem(result: BookResult, onClick: () -> Unit) {
-    val colors = if (result.alreadyDownloaded) {
-        ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-    } else {
-        ListItemDefaults.colors()
+    Surface(
+        onClick = onClick,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            KindTile(result.kind)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+                    Text(
+                        result.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (result.alreadyDownloaded) DownloadedMark()
+                }
+                ResultDetails(result)
+            }
+        }
     }
-    ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
-        colors = colors,
-        overlineContent = { Text(stringResource(result.source.label())) },
-        headlineContent = { Text(result.title, maxLines = 3, overflow = TextOverflow.Ellipsis) },
-        supportingContent = { ResultDetails(result) },
-        trailingContent = if (result.alreadyDownloaded) {
-            { DownloadedMark() }
-        } else {
-            null
-        },
-    )
 }
 
 @Composable
 private fun ResultDetails(result: BookResult) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (result.author.isNotBlank()) {
-            Text(result.author, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
-        if (result.formats.isNotEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                result.formats.forEach { FormatChip(it.extension.uppercase()) }
-            }
-        }
-        val seeders = result.seeders ?: return@Column
-        val stats = stringResource(R.string.search_seeders_peers, seeders, result.peers ?: 0)
-        val size = result.size?.takeIf { it > 0 }
-        if (size == null) {
-            Text(stats)
-            return@Column
-        }
-        val formatted = formatSize(size)
-        val sizeText = stringResource(R.string.search_size, formatted.number, stringResource(formatted.unit.label))
-        Text(stringResource(R.string.search_size_and_stats, sizeText, stats))
+    val variant = MaterialTheme.colorScheme.onSurfaceVariant
+    if (result.author.isNotBlank()) {
+        Text(
+            result.author,
+            style = MaterialTheme.typography.bodyMedium,
+            color = variant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
-}
-
-@Composable
-private fun FormatChip(label: String) {
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    val source = stringResource(result.source.label())
+    val seeders = result.seeders
+    val size = result.size?.takeIf { it > 0 }
+    val sizeText = size?.let {
+        val formatted = formatSize(it)
+        stringResource(R.string.search_size, formatted.number, stringResource(formatted.unit.label))
+    }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 4.dp),
     ) {
-        Text(label, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall)
+        result.formats.forEach { Tag(it.extension.uppercase()) }
+        if (sizeText != null) {
+            val audio = result.kind == MediaKind.AUDIO
+            Tag(
+                sizeText,
+                container = if (audio) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                content = if (audio) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+        }
+        val stats = seeders?.let { stringResource(R.string.search_seeders_peers, it, result.peers ?: 0) }
+        Text(
+            if (stats == null) source else stringResource(R.string.search_size_and_stats, stats, source),
+            style = MaterialTheme.typography.labelMedium,
+            color = variant,
+        )
     }
 }
 
 @Composable
 private fun DownloadedMark() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        Text(
-            stringResource(R.string.search_downloaded),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
+    Tag(
+        stringResource(R.string.search_downloaded),
+        container = MaterialTheme.colorScheme.primaryContainer,
+        content = MaterialTheme.colorScheme.onPrimaryContainer,
+        icon = { Icon(Icons.Filled.Check, contentDescription = null) },
+    )
 }
 
 @Composable
@@ -395,7 +415,7 @@ private fun previewState(query: String, kind: MediaKind, vararg sources: Pair<So
 
 @Composable
 private fun SearchPreview(state: SearchUiState) {
-    MaterialTheme {
+    BookReconTheme {
         Surface {
             SearchContent(state, {}, {}, {}, {}, {}, {}, {})
         }

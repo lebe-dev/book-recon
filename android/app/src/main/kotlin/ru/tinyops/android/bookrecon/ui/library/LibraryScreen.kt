@@ -21,25 +21,21 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -49,6 +45,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -85,9 +82,15 @@ import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.core.domain.TorrentFile
 import ru.tinyops.android.bookrecon.di.appContainer
 import ru.tinyops.android.bookrecon.download.downloadMessage
+import ru.tinyops.android.bookrecon.ui.common.KindTile
+import ru.tinyops.android.bookrecon.ui.common.PillShape
+import ru.tinyops.android.bookrecon.ui.common.ScreenTitle
+import ru.tinyops.android.bookrecon.ui.common.Tag
 import ru.tinyops.android.bookrecon.ui.common.displayTitle
+import ru.tinyops.android.bookrecon.ui.common.pillFieldColors
 import ru.tinyops.android.bookrecon.ui.search.formatSize
 import ru.tinyops.android.bookrecon.ui.search.label
+import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -216,6 +219,7 @@ fun LibraryContent(
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
+            ScreenTitle(stringResource(R.string.nav_library))
             SearchBar(state, actions)
             Box(modifier = Modifier.weight(1f)) { Body(state, actions, zone) }
         }
@@ -229,22 +233,24 @@ fun LibraryContent(
 private fun SearchBar(state: LibraryUiState, actions: LibraryActions) {
     val focusManager = LocalFocusManager.current
     Column(
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        OutlinedTextField(
+        TextField(
             value = state.query,
             onValueChange = actions.onQueryChange,
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text(stringResource(R.string.library_search_hint)) },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             trailingIcon = {
-                if (state.query.isEmpty()) return@OutlinedTextField
+                if (state.query.isEmpty()) return@TextField
                 IconButton(onClick = { actions.onQueryChange("") }) {
                     Icon(Icons.Filled.Clear, contentDescription = stringResource(R.string.library_search_clear))
                 }
             },
             singleLine = true,
+            shape = PillShape,
+            colors = pillFieldColors(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
         )
@@ -325,16 +331,15 @@ private fun EmptyBody(icon: ImageVector, @StringRes title: Int, @StringRes text:
 
 @Composable
 private fun LibraryItem(download: Download, busy: Boolean, actions: LibraryActions, zone: ZoneId) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-                Icon(
-                    if (download.kind == MediaKind.AUDIO) Icons.Filled.Headphones else Icons.AutoMirrored.Filled.MenuBook,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 4.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Top) {
+                KindTile(download.kind)
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
                         download.displayTitle(),
                         style = MaterialTheme.typography.titleMedium,
@@ -348,21 +353,22 @@ private fun LibraryItem(download: Download, busy: Boolean, actions: LibraryActio
                     )
                     if (download.status == DownloadStatus.SEEDING) SeedingBadge()
                     if (download.fileMissing) {
-                        Text(
+                        Tag(
                             stringResource(R.string.library_file_missing),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
+                            container = MaterialTheme.colorScheme.errorContainer,
+                            content = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(top = 2.dp),
                         )
                     }
                 }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (!download.fileMissing) {
-                    OutlinedButton(onClick = { actions.onOpen(download.id) }, enabled = !busy) {
+                    FilledTonalButton(onClick = { actions.onOpen(download.id) }, enabled = !busy) {
                         Text(stringResource(R.string.library_open))
                     }
                 }
@@ -375,21 +381,11 @@ private fun LibraryItem(download: Download, busy: Boolean, actions: LibraryActio
 /** Marks an entry whose files are still shared in the torrent session. */
 @Composable
 private fun SeedingBadge() {
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        shape = MaterialTheme.shapes.small,
+    Tag(
+        stringResource(R.string.library_seeding),
         modifier = Modifier.padding(top = 2.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Filled.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
-            Text(stringResource(R.string.library_seeding), style = MaterialTheme.typography.labelMedium)
-        }
-    }
+        icon = { Icon(Icons.Filled.CloudUpload, contentDescription = null) },
+    )
 }
 
 @Composable
@@ -537,7 +533,7 @@ private val previewItems = listOf(
 
 @Composable
 private fun LibraryPreview(state: LibraryUiState) {
-    MaterialTheme {
+    BookReconTheme {
         LibraryContent(state, remember { SnackbarHostState() }, LibraryActions(), zone = previewZone)
     }
 }

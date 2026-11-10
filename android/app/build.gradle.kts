@@ -39,6 +39,22 @@ val releaseKeyPassword = envValue("ANDROID_KEY_PASSWORD")
 val hasReleaseSigning =
     listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { it != null }
 
+// Short commit hash of the checkout the APK is built from, "-dirty" with uncommitted changes.
+// Shown at the bottom of Settings; "unknown" when git is not available.
+fun gitOutput(vararg args: String): String? = try {
+    providers.exec {
+        workingDir = repoRoot.asFile
+        commandLine("git", *args)
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim().ifBlank { null }
+} catch (e: Exception) {
+    null
+}
+
+val gitHash: String = gitOutput("rev-parse", "--short", "HEAD")?.let { hash ->
+    if (gitOutput("status", "--porcelain") != null) "$hash-dirty" else hash
+} ?: "unknown"
+
 // The DSN is baked into the APK; without it the app never sends error reports.
 val sentryDsn = envValue("SENTRY_DSN").orEmpty()
 
@@ -61,6 +77,7 @@ android {
         targetSdk = 37
         versionName = appVersionName
         versionCode = versionCodeOf(appVersionName)
+        buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
         buildConfigField("String", "SENTRY_DSN", "\"${sentryDsn.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 

@@ -63,6 +63,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -71,6 +72,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.flow.Flow
+import ru.tinyops.android.bookrecon.BuildConfig
 import ru.tinyops.android.bookrecon.R
 import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.ColorTheme
@@ -290,6 +292,13 @@ fun SettingsContent(
         Section(R.string.settings_section_reports) {
             ErrorReportsBlock(state.settings.sendErrorReports, actions.onSendErrorReportsChange)
         }
+        Text(
+            text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, BuildConfig.GIT_HASH),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp),
+        )
     }
 }
 

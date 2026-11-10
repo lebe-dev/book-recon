@@ -18,6 +18,9 @@ import ru.tinyops.android.bookrecon.storage.settings.KeystoreKeys
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 class SettingsModule(private val app: AppContainer) {
+    /** The settings DataStore; the server module keeps its own keys in it. */
+    val dataStore: DataStore<Preferences> get() = app.context.settingsStore
+
     val settingsRepository: SettingsRepository by lazy {
         DataStoreSettingsRepository(
             store = app.context.settingsStore,

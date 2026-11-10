@@ -145,8 +145,8 @@ Jackett or FlareSolverr. The UI is in Russian only.
    newer is required.
 2. Open the file on the phone and allow installing apps from this source when Android asks.
 
-Flibusta and RuTracker are blocked in Russia: turn on a VPN on the phone before searching.
-The app has no built-in proxy.
+Flibusta and RuTracker are blocked in Russia: turn on a VPN on the phone, or connect the
+app to a Book Recon server (see [Through the Book Recon server](#through-the-book-recon-server)).
 
 ### First run
 
@@ -167,6 +167,72 @@ in the background and show their progress in a notification.
 
 While a download is running, its files live in a hidden `.book-recon` folder inside the
 chosen folder, and they are moved into place once the download finishes.
+
+### Through the Book Recon server
+
+The app can reach RuTracker and Flibusta through the Book Recon server when the phone's
+network blocks them. It is off by default:
+
+1. **Настройки → Через сервер Book Recon**: turn the switch on and enter the server address,
+   such as `https://books.example.com`.
+2. The app opens the bot in Telegram: tap **Start**. This links the phone to your Telegram
+   account.
+3. A user the bot already knows (`ALLOWED_USERS`, `ADMIN_USERS` or approved earlier) is in
+   at once. Otherwise admins get a request marked "from the Android app" with
+   approve/deny buttons, and the app shows a spinner until they decide.
+
+Once approved, the settings say that RuTracker and Flibusta go through the Book Recon
+server. Access follows the bot: a denied user gets no new requests to admins, `/blocked_users`
+lets an admin approve them later, and revoking access in `/allowed_users` turns the app's
+tunnel off too. Both lists show how many phones each user has linked. Turning the switch off
+removes the phone from the server.
+
+Only HTTPS requests to the server's host list go through the tunnel, both from the app and
+from its built-in browser view (Cloudflare binds its check to the IP address). Torrent
+peers and trackers are still reached directly.
+
+Server side:
+
+```
+APP_API_ENABLED=true
+```
+
+The API listens on `APP_API_LISTEN` (`:8081`); docker-compose publishes it on
+`127.0.0.1:8081`. Expose `/api/v1/` through nginx with WebSocket support:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name books.example.com;
+    # ssl_certificate ...;
+
+    location /api/v1/ {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_set_header Host $host;
+        # The tunnel is a WebSocket
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_buffering off;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+    }
+}
+```
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/v1/ping` | Tells the app this is a Book Recon server |
+| `POST /api/v1/clients` | Registers a phone, returns its bearer token |
+| `GET /api/v1/clients/me` | Access status and the tunnel host list |
+| `POST /api/v1/clients/me/link` | One-time `t.me/<bot>?start=link_…` link, valid 15 minutes |
+| `DELETE /api/v1/clients/me` | Removes the phone |
+| `GET /api/v1/tunnel?host=&port=` | WebSocket tunnel to an allowed host |
+
+Every call except the first two needs `Authorization: Bearer <token>`. The server keeps only
+a SHA-256 hash of each token. The tunnel reaches only hosts in `APP_TUNNEL_HOSTS` (and their
+subdomains) on `APP_TUNNEL_PORTS`, and only public IP addresses. Registrations are limited
+to 10 per minute, and phones that never link a Telegram account are removed after a day.
 
 ### Error reports
 

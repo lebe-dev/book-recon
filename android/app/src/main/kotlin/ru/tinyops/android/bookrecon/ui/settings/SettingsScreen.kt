@@ -103,11 +103,23 @@ fun SettingsScreen(
     }
     val viewModel: SettingsViewModel = viewModel(factory = factory)
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val serverFactory = remember(context) {
+        val connection = context.appContainer.server.connection
+        viewModelFactory { initializer { ServerViewModel(connection) } }
+    }
+    val serverViewModel: ServerViewModel = viewModel(factory = serverFactory)
+    val serverState by serverViewModel.state.collectAsStateWithLifecycle()
 
-    // Access may have been granted in the system settings while the screen was hidden.
-    LifecycleResumeEffect(viewModel) {
+    // Access may have been granted in the system settings while the screen was hidden; the
+    // admin may have decided on the server request while the user was in Telegram.
+    LifecycleResumeEffect(viewModel, serverViewModel) {
         viewModel.onResume()
+        serverViewModel.onResume()
         onPauseOrDispose {}
+    }
+
+    LaunchedEffect(serverViewModel) {
+        serverViewModel.links.collect { link -> openLink(context, link) }
     }
 
     LaunchedEffect(verificationResults) {
@@ -152,7 +164,25 @@ fun SettingsScreen(
             onSeedHoursChange = viewModel::onSeedHoursChange,
             onSendErrorReportsChange = viewModel::onSendErrorReportsChange,
         ),
+        server = serverState,
+        serverActions = ServerActions(
+            onEnabledChange = serverViewModel::onEnabledChange,
+            onUrlChange = serverViewModel::onUrlChange,
+            onSaveUrl = serverViewModel::onSaveUrl,
+            onConnect = serverViewModel::onConnect,
+            onOpenTelegram = serverViewModel::onOpenTelegram,
+            onDisconnect = serverViewModel::onDisconnect,
+        ),
     )
+}
+
+/** Opens a t.me link in Telegram, or in a browser when Telegram is not installed. */
+private fun openLink(context: Context, link: String) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, R.string.settings_server_no_app, Toast.LENGTH_LONG).show()
+    }
 }
 
 /** Opens the system screen where the user grants all-files access to this app. */
@@ -192,7 +222,13 @@ data class SettingsActions(
 
 /** Stateless body of the settings screen, also used by previews. */
 @Composable
-fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: Modifier = Modifier) {
+fun SettingsContent(
+    state: SettingsUiState,
+    actions: SettingsActions,
+    modifier: Modifier = Modifier,
+    server: ServerUiState = ServerUiState(),
+    serverActions: ServerActions = ServerActions(),
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -212,6 +248,10 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
         state.rootProblem?.let { problem ->
             ErrorLine(stringResource(problem.issue.message()))
         }
+
+        SectionDivider()
+        SectionTitle(R.string.settings_section_server)
+        ServerBlock(server, serverActions)
 
         SectionDivider()
         SectionTitle(R.string.settings_section_rutracker)

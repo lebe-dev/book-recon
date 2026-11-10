@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/lebe-dev/book-recon/internal/adapter/appapi"
 	"github.com/lebe-dev/book-recon/internal/adapter/audiobook"
 	"github.com/lebe-dev/book-recon/internal/adapter/config"
 	"github.com/lebe-dev/book-recon/internal/adapter/i18n"
@@ -167,7 +168,7 @@ func main() {
 
 	bookService := usecase.NewBookService(providers, userRepo, searchCache, logger)
 	bookService.SetProviderTimeout(cfg.ProviderTimeout)
-	accessService := usecase.NewAccessService(accessRepo, userRegistry, logger)
+	accessService := usecase.NewAccessService(accessRepo, userRegistry, cfg.AllowedUsers, cfg.AdminUsers, logger)
 
 	bot, err := telegram.New(cfg.TelegramToken, bookService, accessService, userRegistry, cfg.AllowedUsers, cfg.AdminUsers, Version, msg, logger)
 	if err != nil {
@@ -175,6 +176,25 @@ func main() {
 	}
 
 	bookService.SetOnProviderError(bot.NotifyProviderError)
+
+	var appAPI *appapi.Server
+	if cfg.AppAPIEnabled {
+		appClients := usecase.NewAppClientService(storage.NewAppClientRepo(db), accessService, logger)
+		bot.SetAppClientService(appClients)
+		appAPI = appapi.NewServer(appapi.Config{
+			Listen:       cfg.AppAPIListen,
+			AllowedHosts: cfg.AppTunnelHosts,
+			AllowedPorts: cfg.AppTunnelPorts,
+			BotUsername:  bot.Username,
+			Version:      Version,
+		}, appClients, logger)
+		go func() {
+			defer sentryadapter.Recover()
+			if err := appAPI.Start(); err != nil {
+				logger.Fatal("app api server failed", "error", err)
+			}
+		}()
+	}
 
 	var audioWeb *audiobook.WebServer
 	if audioService != nil {
@@ -211,6 +231,13 @@ func main() {
 
 	logger.Info("shutting down...")
 	bot.Stop()
+	if appAPI != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		if err := appAPI.Shutdown(ctx); err != nil {
+			logger.Warn("app api server shutdown", "error", err)
+		}
+		cancel()
+	}
 	if audioWeb != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		if err := audioWeb.Shutdown(ctx); err != nil {

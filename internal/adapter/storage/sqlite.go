@@ -71,6 +71,17 @@ func migrate(db *sql.DB) error {
 			created_at TEXT NOT NULL,
 			expires_at TEXT NOT NULL DEFAULT ''
 		)`,
+		`CREATE TABLE IF NOT EXISTS app_clients (
+			id TEXT PRIMARY KEY,
+			token_hash TEXT NOT NULL UNIQUE,
+			device_name TEXT NOT NULL DEFAULT '',
+			telegram_id INTEGER NOT NULL DEFAULT 0,
+			username TEXT NOT NULL DEFAULT '',
+			link_code TEXT UNIQUE,
+			link_expires_at TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			last_seen_at TEXT NOT NULL
+		)`,
 	}
 
 	for _, q := range queries {

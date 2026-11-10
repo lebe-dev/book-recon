@@ -24,6 +24,7 @@ type Bot struct {
 	service       *usecase.BookService
 	accessService *usecase.AccessService
 	audio         *usecase.AudiobookService
+	appClients    *usecase.AppClientService
 	userRepo      domain.UserRepository
 	allowedUsers  []string
 	adminUsers    []string
@@ -71,6 +72,7 @@ func (b *Bot) Stop() {
 
 func (b *Bot) setupRoutes() {
 	b.bot.Use(b.recoverMiddleware)
+	b.bot.Use(b.appLinkMiddleware)
 	b.bot.Use(b.accessMiddleware)
 	b.bot.Use(b.contextMiddleware)
 
@@ -150,7 +152,7 @@ func (b *Bot) accessMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 
 		if created {
 			b.logger.Info("new access request", "telegram_id", sender.ID, "username", sender.Username)
-			go b.notifyAdminsAboutRequest(ctx, sender)
+			go b.notifyAdminsAboutRequest(ctx, sender, "")
 			return c.Send(b.msg.AccessRequestSent)
 		}
 

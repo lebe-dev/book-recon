@@ -19,6 +19,29 @@
     <string name="settings_root_issue_no_access">Сначала разрешите доступ ко всем файлам, затем выберите папку</string>
     <string name="settings_root_picker_unavailable">Не удалось открыть выбор папки</string>
 
+    <string name="settings_section_server">Сервер Book Recon</string>
+    <string name="settings_server_enable">Через сервер Book Recon</string>
+    <string name="settings_server_text">Открывать RuTracker и Flibusta через сервер, если их блокирует ваша сеть. Доступ одобряет администратор сервера в Telegram-боте</string>
+    <string name="settings_server_url">Адрес сервера</string>
+    <string name="settings_server_url_hint">Пустое поле — без сервера</string>
+    <string name="settings_server_url_error">Введите адрес вида https://books.example.com</string>
+    <string name="settings_server_connect">Подключить</string>
+    <string name="settings_server_retry">Повторить</string>
+    <string name="settings_server_open_telegram">Открыть Telegram</string>
+    <string name="settings_server_cancel">Отменить</string>
+    <string name="settings_server_disconnect">Отключить</string>
+    <string name="settings_server_status_disconnected">Не подключено</string>
+    <string name="settings_server_status_connecting">Подключение…</string>
+    <string name="settings_server_status_awaiting">Откройте бота в Telegram и нажмите «Старт», чтобы подтвердить подключение</string>
+    <string name="settings_server_status_pending">Ждите, пока администратор одобрит доступ</string>
+    <string name="settings_server_status_approved">Доступ одобрен: RuTracker и Flibusta открываются через сервер Book Recon</string>
+    <string name="settings_server_status_approved_as">Доступ одобрен для @%1$s: RuTracker и Flibusta открываются через сервер Book Recon</string>
+    <string name="settings_server_status_denied">Администратор отказал в доступе к серверу Book Recon</string>
+    <string name="settings_server_problem_unreachable">Сервер недоступен</string>
+    <string name="settings_server_problem_not_book_recon">По этому адресу нет сервера Book Recon с доступом для приложения</string>
+    <string name="settings_server_problem_server_error">Сервер ответил ошибкой</string>
+    <string name="settings_server_no_app">Не удалось открыть ссылку: нет ни Telegram, ни браузера</string>
+
     <string name="settings_section_rutracker">RuTracker</string>
     <string name="settings_rutracker_login">Логин</string>
     <string name="settings_rutracker_password">Пароль</string>

@@ -11,5 +11,6 @@ class BookReconApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         container.reports.start()
+        container.server.start()
     }
 }

@@ -20,6 +20,7 @@ class AppContainer(context: Context) {
     val download: DownloadModule by lazy { DownloadModule(this) }
     val search: SearchModule by lazy { SearchModule(this) }
     val reports: ReportsModule by lazy { ReportsModule(this) }
+    val server: ServerModule by lazy { ServerModule(this) }
 }
 
 val Context.appContainer: AppContainer

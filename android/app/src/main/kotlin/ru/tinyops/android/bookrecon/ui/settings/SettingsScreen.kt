@@ -168,6 +168,7 @@ fun SettingsScreen(
             onSaveFlibustaUrl = viewModel::onSaveFlibustaUrl,
             onPreferredFormatChange = viewModel::onPreferredFormatChange,
             onWifiOnlyChange = viewModel::onWifiOnlyChange,
+            onTorrentPeersThroughServerChange = viewModel::onTorrentPeersThroughServerChange,
             onMaxConcurrentChange = viewModel::onMaxConcurrentChange,
             onSeedHoursChange = viewModel::onSeedHoursChange,
             onNoSeedersRetryChange = viewModel::onNoSeedersRetryChange,
@@ -226,6 +227,7 @@ data class SettingsActions(
     val onSaveFlibustaUrl: () -> Unit = {},
     val onPreferredFormatChange: (Format) -> Unit = {},
     val onWifiOnlyChange: (Boolean) -> Unit = {},
+    val onTorrentPeersThroughServerChange: (Boolean) -> Unit = {},
     val onMaxConcurrentChange: (Int) -> Unit = {},
     val onSeedHoursChange: (Int) -> Unit = {},
     val onNoSeedersRetryChange: (Int) -> Unit = {},
@@ -268,6 +270,22 @@ fun SettingsContent(
         }
         Section(R.string.settings_section_server) {
             ServerBlock(server, serverActions)
+            if (server.enabled) {
+                ListItem(
+                    colors = cardListItemColors(),
+                    modifier = Modifier.clickable {
+                        actions.onTorrentPeersThroughServerChange(!state.settings.torrentPeersThroughServer)
+                    },
+                    headlineContent = { Text(stringResource(R.string.settings_server_torrent_peers)) },
+                    supportingContent = { Text(stringResource(R.string.settings_server_torrent_peers_text)) },
+                    trailingContent = {
+                        Switch(
+                            checked = state.settings.torrentPeersThroughServer,
+                            onCheckedChange = actions.onTorrentPeersThroughServerChange,
+                        )
+                    },
+                )
+            }
         }
         Section(R.string.settings_section_rutracker) {
             if (server.connection is ServerState.Approved) {

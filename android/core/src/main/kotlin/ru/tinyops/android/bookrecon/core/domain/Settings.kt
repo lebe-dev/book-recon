@@ -32,6 +32,7 @@ data class Settings(
     val sendErrorReports: Boolean = false,
     val colorTheme: ColorTheme = ColorTheme.BLUEBERRY,
     val darkMode: DarkMode = DarkMode.SYSTEM,
+    val torrentPeersThroughServer: Boolean = false,
 ) {
     /** Root folder for downloads of the given kind, null until chosen. */
     fun rootFor(kind: MediaKind): String? = when (kind) {

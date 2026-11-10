@@ -159,10 +159,11 @@ so nothing else has to be installed.
    account configured there: the app does not use the login and password from its own
    settings while the server is connected. A `.torrent` can be fetched only for a topic the
    server found in a search during the last 24 hours.
-6. Torrent downloads go through the tunnel too: the app's torrent engine connects to
-   trackers and peers through the server (DHT, LSD and uTP are off, nothing listens for
-   incoming peers). For peers the server accepts public IP addresses on ports 1024 and up
-   (`APP_TUNNEL_PEERS`).
+6. Torrent trackers are announced through the tunnel; peers, DHT and incoming connections
+   stay direct, because most RuTracker peers sit behind NAT and cannot be reached from the
+   server. The app setting "Пиры через сервер" sends peers through the tunnel as well (DHT,
+   LSD and uTP are off then, nothing listens for incoming peers); for peers the server
+   accepts public IP addresses on ports 1024 and up (`APP_TUNNEL_PEERS`).
 
 ### Requirements
 

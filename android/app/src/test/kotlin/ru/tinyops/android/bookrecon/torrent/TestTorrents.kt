@@ -61,11 +61,12 @@ class TestTorrent(
     val files: List<TestFile>,
     val pieceLength: Int = 16 * 1024,
     private val infoExtra: Map<String, Any> = emptyMap(),
+    private val announce: String = "http://127.0.0.1:1/announce?passkey=secret",
 ) {
     val infoBytes: ByteArray by lazy { TestBencode.encode(info()) }
 
     val bytes: ByteArray by lazy {
-        TestBencode.encode(mapOf("announce" to "http://127.0.0.1:1/announce?passkey=secret", "info" to info()))
+        TestBencode.encode(mapOf("announce" to announce, "info" to info()))
     }
 
     val infoHash: String by lazy {

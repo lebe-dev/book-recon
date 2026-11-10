@@ -100,6 +100,36 @@ class LibTorrentEngineTest {
     }
 
     @Test
+    fun `with a proxy the tracker is announced through it`() = runBlocking {
+        val tracked = TestTorrent("Tracked", listOf(TestFile("a.mp3", 20_000)), announce = "http://bt4.t-ru.org/ann?pk=secret")
+        val proxy = ConnectProxy().also { closeables += it }
+        val engine = engine()
+        engine.useProxy(proxy.port)
+
+        val running = async { runCatching { engine.download("job-1", tracked.bytes, setOf(0), File(dir, "1")).toList() } }
+        waitUntil(timeout = 20.seconds) { proxy.requests.any { "bt4.t-ru.org" in it } }
+
+        assertTrue(proxy.requests.any { it.startsWith("GET http://bt4.t-ru.org/ann?") }, "requests: ${proxy.requests}")
+        engine.cancel("job-1")
+        running.await()
+        Unit
+    }
+
+    @Test
+    fun `with a proxy for trackers only peers are reached directly`() = runBlocking {
+        val seeder = seeder(torrent)
+        val proxy = ConnectProxy().also { closeables += it }
+        val engine = engine(peers = listOf(seeder.address))
+        engine.useProxy(proxy.port, peers = false)
+        val staging = File(dir, "staging/job-1")
+
+        val updates = withTimeout(60.seconds) { engine.download("job-1", torrent.bytes, selected, staging).toList() }
+
+        assertEquals(170_000L, updates.last().completed)
+        assertTrue(proxy.targets.isEmpty(), "targets: ${proxy.targets}")
+    }
+
+    @Test
     fun `interrupted download continues from resume data after a restart`() = runBlocking {
         val big = TestTorrent("Big", listOf(TestFile("one.mp3", 600_000), TestFile("two.mp3", 600_000)))
         val seeder = seeder(big)

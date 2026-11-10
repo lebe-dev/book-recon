@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -79,14 +80,18 @@ class ServerModule(private val app: AppContainer) {
             connection.route.collect { route -> webView.apply(route) { proxy.port } }
         }
         scope.launch {
-            // Torrents (trackers and peers) go through the tunnel too; nothing to undo before
-            // the first route, so the torrent engine is not created for nothing at start.
+            // Torrent trackers go through the tunnel too, peers only when the user asks for it;
+            // nothing to undo before the first route, so the torrent engine is not created for
+            // nothing at start.
             var proxied = false
-            connection.route.map { it != null }.distinctUntilChanged().collect { on ->
-                if (!on && !proxied) return@collect
-                proxied = on
-                app.torrent.libTorrentEngine.useProxy(if (on) proxy.port else null)
-            }
+            val peers = app.settings.settingsRepository.settings.map { it.torrentPeersThroughServer }
+            combine(connection.route.map { it != null }, peers) { on, viaServer -> on to viaServer }
+                .distinctUntilChanged()
+                .collect { (on, viaServer) ->
+                    if (!on && !proxied) return@collect
+                    proxied = on
+                    app.torrent.libTorrentEngine.useProxy(if (on) proxy.port else null, peers = viaServer)
+                }
         }
     }
 

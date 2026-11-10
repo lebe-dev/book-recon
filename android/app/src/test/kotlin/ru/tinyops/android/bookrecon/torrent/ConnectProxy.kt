@@ -17,6 +17,9 @@ class ConnectProxy : Closeable {
     /** `host:port` of every CONNECT, in order. */
     val targets = CopyOnWriteArrayList<String>()
 
+    /** Request line of every request, CONNECT or not, in order. */
+    val requests = CopyOnWriteArrayList<String>()
+
     val port: Int get() = server.localPort
 
     init {
@@ -37,6 +40,7 @@ class ConnectProxy : Closeable {
         try {
             val input = client.getInputStream()
             val requestLine = readLine(input)
+            requests += requestLine
             while (readLine(input).isNotEmpty()) Unit
             val parts = requestLine.split(' ')
             if (parts.size != 3 || parts[0] != "CONNECT") {

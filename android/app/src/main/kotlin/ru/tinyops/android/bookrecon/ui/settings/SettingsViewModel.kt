@@ -203,6 +203,8 @@ class SettingsViewModel(
 
     fun onWifiOnlyChange(wifiOnly: Boolean) = save { it.copy(wifiOnly = wifiOnly) }
 
+    fun onTorrentPeersThroughServerChange(enabled: Boolean) = save { it.copy(torrentPeersThroughServer = enabled) }
+
     fun onMaxConcurrentChange(count: Int) = save { it.copy(maxConcurrent = count.coerceIn(1, Settings.MAX_CONCURRENT_LIMIT)) }
 
     fun onSeedHoursChange(hours: Int) = save { it.copy(seedHours = hours.coerceAtLeast(0)) }

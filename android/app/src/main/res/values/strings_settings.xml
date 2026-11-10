@@ -84,6 +84,8 @@
 
     <string name="settings_section_downloads">Загрузки</string>
     <string name="settings_preferred_format">Предпочтительный формат книги</string>
+    <string name="settings_server_torrent_peers">Пиры через сервер</string>
+    <string name="settings_server_torrent_peers_text">Трекер RuTracker всегда идёт через сервер. Включите, если ваша сеть блокирует и раздающих; многие из них недоступны с сервера, и загрузка может не начаться</string>
     <string name="settings_wifi_only">Только Wi-Fi</string>
     <string name="settings_wifi_only_text">Загружать только по Wi-Fi и другим безлимитным сетям</string>
     <string name="settings_max_concurrent">Одновременных загрузок</string>

@@ -35,10 +35,12 @@ import org.libtorrent4j.alerts.FileRenamedAlert
 import org.libtorrent4j.alerts.StorageMovedAlert
 import org.libtorrent4j.alerts.StorageMovedFailedAlert
 import org.libtorrent4j.swig.add_torrent_params
+import org.libtorrent4j.swig.bdecode_node
 import org.libtorrent4j.swig.byte_vector
 import org.libtorrent4j.swig.error_code
 import org.libtorrent4j.swig.int_string_map
 import org.libtorrent4j.swig.libtorrent
+import org.libtorrent4j.swig.load_torrent_limits
 import org.libtorrent4j.swig.session_handle
 import org.libtorrent4j.swig.settings_pack
 import org.libtorrent4j.swig.tcp_endpoint_vector
@@ -66,9 +68,10 @@ import org.libtorrent4j.TorrentInfo as NativeTorrentInfo
  * resume data) stays in [stateDir] until [cancel], so [resume], [seed] and [moveStorage] can
  * bring it back.
  *
- * With a proxy set by [useProxy], trackers and peers are reached only through that HTTP
- * CONNECT proxy; DHT, LSD, uTP, UPnP and NAT-PMP, which cannot go through it, are off, and
- * the session listens on the loopback interface only, so no peer reaches the device directly.
+ * With a proxy set by [useProxy], trackers are reached only through that HTTP proxy. Peers
+ * go through it too when asked: then DHT, LSD, uTP, UPnP and NAT-PMP, which cannot go
+ * through it, are off, and the session listens on the loopback interface only, so no peer
+ * reaches the device directly. Otherwise peers, DHT and incoming connections stay direct.
  */
 class LibTorrentEngine(
     stateDir: File,
@@ -101,6 +104,7 @@ class LibTorrentEngine(
     // Guarded by lock.
     private var session: SessionManager? = null
     private var proxyPort: Int? = null
+    private var proxyPeers = false
     private val active = HashMap<String, Active>()
     private val seedTimers = HashMap<String, Job>()
 
@@ -144,15 +148,24 @@ class LibTorrentEngine(
     override fun parse(bytes: ByteArray): TorrentInfo = TorrentParser.parse(bytes)
 
     /**
-     * Sends all torrent traffic through the HTTP CONNECT proxy on 127.0.0.1:[port], or
-     * directly again when [port] is null. A running session switches at once.
+     * Sends tracker traffic, and peer traffic too when [peers] is set, through the HTTP
+     * CONNECT proxy on 127.0.0.1:[port], or everything directly again when [port] is null.
+     * A running session switches at once.
      */
-    suspend fun useProxy(port: Int?) = withContext(Dispatchers.IO) {
+    suspend fun useProxy(port: Int?, peers: Boolean = true) = withContext(Dispatchers.IO) {
         lock.withLock {
-            if (port == proxyPort) return@withLock
+            val proxiedPeers = port != null && peers
+            if (port == proxyPort && proxiedPeers == proxyPeers) return@withLock
             proxyPort = port
+            proxyPeers = proxiedPeers
             session?.applySettings(sessionSettings())
-            logger.info(if (port == null) "Torrent traffic goes direct" else "Torrent traffic goes through the server tunnel")
+            logger.info(
+                when {
+                    port == null -> "Torrent traffic goes direct"
+                    proxiedPeers -> "Torrent trackers and peers go through the server tunnel"
+                    else -> "Torrent trackers go through the server tunnel, peers go direct"
+                },
+            )
         }
     }
 
@@ -437,6 +450,9 @@ class LibTorrentEngine(
         }
         val params = resume?.let { readResume(job.id, it) } ?: add_torrent_params()
         params.set_ti(native.swig())
+        // libtorrent 2.1 keeps trackers out of torrent_info, and resume data written before
+        // this fix has none either; without them a proxied session (no DHT) finds no peers.
+        if (params.getTrackers().isEmpty()) addTrackers(job, params)
         if (params.save_path.isNullOrEmpty()) params.setSave_path(job.stagingDir.absolutePath)
         params.set_file_priorities(priorities(native, job.indexes))
         // Files moved by moveFiles keep their places from resume data.
@@ -460,6 +476,22 @@ class LibTorrentEngine(
         val current = Active(handle, info.infoHash, native, mode)
         active[job.id] = current
         return current
+    }
+
+    /** Copies the announce list of the `.torrent` of [job] into [params]. */
+    private fun addTrackers(job: StoredJob, params: add_torrent_params) {
+        val buffer = Vectors.bytes2byte_vector(job.torrent)
+        val node = bdecode_node()
+        val error = error_code()
+        bdecode_node.bdecode(buffer, node, error)
+        val loaded = if (error.failed()) null else libtorrent.load_torrent_parsed(node, error, load_torrent_limits())
+        if (loaded == null || error.failed()) {
+            logger.warn("Cannot read the trackers of the torrent: job ${job.id}, ${error.message()}")
+            return
+        }
+        params.setTrackers(loaded.getTrackers())
+        params.setTracker_tiers(loaded.getTracker_tiers())
+        logger.info("Torrent trackers added: job ${job.id}, ${loaded.getTrackers().size} trackers")
     }
 
     private fun readResume(jobId: String, data: ByteArray): add_torrent_params? {
@@ -536,10 +568,11 @@ class LibTorrentEngine(
         return manager
     }
 
-    /** Every setting that depends on [Config.localOnly] and [proxyPort], set both ways. Caller holds [lock]. */
+    /** Every setting that depends on [Config.localOnly], [proxyPort] and [proxyPeers], set both ways. Caller holds [lock]. */
     private fun sessionSettings(): SettingsPack {
         val port = proxyPort
-        val direct = port == null && !config.localOnly
+        val peersProxied = port != null && proxyPeers
+        val direct = !peersProxied && !config.localOnly
         val settings = SettingsPack()
         settings.listenInterfaces(if (direct) DEFAULT_LISTEN else LOOPBACK_LISTEN)
         settings.setEnableDht(direct)
@@ -547,19 +580,23 @@ class LibTorrentEngine(
         settings.setBoolean(settings_pack.bool_types.enable_upnp.swigValue(), direct)
         settings.setBoolean(settings_pack.bool_types.enable_natpmp.swigValue(), direct)
         // uTP runs over UDP, which an HTTP proxy does not carry.
-        settings.setBoolean(settings_pack.bool_types.enable_outgoing_utp.swigValue(), port == null)
-        settings.setBoolean(settings_pack.bool_types.enable_incoming_utp.swigValue(), port == null)
+        settings.setBoolean(settings_pack.bool_types.enable_outgoing_utp.swigValue(), !peersProxied)
+        settings.setBoolean(settings_pack.bool_types.enable_incoming_utp.swigValue(), !peersProxied)
         val proxyType = if (port == null) settings_pack.proxy_type_t.none else settings_pack.proxy_type_t.http
         settings.setInteger(settings_pack.int_types.proxy_type.swigValue(), proxyType.swigValue())
         settings.setString(settings_pack.string_types.proxy_hostname.swigValue(), PROXY_HOST)
         settings.setInteger(settings_pack.int_types.proxy_port.swigValue(), port ?: 0)
-        settings.setBoolean(settings_pack.bool_types.proxy_peer_connections.swigValue(), true)
+        settings.setBoolean(settings_pack.bool_types.proxy_peer_connections.swigValue(), peersProxied)
         settings.setBoolean(settings_pack.bool_types.proxy_tracker_connections.swigValue(), true)
         settings.setBoolean(settings_pack.bool_types.proxy_hostnames.swigValue(), true)
+        // Through the proxy every tracker connects to 127.0.0.1, and SSRF mitigation then
+        // refuses announce paths other than /announce (RuTracker uses /ann). The server checks
+        // tunnel targets itself.
+        settings.setBoolean(settings_pack.bool_types.ssrf_mitigation.swigValue(), port == null)
         // Every peer is a WebSocket on the server, which caps tunnels per installation.
         settings.setInteger(
             settings_pack.int_types.connections_limit.swigValue(),
-            if (port == null) DEFAULT_CONNECTIONS else PROXIED_CONNECTIONS,
+            if (peersProxied) PROXIED_CONNECTIONS else DEFAULT_CONNECTIONS,
         )
         return settings
     }

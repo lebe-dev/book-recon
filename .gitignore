@@ -1,6 +1,7 @@
 *.md
 !README.md
-!README.ru.md
+!docs/
+!docs/*.md
 !DEV.md
 
 .env

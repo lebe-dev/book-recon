@@ -30,7 +30,7 @@ data class Settings(
     val flibustaBaseUrl: String = DEFAULT_FLIBUSTA_BASE_URL,
     val flibustaTimeoutSeconds: Int = DEFAULT_FLIBUSTA_TIMEOUT_SECONDS,
     val preferredFormat: Format = Format.EPUB,
-    val wifiOnly: Boolean = false,
+    val wifiOnly: Boolean = true,
     val maxConcurrent: Int = DEFAULT_MAX_CONCURRENT,
     val seedHours: Int = 0,
     val noSeedersRetryMinutes: Int = DEFAULT_NO_SEEDERS_RETRY_MINUTES,

@@ -110,7 +110,7 @@ class ErrorReportingTest {
         runCurrent()
         assertTrue(sdk.running)
 
-        settings.value = settings.value.copy(wifiOnly = true)
+        settings.value = settings.value.copy(wifiOnly = false)
         runCurrent()
         assertEquals(1, sdk.starts)
 

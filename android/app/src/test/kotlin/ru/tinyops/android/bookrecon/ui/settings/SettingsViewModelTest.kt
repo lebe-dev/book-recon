@@ -275,14 +275,14 @@ class SettingsViewModelTest {
     @Test
     fun downloadOptions() = runVmTest { vm ->
         vm.onPreferredFormatChange(Format.FB2)
-        vm.onWifiOnlyChange(true)
+        vm.onWifiOnlyChange(false)
         vm.onMaxConcurrentChange(4)
         vm.onSeedHoursChange(6)
         advanceUntilIdle()
 
         val stored = settings.settings.first()
         assertEquals(Format.FB2, stored.preferredFormat)
-        assertTrue(stored.wifiOnly)
+        assertFalse(stored.wifiOnly)
         assertEquals(4, stored.maxConcurrent)
         assertEquals(6, stored.seedHours)
         assertEquals(stored, vm.state.value.settings)

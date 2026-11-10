@@ -60,7 +60,7 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(Settings(), settings)
         assertEquals("https://flibusta.is", settings.flibustaBaseUrl)
         assertEquals(Format.EPUB, settings.preferredFormat)
-        assertFalse(settings.wifiOnly)
+        assertTrue(settings.wifiOnly)
         assertEquals(2, settings.maxConcurrent)
         assertEquals(0, settings.seedHours)
         assertEquals(15, settings.noSeedersRetryMinutes)
@@ -83,7 +83,7 @@ class DataStoreSettingsRepositoryTest {
             rutrackerLogin = "reader",
             flibustaBaseUrl = "https://flibusta.site",
             preferredFormat = Format.FB2,
-            wifiOnly = true,
+            wifiOnly = false,
             maxConcurrent = 3,
             seedHours = 6,
             noSeedersRetryMinutes = 60,
@@ -103,11 +103,11 @@ class DataStoreSettingsRepositoryTest {
     @Test
     fun settingsFlowEmitsAfterUpdate() = runBlocking {
         val repository = repository()
-        repository.update { it.copy(wifiOnly = true) }
+        repository.update { it.copy(wifiOnly = false) }
         repository.update { it.copy(maxConcurrent = it.maxConcurrent + 1) }
 
         val settings = repository.settings.first()
-        assertTrue(settings.wifiOnly)
+        assertFalse(settings.wifiOnly)
         assertEquals(3, settings.maxConcurrent)
     }
 

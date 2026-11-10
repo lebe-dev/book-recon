@@ -17,6 +17,7 @@ import ru.tinyops.android.bookrecon.core.domain.DownloadRequest
 import ru.tinyops.android.bookrecon.core.domain.ErrorCode
 import ru.tinyops.android.bookrecon.core.domain.FlibustaBookDetails
 import ru.tinyops.android.bookrecon.core.domain.Format
+import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.core.port.DownloadQueue
 import ru.tinyops.android.bookrecon.core.port.DownloadRepository
@@ -60,6 +61,7 @@ sealed interface BookMessage {
  *   no downloads.
  * @property downloaded the newest library download of this book whose file is still on disk.
  * @property enqueuing a download request is being sent to the queue.
+ * @property rootMissing the books folder is not chosen, so nothing can be downloaded.
  * @property pendingVerification a Cloudflare check to open now; the screen acknowledges it with
  *   [FlibustaBookViewModel.onVerificationOpened].
  */
@@ -68,11 +70,12 @@ data class FlibustaBookUiState(
     val selectedFormat: Format? = null,
     val downloaded: Download? = null,
     val enqueuing: Boolean = false,
+    val rootMissing: Boolean = false,
     val message: BookMessage? = null,
     val pendingVerification: VerificationRequest? = null,
 ) {
     val canDownload: Boolean
-        get() = details is BookDetailsState.Loaded && selectedFormat != null && !enqueuing
+        get() = details is BookDetailsState.Loaded && selectedFormat != null && !enqueuing && !rootMissing
 }
 
 /**
@@ -93,6 +96,11 @@ class FlibustaBookViewModel(
     private var loadJob: Job? = null
 
     init {
+        viewModelScope.launch {
+            settings.settings.collect { stored ->
+                mutableState.update { it.copy(rootMissing = !stored.hasRoot(MediaKind.BOOK)) }
+            }
+        }
         load()
     }
 

@@ -8,10 +8,11 @@
     <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" />
     <!-- Persisted jobs: downloads and seeding continue after a reboot. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Books and audiobooks go to user-chosen folders that readers and players must see. -->
-    <uses-permission
-        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage" />
+    <!--
+        No storage permission on purpose: books and audiobooks go only to the two folders the
+        user picks with the system folder picker, and nothing else on shared storage is
+        readable for the app.
+    -->
 
     <application
         android:name=".BookReconApp"
@@ -78,15 +79,5 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
-
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="ru.tinyops.android.bookrecon.files"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
     </application>
 </manifest>

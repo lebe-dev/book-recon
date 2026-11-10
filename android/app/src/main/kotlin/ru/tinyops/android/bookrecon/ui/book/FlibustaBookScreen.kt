@@ -67,6 +67,7 @@ import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.core.fake.FakeData
 import ru.tinyops.android.bookrecon.di.appContainer
 import ru.tinyops.android.bookrecon.download.downloadMessage
+import ru.tinyops.android.bookrecon.ui.common.RootMissingNotice
 import ru.tinyops.android.bookrecon.ui.common.Tag
 import ru.tinyops.android.bookrecon.ui.nav.VerificationPurpose
 import ru.tinyops.android.bookrecon.ui.search.label
@@ -134,6 +135,7 @@ fun FlibustaBookScreen(
         onDownload = viewModel::onDownload,
         onRetry = viewModel::onRetry,
         onOpenVerification = { url -> onOpenVerification(url, VerificationPurpose.CLOUDFLARE) },
+        onOpenSettings = onOpenSettings,
     )
 }
 
@@ -188,6 +190,7 @@ fun FlibustaBookContent(
     onRetry: () -> Unit,
     onOpenVerification: (url: String) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenSettings: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier,
@@ -207,7 +210,7 @@ fun FlibustaBookContent(
         when (val details = state.details) {
             BookDetailsState.Loading -> LoadingBody(bodyModifier)
             is BookDetailsState.Failed -> FailedBody(details.error, onRetry, onOpenVerification, bodyModifier)
-            is BookDetailsState.Loaded -> BookBody(details.book, state, onFormatSelected, onDownload, bodyModifier)
+            is BookDetailsState.Loaded -> BookBody(details.book, state, onFormatSelected, onDownload, onOpenSettings, bodyModifier)
         }
     }
 }
@@ -263,6 +266,7 @@ private fun BookBody(
     state: FlibustaBookUiState,
     onFormatSelected: (Format) -> Unit,
     onDownload: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier,
 ) {
     Column(
@@ -294,6 +298,8 @@ private fun BookBody(
                 }
             }
         }
+
+        if (state.rootMissing) RootMissingNotice(MediaKind.BOOK, onOpenSettings)
 
         Button(onClick = onDownload, enabled = state.canDownload, modifier = Modifier.fillMaxWidth().height(56.dp)) {
             if (state.enqueuing) {

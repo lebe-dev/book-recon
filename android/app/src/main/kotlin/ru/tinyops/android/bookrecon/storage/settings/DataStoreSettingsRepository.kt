@@ -174,8 +174,9 @@ private fun MutablePreferences.setOrRemove(key: Preferences.Key<String>, value: 
 }
 
 /**
- * Settings with values the rest of the app can rely on: trimmed text, roots without a
- * trailing slash (blank means not chosen), a Flibusta URL without a trailing slash (blank
+ * Settings with values the rest of the app can rely on: trimmed text, roots that are tree
+ * URIs (blank means not chosen, and so does a plain path left by version 0.9.0 and older,
+ * which the user has to pick again), a Flibusta URL without a trailing slash (blank
  * means the default), [Settings.maxConcurrent] in 1..[Settings.MAX_CONCURRENT_LIMIT] and
  * [Settings.seedHours] and [Settings.noSeedersRetryMinutes] not negative and
  * [Settings.flibustaTimeoutSeconds] within its limits.
@@ -194,7 +195,7 @@ internal fun Settings.normalized(): Settings = copy(
     noSeedersRetryMinutes = noSeedersRetryMinutes.coerceAtLeast(0),
 )
 
-private fun normalizeRoot(path: String?): String? {
-    val trimmed = path?.trim()?.ifEmpty { null } ?: return null
-    return trimmed.trimEnd('/').ifEmpty { "/" }
+private fun normalizeRoot(root: String?): String? {
+    val trimmed = root?.trim()?.ifEmpty { null } ?: return null
+    return trimmed.takeIf { it.startsWith("content://") }
 }

@@ -46,7 +46,7 @@ class RuTrackerTopicViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val client = FakeRuTrackerClient(behavior = FakeBehavior(1.seconds))
     private val engine = FakeTorrentEngine()
-    private val settings = FakeSettingsRepository(Settings(preferredFormat = Format.EPUB))
+    private val settings = FakeSettingsRepository(Settings(preferredFormat = Format.EPUB, booksRoot = "content://tree/books", audioRoot = "content://tree/audio"))
     private val repository = FakeDownloadRepository()
 
     @BeforeEach
@@ -274,6 +274,34 @@ class RuTrackerTopicViewModelTest {
         advanceUntilIdle()
 
         assertTrue(repository.listByStatus(DownloadStatus.entries.toSet()).isEmpty())
+    }
+
+    @Test
+    fun `download is blocked while the folder of its kind is not chosen`() = runVmTest {
+        settings.update { it.copy(audioRoot = null) }
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value.rootMissing)
+        assertFalse(vm.state.value.canDownload)
+        vm.onDownload()
+        advanceUntilIdle()
+        assertTrue(repository.listByStatus(DownloadStatus.entries.toSet()).isEmpty())
+
+        settings.update { it.copy(audioRoot = "content://tree/audio") }
+        advanceUntilIdle()
+        assertFalse(vm.state.value.rootMissing)
+        assertTrue(vm.state.value.canDownload)
+    }
+
+    @Test
+    fun `a missing folder of the other kind does not block`() = runVmTest {
+        settings.update { it.copy(booksRoot = null) }
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertFalse(vm.state.value.rootMissing)
+        assertTrue(vm.state.value.canDownload)
     }
 
     @Test

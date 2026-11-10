@@ -67,6 +67,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.flow.Flow
 import ru.tinyops.android.bookrecon.R
+import ru.tinyops.android.bookrecon.ui.common.RootMissingNotice
 import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.fake.FakeData
@@ -249,7 +250,7 @@ fun RuTrackerTopicContent(
             )
         },
         bottomBar = {
-            if (state.load is TopicLoadState.Loaded) DownloadBar(state, actions.onDownload)
+            if (state.load is TopicLoadState.Loaded) DownloadBar(state, actions.onDownload, actions.onOpenSettings)
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
@@ -459,29 +460,37 @@ private fun FileRow(node: TreeNode.File, onToggleFile: (Int) -> Unit) {
 }
 
 @Composable
-private fun DownloadBar(state: RuTrackerTopicUiState, onDownload: () -> Unit) {
+private fun DownloadBar(state: RuTrackerTopicUiState, onDownload: () -> Unit, onOpenSettings: () -> Unit) {
     val selection = state.selection ?: return
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
-        Button(
-            onClick = onDownload,
-            enabled = state.canDownload,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).height(56.dp),
-        ) {
-            if (state.enqueuing) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-            } else {
-                Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-            }
-            val count = selection.selectedCount
-            Text(
-                if (count == 0) {
-                    stringResource(R.string.topic_download_nothing)
-                } else {
-                    pluralStringResource(R.plurals.topic_download, count, count, sizeText(selection.selectedSize))
-                },
-                modifier = Modifier.padding(start = 8.dp),
-            )
+        Column {
+            if (state.rootMissing) RootMissingNotice(state.kind, onOpenSettings)
+            DownloadButton(state, selection, onDownload)
         }
+    }
+}
+
+@Composable
+private fun DownloadButton(state: RuTrackerTopicUiState, selection: FileSelection, onDownload: () -> Unit) {
+    Button(
+        onClick = onDownload,
+        enabled = state.canDownload,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).height(56.dp),
+    ) {
+        if (state.enqueuing) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+        } else {
+            Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        val count = selection.selectedCount
+        Text(
+            if (count == 0) {
+                stringResource(R.string.topic_download_nothing)
+            } else {
+                pluralStringResource(R.plurals.topic_download, count, count, sizeText(selection.selectedSize))
+            },
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 

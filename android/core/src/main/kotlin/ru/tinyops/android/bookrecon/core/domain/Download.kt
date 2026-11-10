@@ -72,14 +72,15 @@ sealed interface DownloadRequest {
  * A download record: an entry of the queue while active and of the library once its files
  * are placed (completed or seeding; a seeding download is in both).
  *
- * @property id stable job ID; also names the staging folder `<root>/.book-recon/<id>/`.
+ * @property id stable job ID; also names the private staging folder of the download.
  * @property sourceId Flibusta book ID or RuTracker topic ID.
  * @property format chosen format for Flibusta books, null for torrents.
  * @property targetName audiobook folder name or e-book display name chosen before download.
  * @property queuePosition 1-based position among QUEUED downloads, null otherwise.
  * @property files selected torrent files, empty for Flibusta.
- * @property paths absolute paths of what was placed into the roots: the audiobook folder,
- *   or every e-book file. Empty until the download completes.
+ * @property paths paths, relative to the root of [kind], of what was placed into the roots:
+ *   the audiobook folder, or every e-book file. Records of version 0.9.0 and older hold
+ *   absolute paths instead. Empty until the download completes.
  * @property size bytes on disk once completed, or the expected size before that.
  * @property seedUntil when seeding stops; set only while [status] is SEEDING.
  * @property fileMissing computed when read: the download is in the library (COMPLETED or

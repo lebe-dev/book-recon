@@ -2,15 +2,18 @@ package ru.tinyops.android.bookrecon.ui.downloads
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.Download
 import ru.tinyops.android.bookrecon.core.domain.DownloadStatus
+import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.port.DownloadQueue
 
 /** What the user asked the queue to do with one download. */
@@ -30,6 +33,8 @@ data class DownloadsMessage(val action: DownloadAction, val error: AppError)
  * @property failed failed downloads, newest first.
  * @property cancelled downloads the user cancelled, newest first; they can be started again.
  * @property cancelCandidate the download whose cancellation waits for confirmation.
+ * @property chosenKinds kinds whose download folder is chosen; a failed or cancelled download of
+ *   another kind cannot be started again.
  * @property busy IDs of downloads with an action in flight; their buttons are disabled.
  */
 data class DownloadsUiState(
@@ -41,6 +46,7 @@ data class DownloadsUiState(
     val failed: List<Download> = emptyList(),
     val cancelled: List<Download> = emptyList(),
     val cancelCandidate: Download? = null,
+    val chosenKinds: Set<MediaKind> = MediaKind.entries.toSet(),
     val busy: Set<String> = emptySet(),
     val message: DownloadsMessage? = null,
 ) {
@@ -49,7 +55,10 @@ data class DownloadsUiState(
 }
 
 /** Shows the download queue with live progress and runs cancel, retry, stop seeding and dismiss. */
-class DownloadsViewModel(private val queue: DownloadQueue) : ViewModel() {
+class DownloadsViewModel(
+    private val queue: DownloadQueue,
+    private val chosenKinds: Flow<Set<MediaKind>> = flowOf(MediaKind.entries.toSet()),
+) : ViewModel() {
     private val mutableState = MutableStateFlow(DownloadsUiState())
     val state: StateFlow<DownloadsUiState> = mutableState.asStateFlow()
 
@@ -57,6 +66,9 @@ class DownloadsViewModel(private val queue: DownloadQueue) : ViewModel() {
     private var cancelId: String? = null
 
     init {
+        viewModelScope.launch {
+            chosenKinds.collect { kinds -> mutableState.update { it.copy(chosenKinds = kinds) } }
+        }
         viewModelScope.launch {
             queue.observe()
                 .catch { e ->
@@ -85,7 +97,12 @@ class DownloadsViewModel(private val queue: DownloadQueue) : ViewModel() {
         run(download.id, DownloadAction.CANCEL) { queue.cancel(it) }
     }
 
-    fun onRetry(id: String) = run(id, DownloadAction.RETRY) { queue.retry(it) }
+    fun onRetry(id: String) {
+        val state = mutableState.value
+        val download = (state.failed + state.cancelled).firstOrNull { it.id == id } ?: return
+        if (download.kind !in state.chosenKinds) return
+        run(id, DownloadAction.RETRY) { queue.retry(it) }
+    }
 
     fun onStopSeeding(id: String) = run(id, DownloadAction.STOP_SEEDING) { queue.stopSeeding(it) }
 

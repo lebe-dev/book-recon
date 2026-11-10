@@ -154,7 +154,7 @@ class LibraryViewModelTest {
     @Test
     fun `refresh notices a file deleted outside the app`() = runVmTest {
         val file = bookFile("Мастер и Маргарита.epub")
-        val vm = viewModel(FakeDownloadRepository(listOf(book("b", file))))
+        val vm = viewModel(FakeDownloadRepository(storage = storage, initial = listOf(book("b", file))))
         runCurrent()
         assertFalse(vm.state.value.items.single().fileMissing)
 
@@ -181,13 +181,13 @@ class LibraryViewModelTest {
     @Test
     fun `open of a book asks the screen to view the file with its MIME type`() = runVmTest {
         val file = bookFile("Мастер и Маргарита.epub")
-        val vm = viewModel(FakeDownloadRepository(listOf(book("b", file))))
+        val vm = viewModel(FakeDownloadRepository(storage = storage, initial = listOf(book("b", file))))
         runCurrent()
 
         vm.onOpen("b")
         runCurrent()
 
-        assertEquals(OpenRequest(file.path, "application/epub+zip"), vm.state.value.open)
+        assertEquals(OpenRequest(file.toURI().toString(), "application/epub+zip"), vm.state.value.open)
         vm.onOpenHandled()
         assertNull(vm.state.value.open)
     }
@@ -198,20 +198,20 @@ class LibraryViewModelTest {
         listOf("CD2/01.mp3", "CD1/02.mp3", "CD1/01.mp3", "cover.jpg").forEach {
             File(folder, it).apply { parentFile?.mkdirs() }.writeText("x")
         }
-        val vm = viewModel(FakeDownloadRepository(listOf(audio("a", folder))))
+        val vm = viewModel(FakeDownloadRepository(storage = storage, initial = listOf(audio("a", folder))))
         runCurrent()
 
         vm.onOpen("a")
         runCurrent()
 
-        assertEquals(OpenRequest(File(folder, "CD1/01.mp3").path, "audio/mpeg"), vm.state.value.open)
+        assertEquals(OpenRequest(File(folder, "CD1/01.mp3").toURI().toString(), "audio/mpeg"), vm.state.value.open)
     }
 
     @Test
     fun `open of an audiobook folder without audio explains why`() = runVmTest {
         val folder = File(dir, "Audiobooks/Пусто").apply { mkdirs() }
         File(folder, "cover.jpg").writeText("x")
-        val vm = viewModel(FakeDownloadRepository(listOf(audio("a", folder))))
+        val vm = viewModel(FakeDownloadRepository(storage = storage, initial = listOf(audio("a", folder))))
         runCurrent()
 
         vm.onOpen("a")
@@ -223,7 +223,7 @@ class LibraryViewModelTest {
 
     @Test
     fun `open of a missing file reports it and opens nothing`() = runVmTest {
-        val vm = viewModel(FakeDownloadRepository(listOf(book("b", File(dir, "Books/gone.epub")))))
+        val vm = viewModel(FakeDownloadRepository(storage = storage, initial = listOf(book("b", File(dir, "Books/gone.epub")))))
         runCurrent()
 
         vm.onOpen("b")
@@ -237,7 +237,7 @@ class LibraryViewModelTest {
     @Test
     fun `no app to open the file becomes a message`() = runVmTest {
         val file = bookFile("Книга.djvu")
-        val vm = viewModel(FakeDownloadRepository(listOf(book("b", file, Format.DJVU))))
+        val vm = viewModel(FakeDownloadRepository(storage = storage, initial = listOf(book("b", file, Format.DJVU))))
         runCurrent()
         vm.onOpen("b")
         runCurrent()
@@ -253,7 +253,7 @@ class LibraryViewModelTest {
     @Test
     fun `delete asks for confirmation and keeps everything when declined`() = runVmTest {
         val file = bookFile("Книга.epub")
-        val repository = FakeDownloadRepository(listOf(book("b", file)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(book("b", file)))
         val vm = viewModel(repository)
         runCurrent()
 
@@ -271,7 +271,7 @@ class LibraryViewModelTest {
     fun `confirmed delete removes the files and the record`() = runVmTest {
         val folder = File(dir, "Audiobooks/Автор - Книга")
         File(folder, "CD1/01.mp3").apply { parentFile?.mkdirs() }.writeText("x")
-        val repository = FakeDownloadRepository(listOf(audio("a", folder)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(audio("a", folder)))
         val vm = viewModel(repository)
         runCurrent()
 
@@ -289,7 +289,7 @@ class LibraryViewModelTest {
 
     @Test
     fun `delete of a record whose file is already gone just removes the record`() = runVmTest {
-        val repository = FakeDownloadRepository(listOf(book("b", File(dir, "Books/gone.epub"))))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(book("b", File(dir, "Books/gone.epub"))))
         val vm = viewModel(repository)
         runCurrent()
 
@@ -304,7 +304,7 @@ class LibraryViewModelTest {
     @Test
     fun `delete without file access keeps the record and says so`() = runVmTest {
         val file = bookFile("Книга.epub")
-        val repository = FakeDownloadRepository(listOf(book("b", file)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(book("b", file)))
         storage.hasAccess = false
         val vm = viewModel(repository)
         runCurrent()
@@ -321,9 +321,9 @@ class LibraryViewModelTest {
     @Test
     fun `delete that leaves the file on disk keeps the record`() = runVmTest {
         val file = bookFile("Книга.epub")
-        val repository = FakeDownloadRepository(listOf(book("b", file)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(book("b", file)))
         val stubborn = object : FileStorage by storage {
-            override suspend fun delete(file: File) = Unit
+            override suspend fun delete(kind: MediaKind, path: String) = Unit
         }
         val vm = viewModel(repository, fileStorage = stubborn)
         runCurrent()
@@ -340,7 +340,7 @@ class LibraryViewModelTest {
     fun `delete never removes a library root`() = runVmTest {
         val root = File(dir, "Audiobooks").apply { mkdirs() }
         File(root, "other/01.mp3").apply { parentFile?.mkdirs() }.writeText("x")
-        val repository = FakeDownloadRepository(listOf(audio("a", root)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(audio("a", root)))
         val vm = viewModel(repository)
         runCurrent()
 
@@ -356,7 +356,7 @@ class LibraryViewModelTest {
     @Test
     fun `remove from history keeps the files`() = runVmTest {
         val file = bookFile("Книга.epub")
-        val repository = FakeDownloadRepository(listOf(book("b", file)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(book("b", file)))
         val vm = viewModel(repository)
         runCurrent()
 
@@ -371,7 +371,7 @@ class LibraryViewModelTest {
     @Test
     fun `delete dialog closes when the download leaves the list`() = runVmTest {
         val file = bookFile("Книга.epub")
-        val repository = FakeDownloadRepository(listOf(book("b", file)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(book("b", file)))
         val vm = viewModel(repository)
         runCurrent()
 
@@ -385,7 +385,7 @@ class LibraryViewModelTest {
     @Test
     fun `seeding downloads are listed with completed ones`() = runVmTest {
         val folder = audioFolder("Автор - Книга")
-        val repository = FakeDownloadRepository(listOf(book("b", bookFile("Книга.epub")), seeding("s", folder)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(book("b", bookFile("Книга.epub")), seeding("s", folder)))
         val vm = viewModel(repository)
         runCurrent()
 
@@ -397,7 +397,7 @@ class LibraryViewModelTest {
     @Test
     fun `end of seeding updates the entry in place`() = runVmTest {
         val folder = audioFolder("Автор - Книга")
-        val repository = FakeDownloadRepository(listOf(book("b", bookFile("Книга.epub")), seeding("s", folder)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(book("b", bookFile("Книга.epub")), seeding("s", folder)))
         val vm = viewModel(repository)
         runCurrent()
         val before = vm.state.value.items.map { it.id }
@@ -412,7 +412,7 @@ class LibraryViewModelTest {
     @Test
     fun `delete of a seeding download stops seeding before deleting the files`() = runVmTest {
         val folder = audioFolder("Автор - Книга")
-        val repository = FakeDownloadRepository(listOf(seeding("s", folder)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(seeding("s", folder)))
         val vm = viewModel(repository, stopSeeding = queueStop(repository, folder))
         runCurrent()
 
@@ -429,7 +429,7 @@ class LibraryViewModelTest {
     @Test
     fun `failed stop of seeding keeps the files and the record`() = runVmTest {
         val folder = audioFolder("Автор - Книга")
-        val repository = FakeDownloadRepository(listOf(seeding("s", folder)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(seeding("s", folder)))
         val vm = viewModel(repository, stopSeeding = { throw AppError.StorageFailed("busy") })
         runCurrent()
 
@@ -445,7 +445,7 @@ class LibraryViewModelTest {
     @Test
     fun `delete of a completed download does not touch seeding`() = runVmTest {
         val file = bookFile("Книга.epub")
-        val vm = viewModel(FakeDownloadRepository(listOf(book("b", file))))
+        val vm = viewModel(FakeDownloadRepository(storage = storage, initial = listOf(book("b", file))))
         runCurrent()
 
         vm.onDeleteRequest("b")
@@ -459,7 +459,7 @@ class LibraryViewModelTest {
     @Test
     fun `remove from history of a seeding download stops seeding and keeps the files`() = runVmTest {
         val folder = audioFolder("Автор - Книга")
-        val repository = FakeDownloadRepository(listOf(seeding("s", folder)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(seeding("s", folder)))
         val vm = viewModel(repository, stopSeeding = queueStop(repository, folder))
         runCurrent()
 
@@ -474,7 +474,7 @@ class LibraryViewModelTest {
     @Test
     fun `stop seeding leaves the entry in the library as completed`() = runVmTest {
         val folder = audioFolder("Автор - Книга")
-        val repository = FakeDownloadRepository(listOf(seeding("s", folder)))
+        val repository = FakeDownloadRepository(storage = storage, initial = listOf(seeding("s", folder)))
         val vm = viewModel(repository, stopSeeding = queueStop(repository, folder))
         runCurrent()
 
@@ -489,7 +489,7 @@ class LibraryViewModelTest {
 
     @Test
     fun `stop seeding of a completed download does nothing`() = runVmTest {
-        val vm = viewModel(FakeDownloadRepository(listOf(book("b", bookFile("Книга.epub")))))
+        val vm = viewModel(FakeDownloadRepository(storage = storage, initial = listOf(book("b", bookFile("Книга.epub")))))
         runCurrent()
 
         vm.onStopSeeding("b")
@@ -502,7 +502,7 @@ class LibraryViewModelTest {
     fun `failed stop of seeding becomes a message`() = runVmTest {
         val folder = audioFolder("Автор - Книга")
         val vm = viewModel(
-            FakeDownloadRepository(listOf(seeding("s", folder))),
+            FakeDownloadRepository(storage = storage, initial = listOf(seeding("s", folder))),
             stopSeeding = { throw AppError.StorageFailed("busy") },
         )
         runCurrent()
@@ -533,7 +533,7 @@ class LibraryViewModelTest {
         author = "Михаил Булгаков",
         format = format,
         status = DownloadStatus.COMPLETED,
-        paths = listOf(file.path),
+        paths = listOf(file.relativeTo(File(dir, "Books")).invariantSeparatorsPath),
         size = 1000,
         createdAt = NOW,
         completedAt = NOW,
@@ -548,7 +548,7 @@ class LibraryViewModelTest {
         author = "",
         targetName = folder.name,
         status = DownloadStatus.COMPLETED,
-        paths = listOf(folder.path),
+        paths = listOf(folder.relativeTo(File(dir, "Audiobooks")).invariantSeparatorsPath),
         createdAt = NOW,
         completedAt = NOW,
     )

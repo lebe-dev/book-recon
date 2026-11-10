@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -209,6 +210,27 @@ class DownloadsViewModelTest {
         val queued = vm.state.value.queued.single()
         assertEquals("fail", queued.id)
         assertNull(queued.error)
+    }
+
+    @Test
+    fun `retry is refused while the folder of the download kind is not chosen`() = runVmTest {
+        val repository = FakeDownloadRepository(
+            listOf(record("fail", DownloadStatus.FAILED, error = AppError.RootNotConfigured(MediaKind.AUDIO))),
+        )
+        val chosen = MutableStateFlow(setOf(MediaKind.BOOK))
+        val vm = DownloadsViewModel(queue(repository, maxConcurrent = 0), chosen)
+        runCurrent()
+
+        vm.onRetry("fail")
+        runCurrent()
+        assertEquals(listOf("fail"), vm.state.value.failed.map { it.id })
+        assertEquals(setOf(MediaKind.BOOK), vm.state.value.chosenKinds)
+
+        chosen.value = MediaKind.entries.toSet()
+        runCurrent()
+        vm.onRetry("fail")
+        runCurrent()
+        assertEquals(listOf("fail"), vm.state.value.queued.map { it.id })
     }
 
     @Test

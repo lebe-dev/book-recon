@@ -41,7 +41,7 @@ import kotlin.time.Duration.Companion.seconds
 class FlibustaBookViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val flibusta = FakeFlibustaSource(behavior = FakeBehavior(1.seconds))
-    private val settings = FakeSettingsRepository(Settings(preferredFormat = Format.EPUB))
+    private val settings = FakeSettingsRepository(Settings(preferredFormat = Format.EPUB, booksRoot = "content://tree/books"))
     private val existing = mutableSetOf<String>()
     private var repository = FakeDownloadRepository(fileExists = { it in existing })
 
@@ -150,6 +150,24 @@ class FlibustaBookViewModelTest {
 
         vm.onMessageShown()
         assertNull(vm.state.value.message)
+    }
+
+    @Test
+    fun `download is blocked while the books folder is not chosen`() = runVmTest {
+        settings.update { it.copy(booksRoot = null) }
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value.rootMissing)
+        assertFalse(vm.state.value.canDownload)
+        vm.onDownload()
+        advanceUntilIdle()
+        assertTrue(repository.all.isEmpty())
+
+        settings.update { it.copy(booksRoot = "content://tree/books") }
+        advanceUntilIdle()
+        assertFalse(vm.state.value.rootMissing)
+        assertTrue(vm.state.value.canDownload)
     }
 
     @Test

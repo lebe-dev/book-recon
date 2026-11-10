@@ -65,7 +65,7 @@ class RoomDownloadRepositoryTest {
 
     @Test
     fun insertAndGetRoundTripEveryField() = runBlocking {
-        val book = File(temp.root, "Books/Мастер и Маргарита.epub").apply { parentFile!!.mkdirs(); writeText("x") }
+        val book = File(temp.root, "Audiobooks/Мастер и Маргарита.epub").apply { parentFile!!.mkdirs(); writeText("x") }
         val torrent = download(
             id = "t1",
             kind = MediaKind.AUDIO,
@@ -77,7 +77,7 @@ class RoomDownloadRepositoryTest {
             targetName = "Булгаков - Мастер и Маргарита",
             progress = DownloadProgress(completed = 10, total = 20),
             files = listOf(TorrentFile(0, "CD1/01.mp3", 5), TorrentFile(3, "CD2/01.mp3", 7)),
-            paths = listOf(book.absolutePath, "/storage/emulated/0/Audiobooks/x\ny"),
+            paths = listOf(book.name, "Audiobooks/x\ny"),
             size = 12,
             error = AppError.CloudflareChallenge("https://rutracker.org/forum/tracker.php"),
             completedAt = at(5),
@@ -220,7 +220,7 @@ class RoomDownloadRepositoryTest {
         val folder = File(temp.root, "Audiobooks/Пикник").apply { mkdirs() }
         repository.insert(
             seeding(id = "seeding", source = Source.RUTRACKER, sourceId = "42", finished = 1)
-                .copy(paths = listOf(folder.absolutePath)),
+                .copy(kind = MediaKind.AUDIO, paths = listOf(folder.name)),
         )
         repository.insert(download(id = "running", source = Source.RUTRACKER, sourceId = "43", status = DownloadStatus.DOWNLOADING))
 
@@ -266,8 +266,8 @@ class RoomDownloadRepositoryTest {
     fun fileMissingIsCheckedOnEveryRead() = runBlocking {
         val file = File(temp.root, "Books/Мы.pdf").apply { parentFile!!.mkdirs(); writeText("x") }
         val folder = File(temp.root, "Audiobooks/Пикник").apply { mkdirs() }
-        repository.insert(completed(id = "book", finished = 1).copy(paths = listOf(file.absolutePath)))
-        repository.insert(completed(id = "audio", finished = 2).copy(paths = listOf(folder.absolutePath)))
+        repository.insert(completed(id = "book", finished = 1).copy(paths = listOf(file.name)))
+        repository.insert(completed(id = "audio", finished = 2).copy(kind = MediaKind.AUDIO, paths = listOf(folder.name)))
         repository.insert(completed(id = "nopaths", finished = 3))
 
         assertFalse(repository.get("book")!!.fileMissing)
@@ -286,7 +286,7 @@ class RoomDownloadRepositoryTest {
     fun fileIsPresentWhileAnyPathExists() = runBlocking {
         val kept = File(temp.root, "Books/a.epub").apply { parentFile!!.mkdirs(); writeText("x") }
         repository.insert(
-            completed(id = "a", finished = 1).copy(paths = listOf(File(temp.root, "Books/gone.fb2").absolutePath, kept.absolutePath)),
+            completed(id = "a", finished = 1).copy(paths = listOf("gone.fb2", kept.name)),
         )
 
         assertFalse(repository.get("a")!!.fileMissing)
@@ -294,7 +294,7 @@ class RoomDownloadRepositoryTest {
 
     @Test
     fun fileMissingIsNeverStored() = runBlocking {
-        repository.insert(completed(id = "a", finished = 1).copy(paths = listOf("/nowhere/a.epub"), fileMissing = true))
+        repository.insert(completed(id = "a", finished = 1).copy(paths = listOf("nowhere/a.epub"), fileMissing = true))
         assertTrue(repository.get("a")!!.fileMissing)
 
         repository.update(repository.get("a")!!.copy(status = DownloadStatus.FAILED))

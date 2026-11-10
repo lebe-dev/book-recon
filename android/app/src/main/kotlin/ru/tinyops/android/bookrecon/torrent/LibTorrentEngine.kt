@@ -17,7 +17,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.libtorrent4j.AlertListener
 import org.libtorrent4j.MoveFlags
 import org.libtorrent4j.Priority
@@ -30,8 +29,6 @@ import org.libtorrent4j.TorrentHandle
 import org.libtorrent4j.Vectors
 import org.libtorrent4j.alerts.Alert
 import org.libtorrent4j.alerts.AlertType
-import org.libtorrent4j.alerts.FileRenameFailedAlert
-import org.libtorrent4j.alerts.FileRenamedAlert
 import org.libtorrent4j.alerts.StorageMovedAlert
 import org.libtorrent4j.alerts.StorageMovedFailedAlert
 import org.libtorrent4j.swig.add_torrent_params
@@ -110,15 +107,10 @@ class LibTorrentEngine(
 
     private val moves = ConcurrentHashMap<String, CompletableDeferred<String?>>()
 
-    // Keyed by "<infoHash>:<file index>".
-    private val renames = ConcurrentHashMap<String, CompletableDeferred<String?>>()
-
     private val moveListener = object : AlertListener {
         override fun types(): IntArray = intArrayOf(
             AlertType.STORAGE_MOVED.swig(),
             AlertType.STORAGE_MOVED_FAILED.swig(),
-            AlertType.FILE_RENAMED.swig(),
-            AlertType.FILE_RENAME_FAILED.swig(),
         )
 
         override fun alert(alert: Alert<*>) {
@@ -126,11 +118,6 @@ class LibTorrentEngine(
                 is StorageMovedAlert -> moves.remove(alert.handle().infoHash().toHex())?.complete(null)
                 is StorageMovedFailedAlert ->
                     moves.remove(alert.handle().infoHash().toHex())?.complete(alert.error().message ?: "unknown error")
-                is FileRenamedAlert ->
-                    renames.remove(renameKey(alert.handle().infoHash().toHex(), alert.index()))?.complete(null)
-                is FileRenameFailedAlert ->
-                    renames.remove(renameKey(alert.handle().infoHash().toHex(), alert.getIndex()))
-                        ?.complete(alert.getError().message ?: "unknown error")
             }
         }
     }
@@ -271,51 +258,6 @@ class LibTorrentEngine(
         logger.info("Torrent data moved: job $jobId")
     }
 
-    override suspend fun moveFiles(jobId: String, targets: Map<Int, File>) = withContext(Dispatchers.IO) {
-        val job = store.load(jobId) ?: throw AppError.NotFound("no saved torrent for job $jobId")
-        val unknown = targets.keys - job.indexes
-        if (unknown.isNotEmpty()) throw AppError.Validation("files $unknown are not selected in job $jobId")
-        if (targets.isEmpty()) return@withContext
-        val absolute = targets.mapValues { it.value.absoluteFile }
-        absolute.values.forEach { target ->
-            if (target.exists()) throw AppError.StorageFailed("a file already exists at the target")
-            val parent = target.parentFile
-            if (parent != null && !parent.isDirectory && !parent.mkdirs()) {
-                throw AppError.StorageFailed("cannot create the target folder")
-            }
-        }
-        val pending = absolute.mapValues { CompletableDeferred<String?>() }
-        val current = lock.withLock {
-            val current = active[jobId] ?: attach(jobId, Mode.MOVING)
-            pending.forEach { (index, done) -> renames[renameKey(current.infoHash, index)] = done }
-            // An absolute name puts the file outside the save path; libtorrent renames it on
-            // disk and keeps the new path in resume data.
-            absolute.forEach { (index, target) -> current.handle.renameFile(index, target.path) }
-            current
-        }
-        val errors = try {
-            withTimeoutOrNull(RENAME_TIMEOUT) { pending.values.forEach { it.await() } }
-            pending.mapNotNull { (index, done) ->
-                if (!done.isCompleted) return@mapNotNull "file $index: no answer from libtorrent"
-                done.await()?.let { "file $index: $it" }
-            }
-        } finally {
-            pending.forEach { (index, done) -> renames.remove(renameKey(current.infoHash, index), done) }
-            withContext(NonCancellable) {
-                lock.withLock {
-                    if (active[jobId] !== current) return@withLock
-                    saveResume(jobId, current)
-                    if (current.mode == Mode.MOVING) removeFromSession(jobId, current, deletePartFile = false)
-                }
-            }
-        }
-        if (errors.isNotEmpty()) {
-            logger.warn("Torrent files move failed: job $jobId, ${errors.joinToString()}")
-            throw AppError.StorageFailed("cannot move torrent files: ${errors.first()}")
-        }
-        logger.info("Torrent files moved: job $jobId, ${absolute.size} files")
-    }
-
     /** Removes every torrent from the session and stops it; for tests and shutdown. */
     fun close() {
         scope.cancel()
@@ -429,8 +371,6 @@ class LibTorrentEngine(
         return add(job, info, store.loadResume(jobId), mode)
     }
 
-    private fun renameKey(infoHash: String, index: Int): String = "$infoHash:$index"
-
     private fun ensureNotBusy(jobId: String, infoHash: String) {
         if (jobId in active || active.values.any { it.infoHash == infoHash }) throw AppError.AlreadyDownloading()
     }
@@ -455,7 +395,7 @@ class LibTorrentEngine(
         if (params.getTrackers().isEmpty()) addTrackers(job, params)
         if (params.save_path.isNullOrEmpty()) params.setSave_path(job.stagingDir.absolutePath)
         params.set_file_priorities(priorities(native, job.indexes))
-        // Files moved by moveFiles keep their places from resume data.
+        // Files that version 0.9.0 renamed into the library keep their places from resume data.
         val renamed = renames(native, info, job.indexes)
         params.get_renamed_files().forEach { (index, path) -> renamed[index] = path }
         params.set_renamed_files(renamed)
@@ -613,7 +553,6 @@ class LibTorrentEngine(
     }
 
     private companion object {
-        val RENAME_TIMEOUT = 2.minutes
         const val DEFAULT_LISTEN = "0.0.0.0:6881,[::]:6881"
         const val LOOPBACK_LISTEN = "127.0.0.1:0"
         const val PROXY_HOST = "127.0.0.1"

@@ -4,16 +4,16 @@ import ru.tinyops.android.bookrecon.core.domain.Download
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.naming.isAudioFile
 import ru.tinyops.android.bookrecon.core.naming.splitExtension
+import ru.tinyops.android.bookrecon.core.port.FileStorage
 import ru.tinyops.android.bookrecon.core.selection.NaturalOrder
-import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /** What "Open" leads to for one library entry. */
 sealed interface OpenTarget {
-    /** View the file at [path] as [mimeType]. */
-    data class Open(val path: String, val mimeType: String) : OpenTarget
+    /** View the document at the content [uri] as [mimeType]. */
+    data class Open(val uri: String, val mimeType: String) : OpenTarget
 
     /** None of the download's paths exists any more. */
     data object Missing : OpenTarget
@@ -74,16 +74,21 @@ fun libraryDate(instant: Instant, zone: ZoneId): String = instant.atZone(zone).f
  * Finds what to open for [download]. A book opens its first existing file. An audiobook
  * opens its first audio file in natural order, looking into subfolders such as CD1/CD2:
  * players cannot be handed a folder reliably, but they continue with the next tracks
- * themselves. Reads the disk, so call it off the main thread.
+ * themselves. Reads the roots through [storage], so call it off the main thread.
  */
-fun resolveOpenTarget(download: Download): OpenTarget {
-    val existing = download.paths.map(::File).firstOrNull { it.exists() } ?: return OpenTarget.Missing
-    if (download.kind == MediaKind.BOOK || existing.isFile) {
-        return OpenTarget.Open(existing.path, mimeTypeOf(existing.name))
+fun resolveOpenTarget(download: Download, storage: FileStorage): OpenTarget {
+    val kind = download.kind
+    val existing = download.paths.firstOrNull { storage.exists(kind, it) } ?: return OpenTarget.Missing
+    if (kind == MediaKind.BOOK || !storage.isFolder(kind, existing)) {
+        val uri = storage.uriOf(kind, existing) ?: return OpenTarget.Missing
+        return OpenTarget.Open(uri, mimeTypeOf(existing.substringAfterLast('/')))
     }
-    val first = existing.walkTopDown()
-        .filter { it.isFile && isAudioFile(it.name) }
-        .minWithOrNull(compareBy(NaturalOrder) { it.relativeTo(existing).invariantSeparatorsPath })
+    // The files of one folder share the folder's path, so natural order of whole paths is
+    // natural order inside the folder.
+    val first = storage.listFiles(kind, existing)
+        .filter(::isAudioFile)
+        .minWithOrNull(compareBy(NaturalOrder) { it })
         ?: return OpenTarget.NoAudioFiles
-    return OpenTarget.Open(first.path, mimeTypeOf(first.name))
+    val uri = storage.uriOf(kind, first) ?: return OpenTarget.Missing
+    return OpenTarget.Open(uri, mimeTypeOf(first.substringAfterLast('/')))
 }

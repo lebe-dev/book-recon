@@ -47,7 +47,7 @@ class SeedingManagerTest {
     @TempDir
     lateinit var dir: File
 
-    private val repository = FakeDownloadRepository()
+    private val repository by lazy { FakeDownloadRepository(storage = storage) }
     private val settings = FakeSettingsRepository(Settings(seedHours = SEED_HOURS))
     private var torrents = FakeTorrentEngine(steps = 5, stepDelay = 1.seconds)
     private lateinit var storage: FakeFileStorage
@@ -117,24 +117,25 @@ class SeedingManagerTest {
     private fun TestScope.left(until: Instant): Duration =
         (until.toEpochMilli() - START.plusMillis(testScheduler.currentTime).toEpochMilli()).milliseconds
 
-    private val audioTarget get() = File(dir, "Audiobooks/Булгаков - Мастер и Маргарита")
+    private val audioFolder = "Булгаков - Мастер и Маргарита"
+    private val audioTarget get() = File(dir, "Audiobooks/$audioFolder")
 
     @Test
-    fun completedTorrentMovesIntoTheLibraryThroughTheEngineAndSeeds() = runTest {
+    fun completedTorrentIsCopiedIntoTheLibraryAndSeedsFromStaging() = runTest {
         val setup = setup()
         val id = downloaded(setup, torrent(FakeData.AUDIO_TOPIC_CD, MediaKind.AUDIO, setOf(0, 1, 3)))
 
         val download = get(id)
         assertEquals(DownloadStatus.SEEDING, download.status)
         assertEquals(download.completedAt!!.plusSeconds(SEED_HOURS * 3600L), download.seedUntil)
-        assertEquals(listOf(audioTarget.path), download.paths)
+        assertEquals(listOf(audioFolder), download.paths)
         assertEquals(download.size, download.progress.completed)
         // The same layout as without seeding: the torrent's root folder is dropped, CDs stay.
-        val moved = torrents.movedFiles(id)
-        assertEquals(File(audioTarget, "CD1/01 Глава 1. Никогда не разговаривайте с неизвестными.mp3"), moved[0])
-        assertEquals(File(audioTarget, "CD2/01 Глава 13. Явление героя.mp3"), moved[3])
-        assertTrue(moved.values.all { it.isFile })
-        assertFalse(File(dir, "Audiobooks/.book-recon/$id").exists())
+        assertTrue(File(audioTarget, "CD1/01 Глава 1. Никогда не разговаривайте с неизвестными.mp3").isFile)
+        assertTrue(File(audioTarget, "CD2/01 Глава 13. Явление героя.mp3").isFile)
+        // The torrent still seeds from its private copy, which is not in a root.
+        val info = FakeData.torrentInfo(FakeData.AUDIO_TOPIC_CD)
+        assertTrue(File(dir, "staging/$id/${info.files[0].path}").isFile)
         assertTrue(File(dir, "torrents/$id.torrent").exists(), "kept until seeding ends")
         assertTrue(scheduled > 0, "the seeding job is scheduled")
         // Nothing is uploaded until the job says Wi-Fi and charger are there.
@@ -150,12 +151,12 @@ class SeedingManagerTest {
         val id = downloaded(setup, torrent(FakeData.BOOK_TOPIC_FORMATS, MediaKind.BOOK, setOf(0, 1)))
 
         val expected = listOf(
-            File(dir, "Books/Достоевский - Преступление и наказание (2).epub"),
-            File(dir, "Books/Достоевский - Преступление и наказание.fb2"),
+            "Достоевский - Преступление и наказание (2).epub",
+            "Достоевский - Преступление и наказание.fb2",
         )
         assertEquals(DownloadStatus.SEEDING, get(id).status)
-        assertEquals(expected.map { it.path }, get(id).paths)
-        assertEquals(expected, torrents.movedFiles(id).toSortedMap().values.toList())
+        assertEquals(expected, get(id).paths)
+        assertTrue(expected.all { File(dir, "Books/$it").isFile })
         assertEquals("old", File(dir, "Books/Достоевский - Преступление и наказание.epub").readText())
     }
 
@@ -201,6 +202,7 @@ class SeedingManagerTest {
         assertNull(download.seedUntil)
         assertNull(torrents.state(id), "the torrent left the session")
         assertFalse(File(dir, "torrents/$id.torrent").exists())
+        assertFalse(File(dir, "staging/$id").exists(), "the seeded copy is deleted")
         assertTrue(File(audioTarget, "01. Пролог.mp3").isFile)
         assertFalse(download.fileMissing)
     }
@@ -277,21 +279,21 @@ class SeedingManagerTest {
     }
 
     @Test
-    fun failedMoveFallsBackToPlacingWithoutSeeding() = runTest {
-        torrents.failMoveFiles = AppError.StorageFailed("disk full")
+    fun failedPlacementOfASeededTorrentFailsTheDownloadAndCleansUp() = runTest {
         val setup = setup()
+        setup.queue.start()
+        val id = setup.queue.enqueue(torrent(FakeData.AUDIO_TOPIC_CD, MediaKind.AUDIO, setOf(0, 1, 3)))
+        advance(2.seconds)
 
-        val id = downloaded(setup, torrent(FakeData.AUDIO_TOPIC_CD, MediaKind.AUDIO, setOf(0, 1, 3)))
+        storage.hasAccess = false
+        advance(TORRENT_TIME)
 
         val download = get(id)
-        assertEquals(DownloadStatus.COMPLETED, download.status)
-        assertNull(download.seedUntil)
-        assertEquals(listOf(audioTarget.path), download.paths)
-        assertTrue(File(audioTarget, "CD1/01 Глава 1. Никогда не разговаривайте с неизвестными.mp3").isFile)
-        assertTrue(File(audioTarget, "CD1/02 Глава 2. Понтий Пилат.mp3").isFile)
-        assertTrue(File(audioTarget, "CD2/01 Глава 13. Явление героя.mp3").isFile)
-        assertFalse(File(dir, "Audiobooks/Булгаков - Мастер и Маргарита (2)").exists())
+        assertEquals(DownloadStatus.FAILED, download.status)
+        assertTrue(download.error is AppError.StorageNotGranted)
         assertNull(torrents.state(id))
+        assertFalse(File(dir, "staging/$id").exists())
+        assertFalse(audioTarget.exists())
     }
 
     @Test
@@ -302,7 +304,7 @@ class SeedingManagerTest {
         val id = downloaded(setup, torrent(FakeData.AUDIO_TOPIC_FLAT, MediaKind.AUDIO))
 
         assertEquals(DownloadStatus.COMPLETED, get(id).status)
-        assertTrue(torrents.movedFiles(id).isEmpty())
+        assertFalse(File(dir, "staging/$id").exists())
         assertTrue(File(audioTarget, "01. Пролог.mp3").isFile)
         assertEquals(0, scheduled)
     }

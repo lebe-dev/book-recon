@@ -79,8 +79,8 @@ class DataStoreSettingsRepositoryTest {
     @Test
     fun valuesSurviveReopening() = runBlocking {
         val changed = Settings(
-            audioRoot = "/storage/emulated/0/Audiobooks",
-            booksRoot = "/storage/1234-ABCD/Книги",
+            audioRoot = AUDIO_TREE,
+            booksRoot = BOOKS_TREE,
             rutrackerLogin = "reader",
             flibustaBaseUrl = "https://flibusta.site",
             preferredFormat = Format.FB2,
@@ -120,7 +120,7 @@ class DataStoreSettingsRepositoryTest {
         repository.update {
             it.copy(
                 audioRoot = "  ",
-                booksRoot = " /storage/emulated/0/Books/ ",
+                booksRoot = " $BOOKS_TREE ",
                 rutrackerLogin = "  reader ",
                 flibustaBaseUrl = " https://flibusta.site/ ",
                 maxConcurrent = 9,
@@ -129,7 +129,7 @@ class DataStoreSettingsRepositoryTest {
         }
         var settings = repository.settings.first()
         assertNull(settings.audioRoot)
-        assertEquals("/storage/emulated/0/Books", settings.booksRoot)
+        assertEquals(BOOKS_TREE, settings.booksRoot)
         assertEquals("reader", settings.rutrackerLogin)
         assertEquals("https://flibusta.site", settings.flibustaBaseUrl)
         assertEquals(Settings.MAX_CONCURRENT_LIMIT, settings.maxConcurrent)
@@ -147,9 +147,20 @@ class DataStoreSettingsRepositoryTest {
     }
 
     @Test
+    fun plainPathRootsOfOldVersionsCountAsNotChosen() = runBlocking {
+        val repository = repository()
+
+        repository.update { it.copy(audioRoot = "/storage/emulated/0/Audiobooks", booksRoot = BOOKS_TREE) }
+
+        val settings = repository.settings.first()
+        assertNull(settings.audioRoot)
+        assertEquals(BOOKS_TREE, settings.booksRoot)
+    }
+
+    @Test
     fun clearingARootRemovesIt() = runBlocking {
         val repository = repository()
-        repository.update { it.copy(audioRoot = "/storage/emulated/0/Audiobooks") }
+        repository.update { it.copy(audioRoot = AUDIO_TREE) }
         repository.update { it.copy(audioRoot = null) }
 
         assertNull(repository.settings.first().audioRoot)
@@ -226,5 +237,10 @@ class DataStoreSettingsRepositoryTest {
         assertNull(store.data.first()[SettingsKeys.RUTRACKER_PASSWORD])
         assertTrue(logs.isNotEmpty())
         assertTrue(logs.none { "hunter2" in it })
+    }
+
+    private companion object {
+        const val AUDIO_TREE = "content://com.android.externalstorage.documents/tree/primary%3AAudiobooks"
+        const val BOOKS_TREE = "content://com.android.externalstorage.documents/tree/1234-ABCD%3A%D0%9A%D0%BD%D0%B8%D0%B3%D0%B8"
     }
 }

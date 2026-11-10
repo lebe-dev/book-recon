@@ -3,7 +3,7 @@
 
     <string name="settings_back">Назад</string>
     <string name="settings_hub_appearance">Цветовая тема и тёмный режим</string>
-    <string name="settings_hub_storage">Доступ к файлам и папки для книг и аудиокниг</string>
+    <string name="settings_hub_storage">Две папки для книг и аудиокниг</string>
     <string name="settings_hub_server">Доступ к RuTracker и Flibusta через свой сервер</string>
     <string name="settings_hub_sources_title">Источники</string>
     <string name="settings_hub_sources">Вход в RuTracker и адрес Flibusta</string>
@@ -26,21 +26,21 @@
     <string name="settings_dark_mode_dark">Тёмная</string>
 
     <string name="settings_section_storage">Файлы</string>
-    <string name="settings_access_granted">Доступ ко всем файлам разрешён</string>
-    <string name="settings_access_missing_title">Нужен доступ ко всем файлам</string>
-    <string name="settings_access_missing_text">Книги и аудиокниги сохраняются в выбранные вами папки, где их видят читалки и плееры. Для этого приложению нужен доступ ко всем файлам. Откройте системные настройки, включите «Доступ ко всем файлам» и вернитесь назад.</string>
-    <string name="settings_access_open">Открыть настройки доступа</string>
-    <string name="settings_access_unavailable">Не удалось открыть системные настройки</string>
+    <string name="settings_access_scope_title">Только две папки</string>
+    <string name="settings_access_scope_text">Приложению нужен доступ только к двум папкам: для электронных книг (epub, fb2 и других) и для аудиокниг. Остальные файлы на устройстве, например «Документы», оно прочитать не может.</string>
+    <string name="root_required_books">Папка для электронных книг не выбрана. Пока её нет, книги скачать нельзя: выберите папку в настройках.</string>
+    <string name="root_required_audio">Папка для аудиокниг не выбрана. Пока её нет, аудиокниги скачать нельзя: выберите папку в настройках.</string>
+    <string name="root_required_open_settings">Открыть настройки</string>
     <string name="settings_root_audio">Папка аудиокниг</string>
     <string name="settings_root_books">Папка книг</string>
     <string name="settings_root_not_chosen">Не выбрана, нажмите, чтобы выбрать</string>
     <string name="settings_root_missing">Папка не найдена, выберите заново</string>
     <string name="settings_root_not_writable">В папку нельзя записать, выберите другую</string>
-    <string name="settings_root_no_access">Сначала разрешите доступ ко всем файлам</string>
-    <string name="settings_root_issue_unsupported">Эту папку нельзя использовать: выберите папку во внутренней памяти или на карте памяти</string>
+    <string name="settings_root_no_access">Доступ к папке отозван, выберите её заново</string>
+    <string name="settings_root_issue_unsupported">Эту папку нельзя использовать: выберите папку во внутренней памяти или на карте памяти, не саму её корневую папку</string>
     <string name="settings_root_issue_missing">Выбранная папка не найдена</string>
     <string name="settings_root_issue_not_writable">В выбранную папку нельзя записать файлы</string>
-    <string name="settings_root_issue_no_access">Сначала разрешите доступ ко всем файлам, затем выберите папку</string>
+    <string name="settings_root_issue_no_access">Система не дала доступ к папке, попробуйте выбрать её ещё раз</string>
     <string name="settings_root_picker_unavailable">Не удалось открыть выбор папки</string>
 
     <string name="settings_section_server">Сервер Book Recon</string>

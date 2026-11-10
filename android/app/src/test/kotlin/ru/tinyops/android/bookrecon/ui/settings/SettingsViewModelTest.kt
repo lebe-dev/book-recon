@@ -32,11 +32,12 @@ import ru.tinyops.android.bookrecon.ui.search.VerificationRequest
 class SettingsViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val settings = FakeSettingsRepository(
-        Settings(rutrackerLogin = "reader", flibustaBaseUrl = "https://flibusta.site", audioRoot = "/storage/emulated/0/Audiobooks"),
+        Settings(rutrackerLogin = "reader", flibustaBaseUrl = "https://flibusta.site", audioRoot = AUDIOBOOKS),
         password = "secret",
     )
     private val ruTracker = FakeRuTrackerClient()
-    private var access = true
+    private var grantable = true
+    private val released = mutableListOf<String>()
     private val launcherNames = mutableListOf<Boolean>()
     private val rootChecks = mutableMapOf<String, RootCheck>()
 
@@ -53,9 +54,9 @@ class SettingsViewModelTest {
     private fun viewModel() = SettingsViewModel(
         settings = settings,
         ruTracker = ruTracker,
-        hasAllFilesAccess = { access },
-        checkRoot = { path -> rootChecks[path] ?: RootCheck.OK },
-        pathOfTree = { uri -> uri.removePrefix("tree:").takeIf { it != uri } },
+        checkRoot = { root -> rootChecks[root] ?: RootCheck.OK },
+        takeGrant = { grantable },
+        releaseGrant = { released += it },
         applyLauncherName = { launcherNames += it },
     )
 
@@ -73,7 +74,6 @@ class SettingsViewModelTest {
         assertEquals("", state.password)
         assertTrue(state.passwordStored)
         assertEquals("https://flibusta.site", state.flibustaUrl)
-        assertTrue(state.hasAllFilesAccess)
         assertEquals(mapOf(MediaKind.AUDIO to RootCheck.OK), state.rootStatus)
     }
 
@@ -231,10 +231,10 @@ class SettingsViewModelTest {
 
     @Test
     fun pickRoot() = runVmTest { vm ->
-        vm.onRootPicked(MediaKind.BOOK, "tree:/storage/emulated/0/Books")
+        vm.onRootPicked(MediaKind.BOOK, BOOKS)
         advanceUntilIdle()
 
-        assertEquals("/storage/emulated/0/Books", settings.settings.first().booksRoot)
+        assertEquals(BOOKS, settings.settings.first().booksRoot)
         assertNull(vm.state.value.rootProblem)
         assertEquals(RootCheck.OK, vm.state.value.rootStatus[MediaKind.BOOK])
     }
@@ -245,32 +245,49 @@ class SettingsViewModelTest {
         advanceUntilIdle()
         assertEquals(RootProblem(MediaKind.BOOK, RootIssue.UNSUPPORTED), vm.state.value.rootProblem)
 
-        rootChecks["/storage/1234-ABCD/Books"] = RootCheck.NOT_WRITABLE
-        vm.onRootPicked(MediaKind.BOOK, "tree:/storage/1234-ABCD/Books")
+        rootChecks[CARD_BOOKS] = RootCheck.NOT_WRITABLE
+        vm.onRootPicked(MediaKind.BOOK, CARD_BOOKS)
         advanceUntilIdle()
         assertEquals(RootProblem(MediaKind.BOOK, RootIssue.NOT_WRITABLE), vm.state.value.rootProblem)
+        assertEquals(listOf(CARD_BOOKS), released)
 
-        access = false
-        vm.onRootPicked(MediaKind.AUDIO, "tree:/storage/emulated/0/Audio")
+        grantable = false
+        vm.onRootPicked(MediaKind.AUDIO, "$TREE_BASE/primary%3AAudio")
         advanceUntilIdle()
         assertEquals(RootProblem(MediaKind.AUDIO, RootIssue.NO_ACCESS), vm.state.value.rootProblem)
 
         val stored = settings.settings.first()
         assertNull(stored.booksRoot)
-        assertEquals("/storage/emulated/0/Audiobooks", stored.audioRoot)
+        assertEquals(AUDIOBOOKS, stored.audioRoot)
 
         vm.onRootPicked(MediaKind.BOOK, null)
         assertEquals(RootProblem(MediaKind.AUDIO, RootIssue.NO_ACCESS), vm.state.value.rootProblem)
     }
 
     @Test
-    fun resumeRefreshesAccessAndRoots() = runVmTest { vm ->
-        access = false
-        rootChecks["/storage/emulated/0/Audiobooks"] = RootCheck.MISSING
+    fun replacedRootGivesItsGrantBack() = runVmTest { vm ->
+        vm.onRootPicked(MediaKind.AUDIO, "$TREE_BASE/primary%3ANewAudio")
+        advanceUntilIdle()
+
+        assertEquals(listOf(AUDIOBOOKS), released)
+    }
+
+    @Test
+    fun grantStaysWhileTheOtherRootUsesTheFolder() = runVmTest { vm ->
+        vm.onRootPicked(MediaKind.BOOK, AUDIOBOOKS)
+        advanceUntilIdle()
+        vm.onRootPicked(MediaKind.AUDIO, "$TREE_BASE/primary%3ANewAudio")
+        advanceUntilIdle()
+
+        assertTrue(released.isEmpty())
+    }
+
+    @Test
+    fun resumeRefreshesRoots() = runVmTest { vm ->
+        rootChecks[AUDIOBOOKS] = RootCheck.MISSING
         vm.onResume()
         advanceUntilIdle()
 
-        assertFalse(vm.state.value.hasAllFilesAccess)
         assertEquals(RootCheck.MISSING, vm.state.value.rootStatus[MediaKind.AUDIO])
     }
 
@@ -362,5 +379,12 @@ class SettingsViewModelTest {
         assertEquals(ColorTheme.MARSHMALLOW, stored.colorTheme)
         assertEquals(DarkMode.LIGHT, stored.darkMode)
         assertEquals(ColorTheme.MARSHMALLOW, vm.state.value.settings.colorTheme)
+    }
+
+    private companion object {
+        const val TREE_BASE = "content://com.android.externalstorage.documents/tree"
+        const val AUDIOBOOKS = "$TREE_BASE/primary%3AAudiobooks"
+        const val BOOKS = "$TREE_BASE/primary%3ABooks"
+        const val CARD_BOOKS = "$TREE_BASE/1234-ABCD%3ABooks"
     }
 }

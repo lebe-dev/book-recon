@@ -73,6 +73,7 @@ import ru.tinyops.android.bookrecon.core.usecase.search.SearchState
 import ru.tinyops.android.bookrecon.core.usecase.search.SourceState
 import ru.tinyops.android.bookrecon.di.appContainer
 import ru.tinyops.android.bookrecon.ui.common.KindTile
+import ru.tinyops.android.bookrecon.ui.common.RootMissingNotice
 import ru.tinyops.android.bookrecon.ui.common.PillShape
 import ru.tinyops.android.bookrecon.ui.common.Tag
 import ru.tinyops.android.bookrecon.ui.common.pillFieldColors
@@ -91,7 +92,10 @@ fun SearchScreen(
     val context = LocalContext.current
     val factory = remember(context) {
         val search = context.appContainer.search
-        viewModelFactory { initializer { SearchViewModel(search.searchUseCase, search.searchHistory, createSavedStateHandle()) } }
+        val chosenKinds = context.appContainer.settings.chosenKinds
+        viewModelFactory {
+            initializer { SearchViewModel(search.searchUseCase, search.searchHistory, createSavedStateHandle(), chosenKinds) }
+        }
     }
     val viewModel: SearchViewModel = viewModel(factory = factory)
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -155,14 +159,22 @@ fun SearchContent(
         onSearch()
     }
     val search = state.search
-    val history = if (fieldFocused) historyFor(state.history, state.query) else emptyList()
+    val kindUsable = state.kind in state.chosenKinds
+    val history = if (fieldFocused && kindUsable) historyFor(state.history, state.query) else emptyList()
 
     Column(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp, bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SearchField(state.query, state.queryTooShort, onQueryChange, submit, onFocusChange = { fieldFocused = it })
+            SearchField(
+                state.query,
+                state.queryTooShort,
+                onQueryChange,
+                submit,
+                enabled = kindUsable,
+                onFocusChange = { fieldFocused = it },
+            )
             if (history.isNotEmpty()) {
                 SearchHistoryList(
                     history,
@@ -174,13 +186,18 @@ fun SearchContent(
                     onRemove = onHistoryRemove,
                 )
             }
-            KindSelector(state.kind, onKindChange)
+            KindSelector(state.kind, state.chosenKinds, onKindChange)
         }
 
         if (search?.isLoading == true) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         } else {
             Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        if (!kindUsable) {
+            RootMissingNotice(state.kind, onOpenSettings)
+            return@Column
         }
 
         if (search == null) {
@@ -246,10 +263,12 @@ private fun SearchField(
     tooShort: Boolean,
     onQueryChange: (String) -> Unit,
     onSubmit: () -> Unit,
+    enabled: Boolean = true,
     onFocusChange: (Boolean) -> Unit = {},
 ) {
     TextField(
         value = query,
+        enabled = enabled,
         onValueChange = onQueryChange,
         modifier = Modifier.fillMaxWidth().onFocusChanged { onFocusChange(it.isFocused) },
         placeholder = { Text(stringResource(R.string.search_field_label)) },
@@ -263,7 +282,7 @@ private fun SearchField(
             null
         },
         leadingIcon = {
-            IconButton(onClick = onSubmit) {
+            IconButton(onClick = onSubmit, enabled = enabled) {
                 Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search_action))
             }
         },
@@ -282,13 +301,14 @@ private fun SearchField(
 }
 
 @Composable
-private fun KindSelector(kind: MediaKind, onKindChange: (MediaKind) -> Unit) {
+private fun KindSelector(kind: MediaKind, chosen: Set<MediaKind>, onKindChange: (MediaKind) -> Unit) {
     val options = listOf(MediaKind.BOOK to R.string.search_kind_books, MediaKind.AUDIO to R.string.search_kind_audio)
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         options.forEachIndexed { index, (option, label) ->
             SegmentedButton(
                 selected = option == kind,
                 onClick = { onKindChange(option) },
+                enabled = option in chosen,
                 shape = SegmentedButtonDefaults.itemShape(index, options.size),
             ) {
                 Text(stringResource(label))

@@ -21,7 +21,6 @@ import ru.tinyops.android.bookrecon.core.domain.DownloadStatus
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.port.DownloadRepository
 import ru.tinyops.android.bookrecon.core.port.FileStorage
-import java.io.File
 
 /** Type filter of the library: all, e-books only or audiobooks only. */
 enum class LibraryFilter(val kind: MediaKind?) {
@@ -30,8 +29,8 @@ enum class LibraryFilter(val kind: MediaKind?) {
     AUDIO(MediaKind.AUDIO),
 }
 
-/** The screen should view [path] as [mimeType] in another app, then call [LibraryViewModel.onOpenHandled]. */
-data class OpenRequest(val path: String, val mimeType: String)
+/** The screen should view the content [uri] as [mimeType] in another app, then call [LibraryViewModel.onOpenHandled]. */
+data class OpenRequest(val uri: String, val mimeType: String)
 
 /** One-off snackbar; the screen acknowledges it with [LibraryViewModel.onMessageShown]. */
 sealed interface LibraryMessage {
@@ -156,9 +155,9 @@ class LibraryViewModel(
     fun onOpen(id: String) {
         val download = find(id) ?: return
         viewModelScope.launch {
-            val target = withContext(io) { resolveOpenTarget(download) }
+            val target = withContext(io) { resolveOpenTarget(download, storage) }
             when (target) {
-                is OpenTarget.Open -> mutableState.update { it.copy(open = OpenRequest(target.path, target.mimeType)) }
+                is OpenTarget.Open -> mutableState.update { it.copy(open = OpenRequest(target.uri, target.mimeType)) }
                 OpenTarget.Missing -> {
                     mutableState.update { it.copy(message = LibraryMessage.FileMissing) }
                     onRefresh()
@@ -242,17 +241,13 @@ class LibraryViewModel(
      * deletion, so the record is never dropped while its files stay behind unnoticed.
      */
     private suspend fun deleteFiles(download: Download) {
-        if (!storage.hasAllFilesAccess()) throw AppError.StorageNotGranted()
-        val root = try {
-            storage.root(download.kind).absoluteFile
-        } catch (_: AppError) {
-            null
-        }
+        storage.requireRoot(download.kind)
         for (path in download.paths) {
-            val file = File(path).absoluteFile
-            if (file == root || file.parentFile == null) throw AppError.StorageFailed("refusing to delete $path")
-            storage.delete(file)
-            if (withContext(io) { storage.exists(file) }) throw AppError.StorageFailed("cannot delete ${file.name}")
+            if (path.isBlank() || path.trim('/').isEmpty()) throw AppError.StorageFailed("refusing to delete the root folder")
+            storage.delete(download.kind, path)
+            if (withContext(io) { storage.exists(download.kind, path) }) {
+                throw AppError.StorageFailed("cannot delete ${path.substringAfterLast('/')}")
+            }
         }
     }
 

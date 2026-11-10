@@ -118,7 +118,7 @@ class DownloadQueueImplTest {
         assertEquals(DownloadStatus.COMPLETED, status(c))
         val books = File(dir, "Books").list()!!.filter { !it.startsWith(".") }.sorted()
         assertEquals(listOf("Мастер и Маргарита.epub", "Пикник на обочине.epub", "Преступление и наказание.epub"), books)
-        assertEquals(listOf(File(dir, "Books/Мастер и Маргарита.epub").path), get(a).paths)
+        assertEquals(listOf("Мастер и Маргарита.epub"), get(a).paths)
         assertTrue(get(a).size > 0)
         assertEquals(clock.now(), get(a).completedAt)
         assertEquals(3, workRequests)
@@ -213,7 +213,7 @@ class DownloadQueueImplTest {
         val next = queue.enqueue(book("11111"))
         advance(2)
         assertEquals(DownloadStatus.DOWNLOADING, status(audio))
-        val staging = File(dir, "Audiobooks/.book-recon/$audio")
+        val staging = File(dir, "staging/$audio")
         assertTrue(staging.exists())
         assertTrue(queue.observe().first().first { it.id == audio }.progress.completed > 0)
 
@@ -242,7 +242,7 @@ class DownloadQueueImplTest {
         advance(BOOK_SECONDS)
         assertEquals(DownloadStatus.FAILED, status(a))
         assertEquals(AppError.NotFound(), get(a).error)
-        assertFalse(File(dir, "Books/.book-recon/$a").exists())
+        assertFalse(File(dir, "staging/$a").exists())
         assertEquals(DownloadStatus.DOWNLOADING, status(b))
 
         advance(BOOK_SECONDS)
@@ -276,7 +276,7 @@ class DownloadQueueImplTest {
         advance(TORRENT_SECONDS)
         assertEquals(DownloadStatus.FAILED, status(id))
         assertEquals(AppError.NoSeeders(), get(id).error)
-        assertFalse(File(dir, "Audiobooks/.book-recon/$id").exists())
+        assertFalse(File(dir, "staging/$id").exists())
 
         queue.retry(id)
         runCurrent()
@@ -327,11 +327,11 @@ class DownloadQueueImplTest {
         advance(TORRENT_SECONDS)
         val target = File(dir, "Audiobooks/Булгаков - Мастер и Маргарита (2)")
         assertEquals(DownloadStatus.COMPLETED, status(id))
-        assertEquals(listOf(target.path), get(id).paths)
+        assertEquals(listOf("Булгаков - Мастер и Маргарита (2)"), get(id).paths)
         assertTrue(File(target, "CD1/01 Глава 1. Никогда не разговаривайте с неизвестными.mp3").isFile)
         assertTrue(File(target, "CD1/02 Глава 2. Понтий Пилат.mp3").isFile)
         assertTrue(File(target, "CD2/01 Глава 13. Явление героя.mp3").isFile)
-        assertFalse(File(dir, "Audiobooks/.book-recon/$id").exists())
+        assertFalse(File(dir, "staging/$id").exists())
         assertFalse(File(dir, "torrents/$id.torrent").exists())
         assertNull(torrents.state(id))
     }
@@ -348,8 +348,8 @@ class DownloadQueueImplTest {
         assertEquals(DownloadStatus.COMPLETED, status(id))
         assertEquals(
             listOf(
-                File(dir, "Books/Достоевский - Преступление и наказание (2).epub").path,
-                File(dir, "Books/Достоевский - Преступление и наказание.fb2").path,
+                "Достоевский - Преступление и наказание (2).epub",
+                "Достоевский - Преступление и наказание.fb2",
             ),
             get(id).paths,
         )
@@ -365,7 +365,7 @@ class DownloadQueueImplTest {
         val id = queue.enqueue(book("11111"))
 
         advance(BOOK_SECONDS)
-        assertEquals(listOf(File(dir, "Books/Мастер и Маргарита (Михаил Булгаков).epub").path), get(id).paths)
+        assertEquals(listOf("Мастер и Маргарита (Михаил Булгаков).epub"), get(id).paths)
     }
 
     @Test

@@ -47,6 +47,7 @@ sealed interface TopicLoadState {
  * @property tree rows of the file tree for a lazy list, built from [selection] and [collapsed].
  * @property folderName audiobook folder name; for e-books it is not shown.
  * @property enqueuing a download request is being sent to the queue.
+ * @property rootMissing the folder for [kind] is not chosen, so nothing can be downloaded.
  * @property message one-off snackbar message; acknowledged with [RuTrackerTopicViewModel.onMessageShown].
  * @property pendingVerification a web check to open now; acknowledged with
  *   [RuTrackerTopicViewModel.onVerificationOpened].
@@ -60,6 +61,7 @@ data class RuTrackerTopicUiState(
     val tree: List<TreeNode> = emptyList(),
     val folderName: String = "",
     val enqueuing: Boolean = false,
+    val rootMissing: Boolean = false,
     val message: BookMessage? = null,
     val pendingVerification: VerificationRequest? = null,
 ) {
@@ -75,7 +77,8 @@ data class RuTrackerTopicUiState(
         get() = load is TopicLoadState.Loaded &&
             (selection?.selectedCount ?: 0) > 0 &&
             !folderNameMissing &&
-            !enqueuing
+            !enqueuing &&
+            !rootMissing
 }
 
 /**
@@ -108,6 +111,11 @@ class RuTrackerTopicViewModel(
     private var loadJob: Job? = null
 
     init {
+        viewModelScope.launch {
+            settings.settings.collect { stored ->
+                mutableState.update { it.copy(rootMissing = !stored.hasRoot(kind)) }
+            }
+        }
         load()
     }
 

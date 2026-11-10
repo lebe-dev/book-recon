@@ -102,7 +102,7 @@ object FakeData {
             author = "Михаил Булгаков",
             format = Format.EPUB,
             status = DownloadStatus.COMPLETED,
-            paths = listOf("/storage/emulated/0/Books/Мастер и Маргарита.epub"),
+            paths = listOf("Мастер и Маргарита.epub"),
             size = 1_234_567,
             createdAt = now.minusSeconds(3 * DAY),
             completedAt = now.minusSeconds(3 * DAY - 20),
@@ -117,7 +117,7 @@ object FakeData {
             targetName = "Стругацкие Аркадий и Борис - Пикник на обочине",
             status = DownloadStatus.COMPLETED,
             files = torrentInfo(AUDIO_TOPIC_FLAT).files,
-            paths = listOf("/storage/emulated/0/Audiobooks/Стругацкие Аркадий и Борис - Пикник на обочине"),
+            paths = listOf("Стругацкие Аркадий и Борис - Пикник на обочине"),
             size = torrentInfo(AUDIO_TOPIC_FLAT).totalSize,
             createdAt = now.minusSeconds(DAY),
             completedAt = now.minusSeconds(DAY - 900),
@@ -139,7 +139,7 @@ object FakeData {
     )
 
     /** Path of the sample download whose file is gone; see [sampleFileExists]. */
-    const val MISSING_SAMPLE_PATH = "/storage/emulated/0/Books/Мы.pdf"
+    const val MISSING_SAMPLE_PATH = "Мы.pdf"
 
     /** File check for the sample library: everything exists except [MISSING_SAMPLE_PATH]. */
     fun sampleFileExists(path: String): Boolean = path != MISSING_SAMPLE_PATH

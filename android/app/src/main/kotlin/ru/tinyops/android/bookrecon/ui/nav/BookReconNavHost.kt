@@ -171,8 +171,8 @@ fun BookReconNavHost(navController: NavHostController = rememberNavController())
 }
 
 /**
- * Opens the settings tab once per launch while storage is not set up, so a fresh install
- * starts where file access and root folders are granted instead of failing on first download.
+ * Opens the settings tab once per launch while no root folder is chosen, so a fresh install
+ * starts where the two folders are picked instead of failing on first download.
  */
 @Composable
 private fun OpenSettingsOnFirstRun(navController: NavHostController) {
@@ -183,7 +183,7 @@ private fun OpenSettingsOnFirstRun(navController: NavHostController) {
         checked = true
         val module = context.appContainer.settings
         val settings = module.settingsRepository.settings.first()
-        if (!needsStorageSetup(module.fileStorage.hasAllFilesAccess(), settings)) return@LaunchedEffect
+        if (!needsStorageSetup(settings)) return@LaunchedEffect
         context.appContainer.log.appLog.info(TAG, "Storage is not set up, opening settings")
         navController.navigateToTopLevel(SettingsRoute)
         navController.navigate(SettingsSectionRoute(SettingsSection.STORAGE))

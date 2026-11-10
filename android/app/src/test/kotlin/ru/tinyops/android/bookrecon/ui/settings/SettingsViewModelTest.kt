@@ -260,6 +260,23 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun flibustaTimeoutIsSavedWithinLimits() = runVmTest { vm ->
+        assertEquals(20, vm.state.value.settings.flibustaTimeoutSeconds)
+
+        vm.onFlibustaTimeoutChange(45)
+        advanceUntilIdle()
+        assertEquals(45, settings.settings.first().flibustaTimeoutSeconds)
+
+        vm.onFlibustaTimeoutChange(0)
+        advanceUntilIdle()
+        assertEquals(Settings.MIN_FLIBUSTA_TIMEOUT_SECONDS, settings.settings.first().flibustaTimeoutSeconds)
+
+        vm.onFlibustaTimeoutChange(10_000)
+        advanceUntilIdle()
+        assertEquals(Settings.MAX_FLIBUSTA_TIMEOUT_SECONDS, settings.settings.first().flibustaTimeoutSeconds)
+    }
+
+    @Test
     fun errorReportsAreOffUntilTurnedOn() = runVmTest { vm ->
         assertFalse(vm.state.value.settings.sendErrorReports)
 

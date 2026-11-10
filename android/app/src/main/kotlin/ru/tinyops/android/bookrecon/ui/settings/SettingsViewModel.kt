@@ -199,6 +199,15 @@ class SettingsViewModel(
         viewModelScope.launch { settings.update { it.copy(flibustaBaseUrl = saved) } }
     }
 
+    fun onFlibustaTimeoutChange(seconds: Int) = save {
+        it.copy(
+            flibustaTimeoutSeconds = seconds.coerceIn(
+                Settings.MIN_FLIBUSTA_TIMEOUT_SECONDS,
+                Settings.MAX_FLIBUSTA_TIMEOUT_SECONDS,
+            ),
+        )
+    }
+
     fun onPreferredFormatChange(format: Format) = save { it.copy(preferredFormat = format) }
 
     fun onWifiOnlyChange(wifiOnly: Boolean) = save { it.copy(wifiOnly = wifiOnly) }
@@ -291,6 +300,7 @@ class SettingsViewModel(
 
         /** Retry intervals for torrents without seeders, in minutes; 0 turns retries off. */
         val NO_SEEDERS_RETRY_OPTIONS = listOf(0, 5, 15, 30, 60)
+        val FLIBUSTA_TIMEOUT_OPTIONS = listOf(10, 20, 30, 45, 60)
 
         private fun isValidBaseUrl(url: String): Boolean {
             val parsed = url.toHttpUrlOrNull() ?: return false

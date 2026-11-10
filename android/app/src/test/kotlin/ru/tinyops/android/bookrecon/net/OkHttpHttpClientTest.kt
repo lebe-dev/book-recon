@@ -3,6 +3,7 @@ package ru.tinyops.android.bookrecon.net
 import java.net.ServerSocket
 import java.nio.charset.Charset
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.runBlocking
@@ -177,6 +178,34 @@ class OkHttpHttpClientTest {
     }
 
     @Test
+    fun `a per host timeout replaces the ordinary read timeout`() = runBlocking {
+        server.enqueue(MockResponse.Builder().headersDelay(600, TimeUnit.MILLISECONDS).body("ok").build())
+        val config = NetworkConfig(readTimeout = 200.milliseconds, slowHosts = emptySet())
+        val client = client(config, readTimeoutFor = { host -> if (host == server.hostName) 5.seconds else null })
+
+        assertEquals("ok", client.get(server.url("/").toString()).use { it.text() })
+    }
+
+    @Test
+    fun `a per host timeout still times out when it is short`() {
+        server.enqueue(MockResponse.Builder().headersDelay(1, TimeUnit.SECONDS).build())
+        val config = NetworkConfig(readTimeout = 5.seconds, slowHosts = emptySet())
+        val client = client(config, readTimeoutFor = { 200.milliseconds })
+
+        assertThrows(AppError.Timeout::class.java) {
+            runBlocking { client.get(server.url("/").toString()) }
+        }
+    }
+
+    @Test
+    fun `a host matches its domain and subdomains only`() {
+        assertTrue(isHostOrSubdomain("flibusta.is", "flibusta.is"))
+        assertTrue(isHostOrSubdomain("www.flibusta.is", "flibusta.is"))
+        assertFalse(isHostOrSubdomain("notflibusta.is", "flibusta.is"))
+        assertFalse(isHostOrSubdomain("flibusta.is", ""))
+    }
+
+    @Test
     fun `slow host matching covers subdomains only`() {
         val config = NetworkConfig()
 
@@ -195,12 +224,16 @@ class OkHttpHttpClientTest {
         }
     }
 
-    private fun client(config: NetworkConfig = NetworkConfig()): HttpClient = OkHttpHttpClient(
+    private fun client(
+        config: NetworkConfig = NetworkConfig(),
+        readTimeoutFor: (String) -> Duration? = { null },
+    ): HttpClient = OkHttpHttpClient(
         buildOkHttpClient(
             SharedCookieJar(store),
             solver = { false },
             userAgent = { "TestAgent/1.0" },
             config = config,
+            readTimeoutFor = readTimeoutFor,
         ),
     )
 }

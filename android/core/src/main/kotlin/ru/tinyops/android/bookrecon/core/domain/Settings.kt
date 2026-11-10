@@ -8,6 +8,8 @@ package ru.tinyops.android.bookrecon.core.domain
  * @property booksRoot absolute path of the e-books root, null until chosen.
  * @property rutrackerLogin RuTracker username, empty when not set.
  * @property flibustaBaseUrl Flibusta mirror without a trailing slash.
+ * @property flibustaTimeoutSeconds how long to wait for a Flibusta response (headers, and then
+ *   each chunk of a body) before a request fails, [MIN_FLIBUSTA_TIMEOUT_SECONDS]..[MAX_FLIBUSTA_TIMEOUT_SECONDS].
  * @property wifiOnly run downloads on unmetered networks only.
  * @property maxConcurrent downloads running at the same time, 1..[MAX_CONCURRENT_LIMIT].
  * @property seedHours keep seeding on Wi-Fi and charger for this many hours after a torrent
@@ -26,6 +28,7 @@ data class Settings(
     val booksRoot: String? = null,
     val rutrackerLogin: String = "",
     val flibustaBaseUrl: String = DEFAULT_FLIBUSTA_BASE_URL,
+    val flibustaTimeoutSeconds: Int = DEFAULT_FLIBUSTA_TIMEOUT_SECONDS,
     val preferredFormat: Format = Format.EPUB,
     val wifiOnly: Boolean = false,
     val maxConcurrent: Int = DEFAULT_MAX_CONCURRENT,
@@ -46,6 +49,9 @@ data class Settings(
 
     companion object {
         const val DEFAULT_FLIBUSTA_BASE_URL = "https://flibusta.is"
+        const val DEFAULT_FLIBUSTA_TIMEOUT_SECONDS = 20
+        const val MIN_FLIBUSTA_TIMEOUT_SECONDS = 5
+        const val MAX_FLIBUSTA_TIMEOUT_SECONDS = 120
         const val DEFAULT_MAX_CONCURRENT = 2
         const val MAX_CONCURRENT_LIMIT = 4
         const val DEFAULT_NO_SEEDERS_RETRY_MINUTES = 15

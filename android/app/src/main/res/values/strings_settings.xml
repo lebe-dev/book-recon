@@ -88,6 +88,9 @@
     <string name="settings_section_flibusta">Flibusta</string>
     <string name="settings_flibusta_url">Адрес сайта</string>
     <string name="settings_flibusta_url_hint">Пустое поле — адрес по умолчанию</string>
+    <string name="settings_flibusta_timeout">Время ожидания ответа</string>
+    <string name="settings_flibusta_timeout_text">Сколько ждать ответа сайта, прежде чем считать запрос неудавшимся. Если Flibusta часто не отвечает, увеличьте</string>
+    <string name="settings_flibusta_timeout_seconds">%1$d с</string>
     <string name="settings_flibusta_url_error">Введите адрес вида https://flibusta.is</string>
     <string name="settings_save">Сохранить</string>
 

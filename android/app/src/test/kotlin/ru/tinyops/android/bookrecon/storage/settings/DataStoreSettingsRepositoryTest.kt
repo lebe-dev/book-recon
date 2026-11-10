@@ -64,6 +64,7 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(2, settings.maxConcurrent)
         assertEquals(0, settings.seedHours)
         assertEquals(15, settings.noSeedersRetryMinutes)
+        assertEquals(20, settings.flibustaTimeoutSeconds)
         assertFalse(settings.sendErrorReports)
         assertTrue(settings.logInfo)
         assertFalse(settings.logDebug)
@@ -86,6 +87,7 @@ class DataStoreSettingsRepositoryTest {
             maxConcurrent = 3,
             seedHours = 6,
             noSeedersRetryMinutes = 60,
+            flibustaTimeoutSeconds = 45,
             sendErrorReports = true,
             logInfo = false,
             logDebug = true,
@@ -135,6 +137,11 @@ class DataStoreSettingsRepositoryTest {
         settings = repository.settings.first()
         assertEquals(Settings.DEFAULT_FLIBUSTA_BASE_URL, settings.flibustaBaseUrl)
         assertEquals(1, settings.maxConcurrent)
+
+        repository.update { it.copy(flibustaTimeoutSeconds = 0) }
+        assertEquals(Settings.MIN_FLIBUSTA_TIMEOUT_SECONDS, repository.settings.first().flibustaTimeoutSeconds)
+        repository.update { it.copy(flibustaTimeoutSeconds = 100_000) }
+        assertEquals(Settings.MAX_FLIBUSTA_TIMEOUT_SECONDS, repository.settings.first().flibustaTimeoutSeconds)
     }
 
     @Test

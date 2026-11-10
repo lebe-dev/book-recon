@@ -35,14 +35,20 @@ data class NetworkConfig(
     val slowHosts: Set<String> = setOf("rutracker.org", "rutracker.net", "rutracker.nl"),
 ) {
     /** True for a host in [slowHosts] or a subdomain of one. */
-    fun isSlowHost(host: String): Boolean = slowHosts.any { host == it || host.endsWith(".$it") }
+    fun isSlowHost(host: String): Boolean = slowHosts.any { isHostOrSubdomain(host, it) }
 }
+
+/** True when [host] is [domain] itself or a subdomain of it; false for a blank [domain]. */
+fun isHostOrSubdomain(host: String, domain: String): Boolean =
+    domain.isNotEmpty() && (host == domain || host.endsWith(".$domain"))
 
 /**
  * Builds the single OkHttp client of the app. [userAgent] is read on every request and must be
  * the one WebView uses: Cloudflare binds `cf_clearance` to it. [proxySelector] routes blocked
  * hosts through the Book Recon server; null means the system default. [logging] sees every
- * request first, before the User-Agent is set and challenges are solved.
+ * request first, before the User-Agent is set and challenges are solved. [readTimeoutFor] is
+ * asked for every request and may give its host a read timeout of the user's choice; null keeps
+ * the default (hosts in [NetworkConfig.slowHosts] always keep theirs).
  */
 fun buildOkHttpClient(
     cookieJar: CookieJar,
@@ -51,6 +57,7 @@ fun buildOkHttpClient(
     config: NetworkConfig = NetworkConfig(),
     proxySelector: ProxySelector? = null,
     logging: Interceptor? = null,
+    readTimeoutFor: (host: String) -> Duration? = { null },
 ): OkHttpClient = OkHttpClient.Builder()
     .apply { if (proxySelector != null) proxySelector(proxySelector) }
     .apply { if (logging != null) addInterceptor(logging) }
@@ -60,7 +67,7 @@ fun buildOkHttpClient(
     .writeTimeout(config.readTimeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)
     .callTimeout(0, TimeUnit.MILLISECONDS)
     .addInterceptor(UserAgentInterceptor(userAgent))
-    .addInterceptor(HostTimeoutInterceptor(config))
+    .addInterceptor(HostTimeoutInterceptor(config, readTimeoutFor))
     .addInterceptor(CloudflareInterceptor(solver))
     .eventListenerFactory { HandshakeTimeout(config.tlsTimeout) }
     .build()
@@ -74,11 +81,16 @@ private class UserAgentInterceptor(private val userAgent: () -> String) : Interc
     }
 }
 
-/** Gives slow hosts a longer read timeout. */
-private class HostTimeoutInterceptor(private val config: NetworkConfig) : Interceptor {
+/** Gives slow hosts a longer read timeout, and hosts with a user's choice that choice. */
+private class HostTimeoutInterceptor(
+    private val config: NetworkConfig,
+    private val readTimeoutFor: (String) -> Duration?,
+) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
-        if (!config.isSlowHost(chain.request().url.host)) return chain.proceed(chain.request())
-        val millis = config.slowReadTimeout.inWholeMilliseconds.toInt()
+        val host = chain.request().url.host
+        val timeout = if (config.isSlowHost(host)) config.slowReadTimeout else readTimeoutFor(host)
+        if (timeout == null) return chain.proceed(chain.request())
+        val millis = timeout.inWholeMilliseconds.toInt()
         return chain
             .withReadTimeout(millis, TimeUnit.MILLISECONDS)
             .withWriteTimeout(millis, TimeUnit.MILLISECONDS)

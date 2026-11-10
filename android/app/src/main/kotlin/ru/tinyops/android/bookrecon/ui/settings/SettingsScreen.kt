@@ -174,6 +174,7 @@ fun SettingsSectionScreen(
             onForgetCredentials = viewModel::onForgetCredentials,
             onFlibustaUrlChange = viewModel::onFlibustaUrlChange,
             onSaveFlibustaUrl = viewModel::onSaveFlibustaUrl,
+            onFlibustaTimeoutChange = viewModel::onFlibustaTimeoutChange,
             onPreferredFormatChange = viewModel::onPreferredFormatChange,
             onWifiOnlyChange = viewModel::onWifiOnlyChange,
             onTorrentPeersThroughServerChange = viewModel::onTorrentPeersThroughServerChange,
@@ -234,6 +235,7 @@ data class SettingsActions(
     val onForgetCredentials: () -> Unit = {},
     val onFlibustaUrlChange: (String) -> Unit = {},
     val onSaveFlibustaUrl: () -> Unit = {},
+    val onFlibustaTimeoutChange: (Int) -> Unit = {},
     val onPreferredFormatChange: (Format) -> Unit = {},
     val onWifiOnlyChange: (Boolean) -> Unit = {},
     val onTorrentPeersThroughServerChange: (Boolean) -> Unit = {},
@@ -563,6 +565,30 @@ private fun FlibustaBlock(state: SettingsUiState, actions: SettingsActions) {
         TextButton(onClick = save, enabled = state.flibustaUrlChanged, modifier = Modifier.padding(top = 8.dp)) {
             Text(stringResource(R.string.settings_save))
         }
+    }
+    FlibustaTimeoutBlock(state.settings.flibustaTimeoutSeconds, actions.onFlibustaTimeoutChange)
+}
+
+@Composable
+private fun FlibustaTimeoutBlock(seconds: Int, onChange: (Int) -> Unit) {
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(R.string.settings_flibusta_timeout), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            stringResource(R.string.settings_flibusta_timeout_text),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val options = SettingsViewModel.FLIBUSTA_TIMEOUT_OPTIONS.let { if (seconds in it) it else (it + seconds).sorted() }
+        val labels = options.associateWith { stringResource(R.string.settings_flibusta_timeout_seconds, it) }
+        ChoiceRow(
+            options = options,
+            selected = seconds,
+            label = { labels.getValue(it) },
+            onSelect = onChange,
+        )
     }
 }
 

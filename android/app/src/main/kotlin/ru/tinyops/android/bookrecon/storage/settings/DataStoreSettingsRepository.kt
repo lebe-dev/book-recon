@@ -30,6 +30,7 @@ internal object SettingsKeys {
     val BOOKS_ROOT = stringPreferencesKey("books_root")
     val RUTRACKER_LOGIN = stringPreferencesKey("rutracker_login")
     val FLIBUSTA_BASE_URL = stringPreferencesKey("flibusta_base_url")
+    val FLIBUSTA_TIMEOUT_SECONDS = intPreferencesKey("flibusta_timeout_seconds")
     val PREFERRED_FORMAT = stringPreferencesKey("preferred_format")
     val WIFI_ONLY = booleanPreferencesKey("wifi_only")
     val MAX_CONCURRENT = intPreferencesKey("max_concurrent")
@@ -119,6 +120,7 @@ private fun Preferences.toSettings(): Settings {
         booksRoot = this[SettingsKeys.BOOKS_ROOT],
         rutrackerLogin = this[SettingsKeys.RUTRACKER_LOGIN] ?: defaults.rutrackerLogin,
         flibustaBaseUrl = this[SettingsKeys.FLIBUSTA_BASE_URL] ?: defaults.flibustaBaseUrl,
+        flibustaTimeoutSeconds = this[SettingsKeys.FLIBUSTA_TIMEOUT_SECONDS] ?: defaults.flibustaTimeoutSeconds,
         preferredFormat = this[SettingsKeys.PREFERRED_FORMAT]
             ?.let { name -> Format.entries.firstOrNull { it.name == name } }
             ?: defaults.preferredFormat,
@@ -140,6 +142,7 @@ private fun MutablePreferences.write(settings: Settings) {
     setOrRemove(SettingsKeys.BOOKS_ROOT, settings.booksRoot)
     this[SettingsKeys.RUTRACKER_LOGIN] = settings.rutrackerLogin
     this[SettingsKeys.FLIBUSTA_BASE_URL] = settings.flibustaBaseUrl
+    this[SettingsKeys.FLIBUSTA_TIMEOUT_SECONDS] = settings.flibustaTimeoutSeconds
     this[SettingsKeys.PREFERRED_FORMAT] = settings.preferredFormat.name
     this[SettingsKeys.WIFI_ONLY] = settings.wifiOnly
     this[SettingsKeys.MAX_CONCURRENT] = settings.maxConcurrent
@@ -165,13 +168,18 @@ private fun MutablePreferences.setOrRemove(key: Preferences.Key<String>, value: 
  * Settings with values the rest of the app can rely on: trimmed text, roots without a
  * trailing slash (blank means not chosen), a Flibusta URL without a trailing slash (blank
  * means the default), [Settings.maxConcurrent] in 1..[Settings.MAX_CONCURRENT_LIMIT] and
- * [Settings.seedHours] and [Settings.noSeedersRetryMinutes] not negative.
+ * [Settings.seedHours] and [Settings.noSeedersRetryMinutes] not negative and
+ * [Settings.flibustaTimeoutSeconds] within its limits.
  */
 internal fun Settings.normalized(): Settings = copy(
     audioRoot = normalizeRoot(audioRoot),
     booksRoot = normalizeRoot(booksRoot),
     rutrackerLogin = rutrackerLogin.trim(),
     flibustaBaseUrl = flibustaBaseUrl.trim().trimEnd('/').ifEmpty { Settings.DEFAULT_FLIBUSTA_BASE_URL },
+    flibustaTimeoutSeconds = flibustaTimeoutSeconds.coerceIn(
+        Settings.MIN_FLIBUSTA_TIMEOUT_SECONDS,
+        Settings.MAX_FLIBUSTA_TIMEOUT_SECONDS,
+    ),
     maxConcurrent = maxConcurrent.coerceIn(1, Settings.MAX_CONCURRENT_LIMIT),
     seedHours = seedHours.coerceAtLeast(0),
     noSeedersRetryMinutes = noSeedersRetryMinutes.coerceAtLeast(0),

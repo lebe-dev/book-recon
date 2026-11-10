@@ -4,7 +4,6 @@ import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
 import java.io.IOException
-import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.ProxySelector
@@ -25,7 +24,7 @@ class TunnelProxySelector(
         val current = route()
         val host = uri.host
         if (current == null || host == null || uri.scheme != "https" || !current.serves(host)) return DIRECT
-        return listOf(Proxy(Proxy.Type.HTTP, InetSocketAddress(InetAddress.getLoopbackAddress(), port())))
+        return listOf(Proxy(Proxy.Type.HTTP, InetSocketAddress(TunnelProxy.LOOPBACK, port())))
     }
 
     override fun connectFailed(uri: URI, sa: SocketAddress, ioe: IOException) = Unit
@@ -60,7 +59,7 @@ class WebViewTunnel(private val log: (String) -> Unit = {}) {
             log("WebView proxy cleared")
             return
         }
-        val config = ProxyConfig.Builder().addProxyRule("127.0.0.1:${port()}", ProxyConfig.MATCH_HTTPS)
+        val config = ProxyConfig.Builder().addProxyRule("${TunnelProxy.LOOPBACK.hostAddress}:${port()}", ProxyConfig.MATCH_HTTPS)
         if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE_REVERSE_BYPASS)) {
             route.hosts.forEach { host ->
                 config.addBypassRule(host)

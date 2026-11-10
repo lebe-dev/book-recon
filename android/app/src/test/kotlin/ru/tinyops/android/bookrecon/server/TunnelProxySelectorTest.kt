@@ -18,7 +18,7 @@ class TunnelProxySelectorTest {
         assertEquals(Proxy.Type.HTTP, proxy.type())
         val address = proxy.address() as InetSocketAddress
         assertEquals(4567, address.port)
-        assertEquals(true, address.address.isLoopbackAddress)
+        assertEquals("127.0.0.1", address.address.hostAddress)
         assertEquals(Proxy.Type.HTTP, select("https://static.rutracker.org/x.css").type())
     }
 

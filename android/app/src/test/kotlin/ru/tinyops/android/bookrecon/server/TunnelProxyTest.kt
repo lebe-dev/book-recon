@@ -1,7 +1,6 @@
 package ru.tinyops.android.bookrecon.server
 
 import java.io.InputStream
-import java.net.InetAddress
 import java.net.Socket
 import java.util.concurrent.TimeUnit
 import mockwebserver3.MockResponse
@@ -49,7 +48,7 @@ class TunnelProxyTest {
     }
 
     private fun connect(request: String): Pair<Socket, String> {
-        val socket = Socket(InetAddress.getLoopbackAddress(), proxy.port)
+        val socket = Socket("127.0.0.1", proxy.port)
         socket.soTimeout = 5_000
         socket.getOutputStream().write(request.toByteArray(Charsets.ISO_8859_1))
         socket.getOutputStream().flush()
@@ -143,6 +142,11 @@ class TunnelProxyTest {
             assertEquals("HTTP/1.1 200 Connection established\r\n\r\n", head)
             assertEquals(-1, it.getInputStream().read())
         }
+    }
+
+    @Test
+    fun `the proxy listens on IPv4 loopback, where WebView looks for it`() {
+        assertEquals("127.0.0.1", proxy.address.hostAddress)
     }
 
     @Test

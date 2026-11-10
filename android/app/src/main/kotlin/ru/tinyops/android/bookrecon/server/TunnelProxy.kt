@@ -39,14 +39,19 @@ class TunnelProxy(
     private val log: (String) -> Unit = {},
     private val openTimeoutMillis: Long = 30_000,
 ) : Closeable {
-    private val server = ServerSocket(0, BACKLOG, InetAddress.getLoopbackAddress())
+    // An explicit IPv4 address: on Android getLoopbackAddress() may be ::1, while WebView's
+    // proxy rule names 127.0.0.1.
+    private val server = ServerSocket(0, BACKLOG, LOOPBACK)
     private val executor: ExecutorService = Executors.newCachedThreadPool { task ->
         Thread(task, "tunnel-proxy").apply { isDaemon = true }
     }
     private val closed = AtomicBoolean(false)
 
-    /** Port on 127.0.0.1 the proxy listens on. */
+    /** Port on [LOOPBACK] the proxy listens on. */
     val port: Int get() = server.localPort
+
+    /** Address the proxy listens on. */
+    internal val address: InetAddress get() = server.inetAddress
 
     fun start() {
         executor.execute(::acceptLoop)
@@ -221,20 +226,23 @@ class TunnelProxy(
         }
     }
 
-    private companion object {
-        const val BACKLOG = 50
-        const val HEADER_TIMEOUT_MILLIS = 30_000
-        const val MAX_HEADER_LINES = 100
-        const val MAX_LINE = 8 * 1024
-        const val CHUNK = 16 * 1024
-        const val MAX_QUEUE = 1L shl 20
-        const val QUEUE_WAIT_MILLIS = 5L
-        const val NORMAL_CLOSURE = 1000
-        const val OPEN = 0
-        const val BAD_GATEWAY = 502
-        const val GATEWAY_TIMEOUT = 504
+    companion object {
+        /** 127.0.0.1, the address both OkHttp and WebView are pointed at. */
+        val LOOPBACK: InetAddress = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
 
-        fun respond(output: OutputStream, code: Int, reason: String) {
+        private const val BACKLOG = 50
+        private const val HEADER_TIMEOUT_MILLIS = 30_000
+        private const val MAX_HEADER_LINES = 100
+        private const val MAX_LINE = 8 * 1024
+        private const val CHUNK = 16 * 1024
+        private const val MAX_QUEUE = 1L shl 20
+        private const val QUEUE_WAIT_MILLIS = 5L
+        private const val NORMAL_CLOSURE = 1000
+        private const val OPEN = 0
+        private const val BAD_GATEWAY = 502
+        private const val GATEWAY_TIMEOUT = 504
+
+        private fun respond(output: OutputStream, code: Int, reason: String) {
             try {
                 output.write("HTTP/1.1 $code $reason\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray(Charsets.ISO_8859_1))
                 output.flush()
@@ -244,7 +252,7 @@ class TunnelProxy(
         }
 
         /** Reads one CRLF-terminated line in ISO-8859-1; null at the end of the stream. */
-        fun readLine(input: InputStream): String? {
+        private fun readLine(input: InputStream): String? {
             val line = StringBuilder()
             while (true) {
                 val b = input.read()
@@ -255,7 +263,7 @@ class TunnelProxy(
             }
         }
 
-        fun Closeable.closeQuietly() {
+        private fun Closeable.closeQuietly() {
             try {
                 close()
             } catch (_: IOException) {

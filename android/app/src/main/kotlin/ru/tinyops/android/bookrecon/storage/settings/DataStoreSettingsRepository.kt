@@ -32,6 +32,7 @@ internal object SettingsKeys {
     val WIFI_ONLY = booleanPreferencesKey("wifi_only")
     val MAX_CONCURRENT = intPreferencesKey("max_concurrent")
     val SEED_HOURS = intPreferencesKey("seed_hours")
+    val NO_SEEDERS_RETRY_MINUTES = intPreferencesKey("no_seeders_retry_minutes")
     val SEND_ERROR_REPORTS = booleanPreferencesKey("send_error_reports")
 
     /** Base64 of the password sealed by [SecretCipher]. */
@@ -117,6 +118,7 @@ private fun Preferences.toSettings(): Settings {
         wifiOnly = this[SettingsKeys.WIFI_ONLY] ?: defaults.wifiOnly,
         maxConcurrent = this[SettingsKeys.MAX_CONCURRENT] ?: defaults.maxConcurrent,
         seedHours = this[SettingsKeys.SEED_HOURS] ?: defaults.seedHours,
+        noSeedersRetryMinutes = this[SettingsKeys.NO_SEEDERS_RETRY_MINUTES] ?: defaults.noSeedersRetryMinutes,
         sendErrorReports = this[SettingsKeys.SEND_ERROR_REPORTS] ?: defaults.sendErrorReports,
     ).normalized()
 }
@@ -130,6 +132,7 @@ private fun MutablePreferences.write(settings: Settings) {
     this[SettingsKeys.WIFI_ONLY] = settings.wifiOnly
     this[SettingsKeys.MAX_CONCURRENT] = settings.maxConcurrent
     this[SettingsKeys.SEED_HOURS] = settings.seedHours
+    this[SettingsKeys.NO_SEEDERS_RETRY_MINUTES] = settings.noSeedersRetryMinutes
     this[SettingsKeys.SEND_ERROR_REPORTS] = settings.sendErrorReports
 }
 
@@ -141,7 +144,7 @@ private fun MutablePreferences.setOrRemove(key: Preferences.Key<String>, value: 
  * Settings with values the rest of the app can rely on: trimmed text, roots without a
  * trailing slash (blank means not chosen), a Flibusta URL without a trailing slash (blank
  * means the default), [Settings.maxConcurrent] in 1..[Settings.MAX_CONCURRENT_LIMIT] and
- * [Settings.seedHours] not negative.
+ * [Settings.seedHours] and [Settings.noSeedersRetryMinutes] not negative.
  */
 internal fun Settings.normalized(): Settings = copy(
     audioRoot = normalizeRoot(audioRoot),
@@ -150,6 +153,7 @@ internal fun Settings.normalized(): Settings = copy(
     flibustaBaseUrl = flibustaBaseUrl.trim().trimEnd('/').ifEmpty { Settings.DEFAULT_FLIBUSTA_BASE_URL },
     maxConcurrent = maxConcurrent.coerceIn(1, Settings.MAX_CONCURRENT_LIMIT),
     seedHours = seedHours.coerceAtLeast(0),
+    noSeedersRetryMinutes = noSeedersRetryMinutes.coerceAtLeast(0),
 )
 
 private fun normalizeRoot(path: String?): String? {

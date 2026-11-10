@@ -126,8 +126,15 @@ fun RuTrackerTopicScreen(
         onOpenVerification(pending.url, pending.purpose)
     }
 
+    // A queued download is followed on the downloads screen right away, not via a snackbar.
+    LaunchedEffect(state.message) {
+        if (state.message != BookMessage.Added) return@LaunchedEffect
+        viewModel.onMessageShown()
+        onOpenDownloads()
+    }
+
     MessageSnackbar(
-        message = state.message,
+        message = state.message.takeIf { it != BookMessage.Added },
         hostState = snackbarHostState,
         onShown = viewModel::onMessageShown,
         onAction = { action ->

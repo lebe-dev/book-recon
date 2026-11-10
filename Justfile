@@ -95,6 +95,11 @@ android-lint: android-check
 android-install: android-build
     adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 
+# Debug APK onto the phone connected over USB (adb -d), then starts the app
+deploy-android: android-build
+    adb -d install -r android/app/build/outputs/apk/debug/app-debug.apk
+    adb -d shell am start -n ru.tinyops.android.bookrecon/ru.tinyops.android.bookrecon.MainActivity
+
 # Release APK in bin/book-recon-<VERSION>.apk, signed when ANDROID_* signing variables are set
 android-release: android-check
     #!/usr/bin/env bash

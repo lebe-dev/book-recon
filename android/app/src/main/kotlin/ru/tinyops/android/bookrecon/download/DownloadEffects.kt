@@ -13,13 +13,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.first
 import ru.tinyops.android.bookrecon.di.appContainer
 
 /**
  * Download housekeeping tied to the app being on screen: brings back downloads interrupted by
  * a process death and schedules the job for them (the system allows that only while the app
- * is visible), and asks for the notification permission when the first download is queued.
+ * is visible), retries torrents without seeders while the app is started, and asks for the
+ * notification permission when the first download is queued.
  */
 @Composable
 fun DownloadEffects() {
@@ -31,6 +35,11 @@ fun DownloadEffects() {
     }
 
     LaunchedEffect(Unit) { module.onAppVisible() }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) { module.noSeedersRetry.run() }
+    }
 
     LaunchedEffect(asked) {
         if (asked) return@LaunchedEffect

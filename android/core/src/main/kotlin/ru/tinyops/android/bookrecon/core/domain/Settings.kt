@@ -12,6 +12,8 @@ package ru.tinyops.android.bookrecon.core.domain
  * @property maxConcurrent downloads running at the same time, 1..[MAX_CONCURRENT_LIMIT].
  * @property seedHours keep seeding on Wi-Fi and charger for this many hours after a torrent
  *   completes; 0 turns seeding after download off.
+ * @property noSeedersRetryMinutes while the app is open, a torrent that failed for lack of
+ *   seeders (or stalled) is retried this many minutes later; 0 turns retries off.
  * @property sendErrorReports send crashes and unexpected errors to Sentry; off until the user
  *   turns it on.
  */
@@ -24,6 +26,7 @@ data class Settings(
     val wifiOnly: Boolean = false,
     val maxConcurrent: Int = DEFAULT_MAX_CONCURRENT,
     val seedHours: Int = 0,
+    val noSeedersRetryMinutes: Int = DEFAULT_NO_SEEDERS_RETRY_MINUTES,
     val sendErrorReports: Boolean = false,
 ) {
     /** Root folder for downloads of the given kind, null until chosen. */
@@ -36,5 +39,6 @@ data class Settings(
         const val DEFAULT_FLIBUSTA_BASE_URL = "https://flibusta.is"
         const val DEFAULT_MAX_CONCURRENT = 2
         const val MAX_CONCURRENT_LIMIT = 4
+        const val DEFAULT_NO_SEEDERS_RETRY_MINUTES = 15
     }
 }

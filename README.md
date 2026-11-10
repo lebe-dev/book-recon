@@ -403,6 +403,7 @@ just android-build    # debug APK in android/app/build/outputs/apk/debug
 just android-test     # unit tests
 just android-lint     # Android Lint
 just android-install  # install the debug APK with adb
+just deploy-android   # build, install on the USB-connected phone and start the app
 just android-release  # release APK in bin/book-recon-<VERSION>.apk
 ```
 

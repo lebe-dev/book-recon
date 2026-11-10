@@ -162,6 +162,7 @@ fun SettingsScreen(
             onWifiOnlyChange = viewModel::onWifiOnlyChange,
             onMaxConcurrentChange = viewModel::onMaxConcurrentChange,
             onSeedHoursChange = viewModel::onSeedHoursChange,
+            onNoSeedersRetryChange = viewModel::onNoSeedersRetryChange,
             onSendErrorReportsChange = viewModel::onSendErrorReportsChange,
         ),
         server = serverState,
@@ -217,6 +218,7 @@ data class SettingsActions(
     val onWifiOnlyChange: (Boolean) -> Unit = {},
     val onMaxConcurrentChange: (Int) -> Unit = {},
     val onSeedHoursChange: (Int) -> Unit = {},
+    val onNoSeedersRetryChange: (Int) -> Unit = {},
     val onSendErrorReportsChange: (Boolean) -> Unit = {},
 )
 
@@ -264,6 +266,7 @@ fun SettingsContent(
         SectionDivider()
         SectionTitle(R.string.settings_section_downloads)
         DownloadsBlock(state.settings, actions)
+        NoSeedersRetryBlock(state.settings.noSeedersRetryMinutes, actions.onNoSeedersRetryChange)
 
         SectionDivider()
         SectionTitle(R.string.settings_section_seeding)
@@ -513,6 +516,30 @@ private fun DownloadsBlock(settings: Settings, actions: SettingsActions) {
             selected = settings.maxConcurrent,
             label = { it.toString() },
             onSelect = actions.onMaxConcurrentChange,
+        )
+    }
+}
+
+@Composable
+private fun NoSeedersRetryBlock(minutes: Int, onChange: (Int) -> Unit) {
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(R.string.settings_no_seeders_retry), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            stringResource(R.string.settings_no_seeders_retry_text),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val options = SettingsViewModel.NO_SEEDERS_RETRY_OPTIONS.let { if (minutes in it) it else (it + minutes).sorted() }
+        val off = stringResource(R.string.settings_no_seeders_retry_off)
+        val labels = options.associateWith { stringResource(R.string.settings_no_seeders_retry_minutes, it) }
+        ChoiceRow(
+            options = options,
+            selected = minutes,
+            label = { if (it == 0) off else labels.getValue(it) },
+            onSelect = onChange,
         )
     }
 }

@@ -61,6 +61,7 @@ class DataStoreSettingsRepositoryTest {
         assertFalse(settings.wifiOnly)
         assertEquals(2, settings.maxConcurrent)
         assertEquals(0, settings.seedHours)
+        assertEquals(15, settings.noSeedersRetryMinutes)
         assertFalse(settings.sendErrorReports)
         assertNull(settings.audioRoot)
         assertNull(settings.booksRoot)
@@ -78,6 +79,7 @@ class DataStoreSettingsRepositoryTest {
             wifiOnly = true,
             maxConcurrent = 3,
             seedHours = 6,
+            noSeedersRetryMinutes = 60,
             sendErrorReports = true,
         )
         repository().update { changed }

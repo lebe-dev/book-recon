@@ -205,6 +205,8 @@ class SettingsViewModel(
 
     fun onSeedHoursChange(hours: Int) = save { it.copy(seedHours = hours.coerceAtLeast(0)) }
 
+    fun onNoSeedersRetryChange(minutes: Int) = save { it.copy(noSeedersRetryMinutes = minutes.coerceAtLeast(0)) }
+
     fun onSendErrorReportsChange(enabled: Boolean) = save { it.copy(sendErrorReports = enabled) }
 
     private fun save(transform: (Settings) -> Settings) {
@@ -278,6 +280,9 @@ class SettingsViewModel(
     companion object {
         /** Seeding choices in hours; 0 turns seeding off. */
         val SEED_HOURS_OPTIONS = listOf(0, 1, 3, 6, 12)
+
+        /** Retry intervals for torrents without seeders, in minutes; 0 turns retries off. */
+        val NO_SEEDERS_RETRY_OPTIONS = listOf(0, 5, 15, 30, 60)
 
         private fun isValidBaseUrl(url: String): Boolean {
             val parsed = url.toHttpUrlOrNull() ?: return false

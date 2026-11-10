@@ -16,6 +16,7 @@ import ru.tinyops.android.bookrecon.download.BootResume
 import ru.tinyops.android.bookrecon.download.DownloadJobs
 import ru.tinyops.android.bookrecon.download.DownloadNotifications
 import ru.tinyops.android.bookrecon.download.DownloadQueueImpl
+import ru.tinyops.android.bookrecon.download.NoSeedersRetry
 import ru.tinyops.android.bookrecon.download.seeding.SeedingJobs
 import ru.tinyops.android.bookrecon.download.seeding.SeedingManager
 import java.io.File
@@ -62,6 +63,11 @@ class DownloadModule(private val app: AppContainer) {
     }
 
     val downloadQueue: DownloadQueue get() = queue
+
+    /** Retries of torrents without seeders; run while the app is on screen. */
+    val noSeedersRetry: NoSeedersRetry by lazy {
+        NoSeedersRetry(queue, app.settings.settingsRepository, log = { Log.i(TAG, it) })
+    }
 
     /**
      * Called when the app comes on screen: puts downloads interrupted by a process death back

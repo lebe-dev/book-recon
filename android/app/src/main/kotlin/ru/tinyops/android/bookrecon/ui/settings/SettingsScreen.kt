@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Folder
@@ -39,7 +40,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -47,6 +50,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,7 +68,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -73,7 +76,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.flow.Flow
-import ru.tinyops.android.bookrecon.BuildConfig
 import ru.tinyops.android.bookrecon.R
 import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.ColorTheme
@@ -90,7 +92,9 @@ import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
 import android.provider.Settings as SystemSettings
 
 @Composable
-fun SettingsScreen(
+fun SettingsSectionScreen(
+    section: SettingsSection,
+    onBack: () -> Unit,
     onOpenVerification: (url: String, purpose: VerificationPurpose) -> Unit,
     onOpenLog: () -> Unit,
     verificationResults: Flow<Boolean>,
@@ -150,7 +154,9 @@ fun SettingsScreen(
         viewModel.onRootPicked(MediaKind.BOOK, uri?.toString())
     }
 
-    SettingsContent(
+    SettingsSectionContent(
+        section = section,
+        onBack = onBack,
         state = state,
         actions = SettingsActions(
             onOpenAccessSettings = { openAllFilesAccessSettings(context) },
@@ -240,106 +246,121 @@ data class SettingsActions(
     val onDarkModeChange: (DarkMode) -> Unit = {},
 )
 
-/** Stateless body of the settings screen, also used by previews. */
+/** Stateless body of one settings subpage, also used by previews. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsContent(
+fun SettingsSectionContent(
+    section: SettingsSection,
+    onBack: () -> Unit,
     state: SettingsUiState,
     actions: SettingsActions,
     modifier: Modifier = Modifier,
     server: ServerUiState = ServerUiState(),
     serverActions: ServerActions = ServerActions(),
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 24.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.nav_settings),
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 8.dp),
-        )
-
-        Section(R.string.settings_section_appearance) {
-            AppearanceBlock(state.settings, actions)
-        }
-        Section(R.string.settings_section_storage) {
-            AccessBlock(state.hasAllFilesAccess, actions.onOpenAccessSettings)
-            RootItem(MediaKind.AUDIO, state, actions.onPickRoot)
-            RootItem(MediaKind.BOOK, state, actions.onPickRoot)
-            state.rootProblem?.let { problem ->
-                ErrorLine(stringResource(problem.issue.message()))
-            }
-        }
-        Section(R.string.settings_section_server) {
-            ServerBlock(server, serverActions)
-            if (server.enabled) {
-                ListItem(
-                    colors = cardListItemColors(),
-                    modifier = Modifier.clickable {
-                        actions.onTorrentPeersThroughServerChange(!state.settings.torrentPeersThroughServer)
-                    },
-                    headlineContent = { Text(stringResource(R.string.settings_server_torrent_peers)) },
-                    supportingContent = { Text(stringResource(R.string.settings_server_torrent_peers_text)) },
-                    trailingContent = {
-                        Switch(
-                            checked = state.settings.torrentPeersThroughServer,
-                            onCheckedChange = actions.onTorrentPeersThroughServerChange,
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(section.title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.settings_back))
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 24.dp),
+        ) {
+            when (section) {
+                SettingsSection.APPEARANCE -> Section(null) {
+                    AppearanceBlock(state.settings, actions)
+                }
+                SettingsSection.STORAGE -> Section(null) {
+                    AccessBlock(state.hasAllFilesAccess, actions.onOpenAccessSettings)
+                    RootItem(MediaKind.AUDIO, state, actions.onPickRoot)
+                    RootItem(MediaKind.BOOK, state, actions.onPickRoot)
+                    state.rootProblem?.let { problem ->
+                        ErrorLine(stringResource(problem.issue.message()))
+                    }
+                }
+                SettingsSection.SERVER -> Section(null) {
+                    ServerBlock(server, serverActions)
+                    if (server.enabled) {
+                        ListItem(
+                            colors = cardListItemColors(),
+                            modifier = Modifier.clickable {
+                                actions.onTorrentPeersThroughServerChange(!state.settings.torrentPeersThroughServer)
+                            },
+                            headlineContent = { Text(stringResource(R.string.settings_server_torrent_peers)) },
+                            supportingContent = { Text(stringResource(R.string.settings_server_torrent_peers_text)) },
+                            trailingContent = {
+                                Switch(
+                                    checked = state.settings.torrentPeersThroughServer,
+                                    onCheckedChange = actions.onTorrentPeersThroughServerChange,
+                                )
+                            },
                         )
-                    },
-                )
+                    }
+                }
+                SettingsSection.SOURCES -> {
+                    Section(R.string.settings_section_rutracker) {
+                        if (server.connection is ServerState.Approved) {
+                            Text(
+                                text = stringResource(R.string.settings_rutracker_server),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            )
+                        }
+                        RuTrackerBlock(state, actions)
+                    }
+                    Section(R.string.settings_section_flibusta) {
+                        FlibustaBlock(state, actions)
+                    }
+                }
+                SettingsSection.DOWNLOADS -> {
+                    Section(R.string.settings_section_downloads) {
+                        DownloadsBlock(state.settings, actions)
+                        NoSeedersRetryBlock(state.settings.noSeedersRetryMinutes, actions.onNoSeedersRetryChange)
+                    }
+                    Section(R.string.settings_section_seeding) {
+                        SeedingBlock(state.settings.seedHours, actions.onSeedHoursChange)
+                    }
+                }
+                SettingsSection.DIAGNOSTICS -> {
+                    Section(R.string.settings_section_reports) {
+                        ErrorReportsBlock(state.settings.sendErrorReports, actions.onSendErrorReportsChange)
+                    }
+                    Section(R.string.settings_section_log) {
+                        LogLinkBlock(actions.onOpenLog)
+                    }
+                }
             }
         }
-        Section(R.string.settings_section_rutracker) {
-            if (server.connection is ServerState.Approved) {
-                Text(
-                    text = stringResource(R.string.settings_rutracker_server),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-            }
-            RuTrackerBlock(state, actions)
-        }
-        Section(R.string.settings_section_flibusta) {
-            FlibustaBlock(state, actions)
-        }
-        Section(R.string.settings_section_downloads) {
-            DownloadsBlock(state.settings, actions)
-            NoSeedersRetryBlock(state.settings.noSeedersRetryMinutes, actions.onNoSeedersRetryChange)
-        }
-        Section(R.string.settings_section_seeding) {
-            SeedingBlock(state.settings.seedHours, actions.onSeedHoursChange)
-        }
-        Section(R.string.settings_section_reports) {
-            ErrorReportsBlock(state.settings.sendErrorReports, actions.onSendErrorReportsChange)
-        }
-        Section(R.string.settings_section_log) {
-            LogLinkBlock(actions.onOpenLog)
-        }
-        Text(
-            text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, BuildConfig.GIT_HASH),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp),
-        )
     }
 }
 
 /** A titled group of settings on a rounded container card. */
 @Composable
-private fun Section(@StringRes title: Int, content: @Composable ColumnScope.() -> Unit) {
-    Text(
-        text = stringResource(title),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(horizontal = 24.dp).padding(top = 16.dp, bottom = 8.dp),
-    )
+private fun Section(@StringRes title: Int?, content: @Composable ColumnScope.() -> Unit) {
+    if (title != null) {
+        Text(
+            text = stringResource(title),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 24.dp).padding(top = 16.dp, bottom = 8.dp),
+        )
+    }
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = MaterialTheme.shapes.extraLarge,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = if (title == null) 8.dp else 0.dp),
     ) {
         Column(modifier = Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
     }
@@ -689,22 +710,23 @@ internal fun AppError.loginMessage(): Int = when (code) {
 // Previews of the main states.
 
 @Composable
-private fun SettingsPreview(state: SettingsUiState) {
+private fun SettingsPreview(state: SettingsUiState, section: SettingsSection) {
     BookReconTheme(colorTheme = state.settings.colorTheme) {
         Surface {
-            SettingsContent(state, SettingsActions())
+            SettingsSectionContent(section, onBack = {}, state = state, actions = SettingsActions())
         }
     }
 }
 
-@Preview(showBackground = true, heightDp = 1400)
+@Preview(showBackground = true, heightDp = 800)
 @Composable
-private fun SettingsFirstRunPreview() = SettingsPreview(SettingsUiState(loaded = true, flibustaUrl = Settings.DEFAULT_FLIBUSTA_BASE_URL))
+private fun SettingsFirstRunPreview() = SettingsPreview(SettingsUiState(loaded = true, flibustaUrl = Settings.DEFAULT_FLIBUSTA_BASE_URL), SettingsSection.SOURCES)
 
-@Preview(showBackground = true, heightDp = 1400)
+@Preview(showBackground = true, heightDp = 800)
 @Composable
 private fun SettingsConfiguredPreview() = SettingsPreview(
-    SettingsUiState(
+    section = SettingsSection.STORAGE,
+    state = SettingsUiState(
         settings = Settings(
             audioRoot = "/storage/emulated/0/Audiobooks",
             booksRoot = "/storage/1234-ABCD/Книги",
@@ -723,10 +745,11 @@ private fun SettingsConfiguredPreview() = SettingsPreview(
     ),
 )
 
-@Preview(showBackground = true, heightDp = 1400)
+@Preview(showBackground = true, heightDp = 800)
 @Composable
 private fun SettingsErrorsPreview() = SettingsPreview(
-    SettingsUiState(
+    section = SettingsSection.SOURCES,
+    state = SettingsUiState(
         loaded = true,
         hasAllFilesAccess = true,
         login = "reader",

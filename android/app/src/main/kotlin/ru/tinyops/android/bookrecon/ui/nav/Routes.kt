@@ -2,6 +2,7 @@ package ru.tinyops.android.bookrecon.ui.nav
 
 import androidx.annotation.Keep
 import kotlinx.serialization.Serializable
+import ru.tinyops.android.bookrecon.ui.settings.SettingsSection
 
 /** What a RuTracker topic contains. */
 @Keep
@@ -28,6 +29,9 @@ data object LibraryRoute
 
 @Serializable
 data object SettingsRoute
+
+@Serializable
+data class SettingsSectionRoute(val section: SettingsSection)
 
 @Serializable
 data object LogRoute

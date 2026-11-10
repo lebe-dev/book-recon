@@ -86,7 +86,7 @@ func NewServer(cfg Config, clients *usecase.AppClientService, logger *log.Logger
 	mux.HandleFunc("GET /api/v1/clients/me", s.authenticated(s.handleStatus))
 	mux.HandleFunc("DELETE /api/v1/clients/me", s.authenticated(s.handleDelete))
 	mux.HandleFunc("POST /api/v1/clients/me/link", s.authenticated(s.handleLink))
-	mux.HandleFunc("GET /api/v1/tunnel", s.authenticated(s.handleTunnel))
+	mux.HandleFunc("GET /api/v1/tunnel", requireWebSocket(s.authenticated(s.handleTunnel)))
 
 	s.server = &http.Server{
 		Addr:              cfg.Listen,
@@ -113,6 +113,19 @@ func (s *Server) Start() error {
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.stop()
 	return s.server.Shutdown(ctx)
+}
+
+// requireWebSocket answers 426 to a tunnel request that is not a WebSocket upgrade, before
+// authentication: a reverse proxy that drops the Upgrade headers then shows up as 426 instead
+// of looking like a token problem.
+func requireWebSocket(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+			writeError(w, http.StatusUpgradeRequired, "websocket_required")
+			return
+		}
+		next(w, r)
+	}
 }
 
 type clientHandler func(w http.ResponseWriter, r *http.Request, client *domain.AppClient)

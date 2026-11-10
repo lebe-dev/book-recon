@@ -286,6 +286,18 @@ func TestTunnelRejections(t *testing.T) {
 	}
 }
 
+func TestTunnelWithoutUpgradeHeadersIs426(t *testing.T) {
+	f := newFixture(t)
+	// A reverse proxy that drops Upgrade/Connection turns the tunnel into a plain GET: the
+	// answer must say so before the token is even looked at.
+	for _, token := range []string{"", "bogus"} {
+		resp, body := f.do(t, http.MethodGet, "/api/v1/tunnel?host=rutracker.org&port=443", token, nil)
+		if resp.StatusCode != http.StatusUpgradeRequired || body["error"] != "websocket_required" {
+			t.Fatalf("token %q: %d %v", token, resp.StatusCode, body)
+		}
+	}
+}
+
 func TestTunnelAllowsSubdomains(t *testing.T) {
 	f := newFixture(t)
 	token := f.register(t)

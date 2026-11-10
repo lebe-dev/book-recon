@@ -27,7 +27,7 @@
 
     <string name="settings_section_storage">Файлы</string>
     <string name="settings_access_scope_title">Только две папки</string>
-    <string name="settings_access_scope_text">Приложение не просит доступ ко всем файлам. Оно видит только папки книг и аудиокниг, которые вы выберете ниже, и больше ничего на устройстве прочитать не может: в остальные папки, например в «Документы», у него нет доступа.</string>
+    <string name="settings_access_scope_text">Приложению нужен доступ только к двум папкам: для электронных книг (epub, fb2 и других) и для аудиокниг. Остальные файлы на устройстве, например «Документы», оно прочитать не может.</string>
     <string name="settings_root_audio">Папка аудиокниг</string>
     <string name="settings_root_books">Папка книг</string>
     <string name="settings_root_not_chosen">Не выбрана, нажмите, чтобы выбрать</string>

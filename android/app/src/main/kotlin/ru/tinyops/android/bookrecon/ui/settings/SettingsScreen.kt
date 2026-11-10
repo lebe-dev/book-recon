@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Visibility
@@ -91,6 +92,7 @@ import android.provider.Settings as SystemSettings
 @Composable
 fun SettingsScreen(
     onOpenVerification: (url: String, purpose: VerificationPurpose) -> Unit,
+    onOpenLog: () -> Unit,
     verificationResults: Flow<Boolean>,
 ) {
     val context = LocalContext.current
@@ -173,6 +175,7 @@ fun SettingsScreen(
             onSeedHoursChange = viewModel::onSeedHoursChange,
             onNoSeedersRetryChange = viewModel::onNoSeedersRetryChange,
             onSendErrorReportsChange = viewModel::onSendErrorReportsChange,
+            onOpenLog = onOpenLog,
             onColorThemeChange = viewModel::onColorThemeChange,
             onDarkModeChange = viewModel::onDarkModeChange,
         ),
@@ -232,6 +235,7 @@ data class SettingsActions(
     val onSeedHoursChange: (Int) -> Unit = {},
     val onNoSeedersRetryChange: (Int) -> Unit = {},
     val onSendErrorReportsChange: (Boolean) -> Unit = {},
+    val onOpenLog: () -> Unit = {},
     val onColorThemeChange: (ColorTheme) -> Unit = {},
     val onDarkModeChange: (DarkMode) -> Unit = {},
 )
@@ -309,6 +313,9 @@ fun SettingsContent(
         }
         Section(R.string.settings_section_reports) {
             ErrorReportsBlock(state.settings.sendErrorReports, actions.onSendErrorReportsChange)
+        }
+        Section(R.string.settings_section_log) {
+            LogLinkBlock(actions.onOpenLog)
         }
         Text(
             text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, BuildConfig.GIT_HASH),
@@ -629,6 +636,17 @@ private fun ErrorReportsBlock(enabled: Boolean, onChange: (Boolean) -> Unit) {
         headlineContent = { Text(stringResource(R.string.settings_reports_send)) },
         supportingContent = { Text(stringResource(R.string.settings_reports_text)) },
         trailingContent = { Switch(checked = enabled, onCheckedChange = onChange) },
+    )
+}
+
+@Composable
+private fun LogLinkBlock(onOpen: () -> Unit) {
+    ListItem(
+        colors = cardListItemColors(),
+        modifier = Modifier.clickable(onClick = onOpen),
+        headlineContent = { Text(stringResource(R.string.settings_log_open)) },
+        supportingContent = { Text(stringResource(R.string.settings_log_open_text)) },
+        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
     )
 }
 

@@ -37,6 +37,8 @@ internal object SettingsKeys {
     val NO_SEEDERS_RETRY_MINUTES = intPreferencesKey("no_seeders_retry_minutes")
     val SEND_ERROR_REPORTS = booleanPreferencesKey("send_error_reports")
     val TORRENT_PEERS_THROUGH_SERVER = booleanPreferencesKey("torrent_peers_through_server")
+    val LOG_INFO = booleanPreferencesKey("log_info")
+    val LOG_DEBUG = booleanPreferencesKey("log_debug")
     val COLOR_THEME = stringPreferencesKey("color_theme")
     val DARK_MODE = stringPreferencesKey("dark_mode")
 
@@ -126,6 +128,8 @@ private fun Preferences.toSettings(): Settings {
         noSeedersRetryMinutes = this[SettingsKeys.NO_SEEDERS_RETRY_MINUTES] ?: defaults.noSeedersRetryMinutes,
         sendErrorReports = this[SettingsKeys.SEND_ERROR_REPORTS] ?: defaults.sendErrorReports,
         torrentPeersThroughServer = this[SettingsKeys.TORRENT_PEERS_THROUGH_SERVER] ?: defaults.torrentPeersThroughServer,
+        logInfo = this[SettingsKeys.LOG_INFO] ?: defaults.logInfo,
+        logDebug = this[SettingsKeys.LOG_DEBUG] ?: defaults.logDebug,
         colorTheme = enumOrNull<ColorTheme>(this[SettingsKeys.COLOR_THEME]) ?: defaults.colorTheme,
         darkMode = enumOrNull<DarkMode>(this[SettingsKeys.DARK_MODE]) ?: defaults.darkMode,
     ).normalized()
@@ -143,6 +147,8 @@ private fun MutablePreferences.write(settings: Settings) {
     this[SettingsKeys.NO_SEEDERS_RETRY_MINUTES] = settings.noSeedersRetryMinutes
     this[SettingsKeys.SEND_ERROR_REPORTS] = settings.sendErrorReports
     this[SettingsKeys.TORRENT_PEERS_THROUGH_SERVER] = settings.torrentPeersThroughServer
+    this[SettingsKeys.LOG_INFO] = settings.logInfo
+    this[SettingsKeys.LOG_DEBUG] = settings.logDebug
     this[SettingsKeys.COLOR_THEME] = settings.colorTheme.name
     this[SettingsKeys.DARK_MODE] = settings.darkMode.name
 }

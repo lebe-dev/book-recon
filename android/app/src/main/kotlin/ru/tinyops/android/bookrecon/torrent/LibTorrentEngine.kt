@@ -565,6 +565,7 @@ class LibTorrentEngine(
         manager.start(SessionParams(sessionSettings()))
         session = manager
         logger.info("Torrent session started")
+        logger.debug { "Torrent session: proxy port ${proxyPort ?: "none"}, local only ${config.localOnly}" }
         return manager
     }
 

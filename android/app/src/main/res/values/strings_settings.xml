@@ -99,6 +99,9 @@
     <string name="settings_seeding_off">Выкл</string>
     <string name="settings_seeding_hours">%1$d ч</string>
 
+    <string name="settings_section_log">Журнал</string>
+    <string name="settings_log_open">Журнал приложения</string>
+    <string name="settings_log_open_text">Скачивания, ошибки и сеть. Можно скопировать или сохранить в файл</string>
     <string name="settings_version">Версия %1$s (%2$s)</string>
     <string name="settings_section_reports">Отчёты об ошибках</string>
     <string name="settings_reports_send">Отправлять отчёты об ошибках</string>

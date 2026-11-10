@@ -42,6 +42,7 @@ import ru.tinyops.android.bookrecon.core.port.FileStorage
 import ru.tinyops.android.bookrecon.core.port.FlibustaSource
 import ru.tinyops.android.bookrecon.core.port.SettingsRepository
 import ru.tinyops.android.bookrecon.core.port.TorrentEngine
+import ru.tinyops.android.bookrecon.log.formatBytes
 import java.io.File
 import java.io.IOException
 import java.util.UUID
@@ -88,7 +89,10 @@ sealed interface DownloadEvent {
  * DOWNLOADING go back to the head of the queue, and torrents continue from resume data.
  *
  * @param onWork called after new work is queued, to schedule the background job.
- * @param log receives plain-English log lines.
+ * @param log receives plain-English log lines about what happens to downloads.
+ * @param warn receives lines about failures; defaults to [log].
+ * @param debug receives details (progress, file placement); the message is built only when
+ *   the receiver asks for it.
  * @param report receives errors nobody expected (they fail a download as UNKNOWN).
  */
 class DownloadQueueImpl(
@@ -103,6 +107,8 @@ class DownloadQueueImpl(
     private val seeding: SeedingHandoff = SeedingHandoff.None,
     private val onWork: () -> Unit = {},
     private val log: (String) -> Unit = {},
+    private val warn: (String) -> Unit = log,
+    private val debug: (() -> String) -> Unit = {},
     private val report: (Throwable) -> Unit = {},
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) : DownloadQueue {
@@ -155,7 +161,7 @@ class DownloadQueueImpl(
                     createdAt = clock.now(),
                 ),
             )
-            log("Queued download $id from ${request.source}")
+            log("Queued download $id: \"${request.title}\" from ${request.source}, ${files.size} files, ${formatBytes(size)}")
             scheduleLocked()
         }
         onWork()
@@ -344,7 +350,7 @@ class DownloadQueueImpl(
         val started = download.copy(status = DownloadStatus.DOWNLOADING, queuePosition = null, error = null)
         repository.update(started)
         liveProgress.update { it + (download.id to download.progress) }
-        log("Started download ${download.id}")
+        log("Started download ${download.id}: \"${download.title}\" from ${download.source}")
         running[download.id] = scope.launch { work(started) }
     }
 
@@ -367,7 +373,7 @@ class DownloadQueueImpl(
                 liveProgress.update { it - download.id }
                 mutex.withLock {
                     if (running[download.id] === self) running.remove(download.id)
-                    runCatching { scheduleLocked() }.onFailure { log("Cannot schedule downloads: ${it.message}") }
+                    runCatching { scheduleLocked() }.onFailure { warn("Cannot schedule downloads: ${it.message}") }
                 }
             }
         }
@@ -377,7 +383,9 @@ class DownloadQueueImpl(
         val format = download.format ?: throw AppError.Validation("book download without a format")
         val staging = storage.stagingDir(MediaKind.BOOK, download.id)
         staging.listFiles()?.forEach { storage.delete(it) }
+        debug { "Downloading book ${download.sourceId} as ${format.extension} from Flibusta" }
         val file = flibusta.download(download.sourceId, format, staging)
+        debug { "Book ${download.sourceId} received: ${file.suggestedName}, ${formatBytes(file.tempFile.length())}" }
         return withContext(NonCancellable) { placeBook(download, file, staging) }
     }
 
@@ -394,8 +402,16 @@ class DownloadQueueImpl(
 
     private suspend fun downloadTorrent(download: Download): Download {
         val staging = storage.stagingDir(download.kind, download.id)
+        var lastDecile = -1
         torrentFlow(download, staging).collect { progress ->
             liveProgress.update { it + (download.id to progress) }
+            val decile = (progress.fraction * PROGRESS_STEPS).toInt()
+            if (decile == lastDecile) return@collect
+            lastDecile = decile
+            debug {
+                "Download ${download.id}: ${decile * 100 / PROGRESS_STEPS}%, ${formatBytes(progress.completed)} of " +
+                    "${formatBytes(progress.total)}, ${progress.peers} peers, ${formatBytes(progress.speedBytesPerSec)}/s"
+            }
         }
         return withContext(NonCancellable) { finishTorrent(download, staging) }
     }
@@ -419,6 +435,7 @@ class DownloadQueueImpl(
             seeding.takeOver(download, staging)?.let { return it }
         }
         val layout = planTorrentLayout(download, storage)
+        debug { "Placing ${layout.targets.size} files of download ${download.id}" }
         placeTorrent(layout, staging)
         runCatching { torrents.cancel(download.id) }
         storage.delete(staging)
@@ -463,12 +480,12 @@ class DownloadQueueImpl(
             if (current.status != DownloadStatus.DOWNLOADING) return
             repository.update(result)
         }
-        log("Download ${result.id} finished with status ${result.status}")
+        log("Download ${result.id} finished with status ${result.status}: \"${result.title}\", ${formatBytes(result.size)}")
         eventFlow.tryEmit(DownloadEvent.Completed(result))
     }
 
     private suspend fun fail(download: Download, error: AppError) {
-        log("Download ${download.id} failed: ${error.code}")
+        warn("Download ${download.id} failed: ${error.code}: ${error.message}")
         deleteFiles(download)
         val failed = mutex.withLock {
             val current = repository.get(download.id) ?: return
@@ -504,7 +521,7 @@ class DownloadQueueImpl(
 
     private suspend fun deleteStaging(download: Download) {
         runCatching { storage.delete(storage.stagingDir(download.kind, download.id)) }
-            .onFailure { log("Cannot delete staging files of download ${download.id}: ${it.message}") }
+            .onFailure { warn("Cannot delete staging files of download ${download.id}: ${it.message}") }
     }
 
     private fun torrentFile(id: String): File = File(torrentStore, "$id.torrent")
@@ -536,5 +553,6 @@ class DownloadQueueImpl(
 
     private companion object {
         const val EVENT_BUFFER = 64
+        const val PROGRESS_STEPS = 10
     }
 }

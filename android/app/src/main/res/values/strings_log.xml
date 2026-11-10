@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="log_title">Журнал приложения</string>
+    <string name="log_back">Назад</string>
+    <string name="log_level_info">INFO</string>
+    <string name="log_level_info_text">Скачивания, ошибки, предупреждения, подключение к серверу</string>
+    <string name="log_level_debug">DEBUG</string>
+    <string name="log_level_debug_text">Подробности: запросы, ход скачивания, перенос файлов. Журнал растёт быстрее</string>
+    <string name="log_copy">Копировать</string>
+    <string name="log_copied">Журнал скопирован</string>
+    <string name="log_save">В файл</string>
+    <string name="log_saved">Журнал сохранён</string>
+    <string name="log_save_failed">Не удалось сохранить файл</string>
+    <string name="log_clear">Очистить</string>
+    <string name="log_empty">Журнал пуст. Включите уровень выше и пользуйтесь приложением</string>
+    <string name="log_both_off">Оба уровня выключены: новые записи не добавляются</string>
+    <string name="log_file_name">book-recon-журнал.txt</string>
+</resources>

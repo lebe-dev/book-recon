@@ -1,10 +1,11 @@
 package ru.tinyops.android.bookrecon.download.seeding
 
 import android.app.job.JobInfo
+import ru.tinyops.android.bookrecon.log.AppLog
+import ru.tinyops.android.bookrecon.di.appContainer
 import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
@@ -38,10 +39,10 @@ object SeedingJobs {
         val scheduled = try {
             scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS
         } catch (e: IllegalStateException) {
-            Log.w(TAG, "The system refused to schedule the seeding job", e)
+            context.appContainer.log.appLog.warn(TAG, "The system refused to schedule the seeding job", e)
             false
         }
-        if (scheduled) Log.i(TAG, "Scheduled the seeding job")
+        if (scheduled) context.appContainer.log.appLog.info(TAG, "Scheduled the seeding job")
     }
 }
 
@@ -50,14 +51,18 @@ object SeedingJobs {
  * When the system stops it (charger or Wi-Fi lost, or its time limit), seeding is paused and
  * the job asks to be run again once the conditions are back.
  */
-class SeedingJobRunner(private val manager: SeedingManager, private val scope: CoroutineScope) {
+class SeedingJobRunner(
+    private val manager: SeedingManager,
+    private val scope: CoroutineScope,
+    private val log: AppLog,
+) {
     private var work: Job? = null
 
     /** Starts seeding; [finish] is called once nothing is seeding any more. */
     fun start(finish: () -> Unit) {
         work?.cancel()
         SeedingJobs.running = true
-        Log.i(TAG, "Seeding job started")
+        log.info(TAG, "Seeding job started")
         work = scope.launch {
             manager.setAllowed(true)
             // New seeding may arrive between going idle and finishing; it is either seen here
@@ -69,7 +74,7 @@ class SeedingJobRunner(private val manager: SeedingManager, private val scope: C
                 SeedingJobs.running = true
             }
             manager.setAllowed(false)
-            Log.i(TAG, "Nothing left to seed, finishing the seeding job")
+            log.info(TAG, "Nothing left to seed, finishing the seeding job")
             finish()
         }
     }

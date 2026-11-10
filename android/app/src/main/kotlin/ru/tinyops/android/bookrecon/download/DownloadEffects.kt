@@ -2,7 +2,6 @@ package ru.tinyops.android.bookrecon.download
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -31,7 +30,7 @@ fun DownloadEffects() {
     val module = context.appContainer.download
     var asked by rememberSaveable { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        Log.i(TAG, "Notification permission granted: $granted")
+        context.appContainer.log.appLog.info(TAG, "Notification permission granted: $granted")
     }
 
     LaunchedEffect(Unit) { module.onAppVisible() }

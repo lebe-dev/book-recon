@@ -1,6 +1,5 @@
 package ru.tinyops.android.bookrecon.di
 
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,7 +15,7 @@ class ReportsModule(private val app: AppContainer) {
         ErrorReporting(
             dsn = BuildConfig.SENTRY_DSN,
             sdk = SentryReportingSdk(app.context, BuildConfig.SENTRY_DSN),
-            log = { Log.i(TAG, it) },
+            log = { app.log.appLog.info(TAG, it) },
         )
     }
 

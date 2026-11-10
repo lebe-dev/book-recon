@@ -412,6 +412,17 @@ Error reports are off by default. **Настройки → Отчёты об о�
 model and Android version. The Sentry environment is the device model, such as
 `google-pixel-11-pro`. The RuTracker login and password are never sent.
 
+### App log
+
+**Настройки → Журнал приложения** shows what the app does: queued, started and finished
+downloads, errors, server connection. Two switches choose the detail: **INFO** (on by default)
+records events, warnings and errors; **DEBUG** (off by default) adds requests (method, host
+and path only, never query strings, cookies or passwords), download progress in 10% steps and
+file placement. **Копировать** puts the lines on screen in the clipboard, **В файл** saves the
+whole log (up to about 1 MB) through the system file picker, **Очистить** deletes it. The log
+stays on the phone; it is never sent anywhere. When you report a problem, switch DEBUG on,
+repeat the steps and attach the file.
+
 ### Update
 
 Install the new APK over the old one: settings, history and downloaded files are kept.

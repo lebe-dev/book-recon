@@ -16,6 +16,8 @@ package ru.tinyops.android.bookrecon.core.domain
  *   seeders (or stalled) is retried this many minutes later; 0 turns retries off.
  * @property sendErrorReports send crashes and unexpected errors to Sentry; off until the user
  *   turns it on.
+ * @property logInfo record INFO, warning and error lines in the app log.
+ * @property logDebug record DEBUG lines (requests, queue steps, torrent progress) in the app log.
  * @property colorTheme color theme of the app.
  * @property darkMode light or dark app, or following the system.
  */
@@ -30,6 +32,8 @@ data class Settings(
     val seedHours: Int = 0,
     val noSeedersRetryMinutes: Int = DEFAULT_NO_SEEDERS_RETRY_MINUTES,
     val sendErrorReports: Boolean = false,
+    val logInfo: Boolean = true,
+    val logDebug: Boolean = false,
     val colorTheme: ColorTheme = ColorTheme.BLUEBERRY,
     val darkMode: DarkMode = DarkMode.SYSTEM,
     val torrentPeersThroughServer: Boolean = false,

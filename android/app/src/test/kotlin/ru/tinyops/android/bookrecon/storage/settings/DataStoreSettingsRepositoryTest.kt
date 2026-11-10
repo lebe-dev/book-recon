@@ -65,6 +65,8 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(0, settings.seedHours)
         assertEquals(15, settings.noSeedersRetryMinutes)
         assertFalse(settings.sendErrorReports)
+        assertTrue(settings.logInfo)
+        assertFalse(settings.logDebug)
         assertEquals(ColorTheme.BLUEBERRY, settings.colorTheme)
         assertEquals(DarkMode.SYSTEM, settings.darkMode)
         assertNull(settings.audioRoot)
@@ -85,6 +87,8 @@ class DataStoreSettingsRepositoryTest {
             seedHours = 6,
             noSeedersRetryMinutes = 60,
             sendErrorReports = true,
+            logInfo = false,
+            logDebug = true,
             colorTheme = ColorTheme.COCOA,
             darkMode = DarkMode.DARK,
         )

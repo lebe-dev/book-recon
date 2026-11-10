@@ -41,7 +41,8 @@ data class NetworkConfig(
 /**
  * Builds the single OkHttp client of the app. [userAgent] is read on every request and must be
  * the one WebView uses: Cloudflare binds `cf_clearance` to it. [proxySelector] routes blocked
- * hosts through the Book Recon server; null means the system default.
+ * hosts through the Book Recon server; null means the system default. [logging] sees every
+ * request first, before the User-Agent is set and challenges are solved.
  */
 fun buildOkHttpClient(
     cookieJar: CookieJar,
@@ -49,8 +50,10 @@ fun buildOkHttpClient(
     userAgent: () -> String,
     config: NetworkConfig = NetworkConfig(),
     proxySelector: ProxySelector? = null,
+    logging: Interceptor? = null,
 ): OkHttpClient = OkHttpClient.Builder()
     .apply { if (proxySelector != null) proxySelector(proxySelector) }
+    .apply { if (logging != null) addInterceptor(logging) }
     .cookieJar(cookieJar)
     .connectTimeout(config.connectTimeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)
     .readTimeout(config.readTimeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)

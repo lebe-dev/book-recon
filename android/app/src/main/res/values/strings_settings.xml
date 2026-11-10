@@ -119,5 +119,6 @@
     <string name="settings_source_enabled_flibusta">Искать на Flibusta</string>
     <string name="settings_section_reports">Отчёты об ошибках</string>
     <string name="settings_reports_send">Отправлять отчёты об ошибках</string>
+    <string name="settings_github">Проект на GitHub</string>
     <string name="settings_reports_text">Сбои и непредвиденные ошибки отправляются разработчику без персональных данных и ключей, только с моделью телефона и версией Android. Логины и пароли не отправляются</string>
 </resources>

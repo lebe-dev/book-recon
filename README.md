@@ -6,7 +6,8 @@ Book recon is a service to find books via Telegram Bot.
 
 ## Features
 
-- UI: Telegram bot and a standalone [Android app](#android-app)
+- UI: Telegram bot and a standalone [Android app](#android-app); the app can reach blocked
+  sites [through the Book Recon server](#server-for-the-android-app)
 - Supported providers:
   - [Flibusta](http://flibusta.site)
   - RuTracker (via Jackett)
@@ -132,6 +133,199 @@ Links are not protected: they rely on a random 128-bit ID. Add basic auth or an 
 
 Admins use `/audiobooks` to see the status and turn the feature on or off at runtime. `AUDIOBOOKS_ENABLED=false` always wins: it disables the feature entirely. All settings are documented in `.env.example`.
 
+## Server for the Android app
+
+The Android app works without a server. A Book Recon server is needed only for phones whose
+network blocks RuTracker and Flibusta: the app then sends its requests to those sites
+through the server. The feature lives in the bot process and uses the bot's access control,
+so nothing else has to be installed.
+
+### How it works
+
+1. The user turns on **Через сервер Book Recon** in the app and enters the server address.
+   The app registers on the server and gets a bearer token.
+2. The app opens `https://t.me/<bot>?start=link_<code>`. When the user taps **Start**, the bot
+   links the phone to the Telegram account.
+3. Access is decided exactly as for the bot: users in `ALLOWED_USERS`, `ADMIN_USERS` or
+   approved earlier are in at once; for unknown users admins get a request marked
+   "📱 from the Android app" with approve/deny buttons; denied users stay denied and admins
+   get no new requests from them.
+4. An approved app opens a WebSocket to `/api/v1/tunnel` for every HTTPS connection to
+   RuTracker or Flibusta, and the server connects to the site. TLS stays end to end between
+   the phone and the site: the server only copies bytes. The app's built-in browser view
+   (Cloudflare checks, RuTracker captcha) goes the same way, because Cloudflare binds its
+   check to the IP address. Torrent peers and trackers are still reached directly from the
+   phone.
+
+### Requirements
+
+- The bot is running and reachable from the internet over HTTPS, with a certificate the
+  phone trusts (Let's Encrypt works; self-signed does not).
+- The server resolves and reaches `rutracker.org` and `flibusta.is`: a server in a network
+  that blocks them is useless for this. Check from the container:
+  `docker compose exec book-recon getent hosts rutracker.org`.
+- Admins (`ADMIN_USERS`) have sent `/start` to the bot at least once: the bot learns their
+  Telegram IDs that way and cannot notify them about requests before.
+
+### 1. Enable the API
+
+Add to `.env`:
+
+```
+APP_API_ENABLED=true
+```
+
+| Variable | Description | Default |
+|---|---|---|
+| `APP_API_ENABLED` | Serve the API for the Android app | `false` |
+| `APP_API_LISTEN` | Address of the API server inside the container | `:8081` |
+| `APP_TUNNEL_HOSTS` | Hosts the tunnel may reach, subdomains included, comma-separated | `rutracker.org,rutracker.cc,t-ru.org,flibusta.is,challenges.cloudflare.com` |
+| `APP_TUNNEL_PORTS` | Ports the tunnel may reach | `443,80` |
+
+The app uses the host list it gets from the server: only HTTPS requests to these hosts go
+through the tunnel, everything else goes direct. If users set another Flibusta mirror in
+the app, add it to `APP_TUNNEL_HOSTS`.
+
+### 2. Publish the port
+
+`docker-compose.yml` publishes the API on the loopback interface only; nginx exposes it:
+
+```yaml
+services:
+  book-recon:
+    ports:
+      - "127.0.0.1:8080:8080"   # audiobook pages
+      - "127.0.0.1:8081:8081"   # Android app API
+```
+
+Do not publish `8081` on a public interface: the API speaks plain HTTP.
+
+### 3. Publish the API through nginx
+
+The app talks to `<server address>/api/v1/...`. The tunnel is a WebSocket, so nginx must
+pass the `Upgrade` and `Connection` headers and must not cut long connections. A separate
+host:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name books.example.com;
+    ssl_certificate     /etc/letsencrypt/live/books.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/books.example.com/privkey.pem;
+
+    location /api/v1/ {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        # The tunnel is a WebSocket
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        # Pages stream through the tunnel; idle tunnels are kept alive by pings
+        proxy_buffering off;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+    }
+}
+```
+
+The app address is then `https://books.example.com`.
+
+The same `location` can go into a host that already serves something else, such as the
+audiobook pages: add it next to `location /audio/`. The address stays the host root, because
+the app appends `/api/v1/` itself.
+
+To serve the API under a path prefix, keep the prefix in the app address and strip it in
+nginx. For the address `https://example.com/books`:
+
+```nginx
+location /books/api/v1/ {
+    proxy_pass http://127.0.0.1:8081/api/v1/;
+    # ...the same headers and timeouts as above
+}
+```
+
+`http2 on` in the server block does not get in the way: the app opens WebSockets over
+HTTP/1.1. An nginx behind a TLS-passthrough router (`ssl_preread` on port 443) works too, as
+long as TLS ends in the `server` block above.
+
+Apply and check:
+
+```bash
+nginx -t && systemctl reload nginx
+docker compose up -d book-recon
+docker compose logs book-recon | grep "app api listening"
+```
+
+### 4. Check from outside
+
+```bash
+# A Book Recon server with the API on: 200 and the version
+curl https://books.example.com/api/v1/ping
+
+# Calls without a token: 401
+curl -i https://books.example.com/api/v1/clients/me
+
+# The WebSocket headers reach the bot through nginx: 401 (no token).
+# 426 means nginx drops Upgrade/Connection, 404 means the location is missing.
+curl -i --http1.1 -H "Connection: Upgrade" -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+  "https://books.example.com/api/v1/tunnel?host=rutracker.org&port=443"
+```
+
+Then give users the address and the steps from
+[Through the Book Recon server](#through-the-book-recon-server).
+
+### Managing users
+
+There is one user list for the bot and the app:
+
+- `/allowed_users` lists approved users; **Удалить доступ** (revoke) stops new tunnels of the
+  user's phones at once, and the app shows "Не подключено" on its next check.
+- `/blocked_users` lists denied users; **Разблокировать** approves them, and their phones get
+  access without a new request.
+- Both lists show how many phones each user has linked ("📱 Devices with the app: N").
+
+### API
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/v1/ping` | Tells the app this is a Book Recon server |
+| `POST /api/v1/clients` | Registers a phone (`{"deviceName": "..."}`), returns its bearer token |
+| `GET /api/v1/clients/me` | Access status (`unlinked`, `pending`, `approved`, `denied`) and the tunnel host list |
+| `POST /api/v1/clients/me/link` | One-time `t.me/<bot>?start=link_…` link, valid 15 minutes |
+| `DELETE /api/v1/clients/me` | Removes the phone |
+| `GET /api/v1/tunnel?host=&port=` | WebSocket tunnel to an allowed host; binary messages carry the TCP bytes |
+
+Every call except the first two needs `Authorization: Bearer <token>`.
+
+Security:
+
+- The server keeps only a SHA-256 hash of each token.
+- The tunnel reaches only `APP_TUNNEL_HOSTS` and their subdomains on `APP_TUNNEL_PORTS`, and
+  only public IP addresses, so an allowed domain cannot point it into the server's network.
+- Only approved phones open tunnels, at most 32 at a time per phone.
+- Registrations are limited to 10 per minute; phones that never link a Telegram account are
+  removed after a day.
+
+### Troubleshooting
+
+| What the app says | Cause and fix |
+|---|---|
+| Сервер недоступен (server unreachable) | DNS, certificate or firewall: open `<address>/api/v1/ping` in the phone's browser |
+| По этому адресу нет сервера Book Recon… (no Book Recon server at this address) | `ping` answers 404 or not with JSON: `APP_API_ENABLED` is off, the nginx `location` is missing, or the address includes `/api/v1` |
+| Сервер ответил ошибкой (server error) | 5xx, usually 502 from nginx while the container is down: `docker compose logs book-recon` |
+| The spinner never ends | The user did not tap **Start** in the bot, or no admin has sent `/start` to the bot; the log says `no admin IDs resolved` |
+| Approved, but RuTracker does not open | The server cannot reach the site (`failed to reach tunnel target` in the log): check DNS in the container; `tunnel to a host outside the allowlist refused`: add the host to `APP_TUNNEL_HOSTS` |
+| Cloudflare check fails with `ERR_TUNNEL_CONNECTION_FAILED` | nginx does not pass the WebSocket headers: the `curl` WebSocket test answers 426; check step 3 |
+
+A Cloudflare check right after approval is expected: for Cloudflare the phone now comes
+from the server's IP address.
+
+To turn the feature off, set `APP_API_ENABLED=false` and restart the container. Ask users to
+turn the switch off in the app as well: an app that was approved keeps sending RuTracker and
+Flibusta to the server until then.
+
 ## Android app
 
 The Android app does what the bot does, right on the phone and without a server: it searches
@@ -170,69 +364,22 @@ chosen folder, and they are moved into place once the download finishes.
 
 ### Through the Book Recon server
 
-The app can reach RuTracker and Flibusta through the Book Recon server when the phone's
-network blocks them. It is off by default:
+When the phone's network blocks RuTracker and Flibusta, the app can reach them through a
+Book Recon server (see [Server for the Android app](#server-for-the-android-app) for the
+server side). It is off by default:
 
-1. **Настройки → Через сервер Book Recon**: turn the switch on and enter the server address,
-   such as `https://books.example.com`.
+1. **Настройки → Через сервер Book Recon**: turn the switch on and enter the server address
+   the admin gave you, such as `https://books.example.com`, then tap **Сохранить**.
 2. The app opens the bot in Telegram: tap **Start**. This links the phone to your Telegram
    account.
-3. A user the bot already knows (`ALLOWED_USERS`, `ADMIN_USERS` or approved earlier) is in
-   at once. Otherwise admins get a request marked "from the Android app" with
-   approve/deny buttons, and the app shows a spinner until they decide.
+3. Go back to the app. If the bot already knows you, access is granted at once; otherwise
+   the app shows a spinner with "Ждите, пока администратор одобрит доступ" until an admin
+   decides.
 
-Once approved, the settings say that RuTracker and Flibusta go through the Book Recon
-server. Access follows the bot: a denied user gets no new requests to admins, `/blocked_users`
-lets an admin approve them later, and revoking access in `/allowed_users` turns the app's
-tunnel off too. Both lists show how many phones each user has linked. Turning the switch off
-removes the phone from the server.
-
-Only HTTPS requests to the server's host list go through the tunnel, both from the app and
-from its built-in browser view (Cloudflare binds its check to the IP address). Torrent
-peers and trackers are still reached directly.
-
-Server side:
-
-```
-APP_API_ENABLED=true
-```
-
-The API listens on `APP_API_LISTEN` (`:8081`); docker-compose publishes it on
-`127.0.0.1:8081`. Expose `/api/v1/` through nginx with WebSocket support:
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name books.example.com;
-    # ssl_certificate ...;
-
-    location /api/v1/ {
-        proxy_pass http://127.0.0.1:8081;
-        proxy_set_header Host $host;
-        # The tunnel is a WebSocket
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_buffering off;
-        proxy_read_timeout 1h;
-        proxy_send_timeout 1h;
-    }
-}
-```
-
-| Endpoint | Purpose |
-|---|---|
-| `GET /api/v1/ping` | Tells the app this is a Book Recon server |
-| `POST /api/v1/clients` | Registers a phone, returns its bearer token |
-| `GET /api/v1/clients/me` | Access status and the tunnel host list |
-| `POST /api/v1/clients/me/link` | One-time `t.me/<bot>?start=link_…` link, valid 15 minutes |
-| `DELETE /api/v1/clients/me` | Removes the phone |
-| `GET /api/v1/tunnel?host=&port=` | WebSocket tunnel to an allowed host |
-
-Every call except the first two needs `Authorization: Bearer <token>`. The server keeps only
-a SHA-256 hash of each token. The tunnel reaches only hosts in `APP_TUNNEL_HOSTS` (and their
-subdomains) on `APP_TUNNEL_PORTS`, and only public IP addresses. Registrations are limited
-to 10 per minute, and phones that never link a Telegram account are removed after a day.
+Once approved, the settings say that RuTracker and Flibusta open through the Book Recon
+server. If the admin denies the request, the settings say so. Turning the switch off removes
+the phone from the server. The Telegram link is valid for 15 minutes: if it expires, tap
+**Подключить** again.
 
 ### Error reports
 

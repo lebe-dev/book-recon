@@ -114,5 +114,5 @@
     <string name="settings_version">Версия %1$s (%2$s)</string>
     <string name="settings_section_reports">Отчёты об ошибках</string>
     <string name="settings_reports_send">Отправлять отчёты об ошибках</string>
-    <string name="settings_reports_text">Сбои и непредвиденные ошибки уходят разработчику в Sentry вместе с моделью телефона и версией Android. Логин и пароль RuTracker не отправляются</string>
+    <string name="settings_reports_text">Сбои и непредвиденные ошибки отправляются разработчику без персональных данных и ключей, только с моделью телефона и версией Android. Логины и пароли не отправляются</string>
 </resources>

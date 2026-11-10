@@ -80,6 +80,7 @@ import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Settings
 import ru.tinyops.android.bookrecon.di.appContainer
+import ru.tinyops.android.bookrecon.server.ServerState
 import ru.tinyops.android.bookrecon.storage.files.RootCheck
 import ru.tinyops.android.bookrecon.ui.nav.VerificationPurpose
 import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
@@ -267,6 +268,13 @@ fun SettingsContent(
             ServerBlock(server, serverActions)
         }
         Section(R.string.settings_section_rutracker) {
+            if (server.connection is ServerState.Approved) {
+                Text(
+                    text = stringResource(R.string.settings_rutracker_server),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
             RuTrackerBlock(state, actions)
         }
         Section(R.string.settings_section_flibusta) {

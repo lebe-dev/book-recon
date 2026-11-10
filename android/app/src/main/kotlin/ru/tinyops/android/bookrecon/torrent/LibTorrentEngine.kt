@@ -65,6 +65,10 @@ import org.libtorrent4j.TorrentInfo as NativeTorrentInfo
  * download is removed from the session, and its job state (the `.torrent`, the selection and
  * resume data) stays in [stateDir] until [cancel], so [resume], [seed] and [moveStorage] can
  * bring it back.
+ *
+ * With a proxy set by [useProxy], trackers and peers are reached only through that HTTP
+ * CONNECT proxy; DHT, LSD, uTP, UPnP and NAT-PMP, which cannot go through it, are off, and
+ * the session listens on the loopback interface only, so no peer reaches the device directly.
  */
 class LibTorrentEngine(
     stateDir: File,
@@ -96,6 +100,7 @@ class LibTorrentEngine(
 
     // Guarded by lock.
     private var session: SessionManager? = null
+    private var proxyPort: Int? = null
     private val active = HashMap<String, Active>()
     private val seedTimers = HashMap<String, Job>()
 
@@ -137,6 +142,19 @@ class LibTorrentEngine(
         get() = runBlocking { lock.withLock { session?.swig()?.listen_port() ?: 0 } }
 
     override fun parse(bytes: ByteArray): TorrentInfo = TorrentParser.parse(bytes)
+
+    /**
+     * Sends all torrent traffic through the HTTP CONNECT proxy on 127.0.0.1:[port], or
+     * directly again when [port] is null. A running session switches at once.
+     */
+    suspend fun useProxy(port: Int?) = withContext(Dispatchers.IO) {
+        lock.withLock {
+            if (port == proxyPort) return@withLock
+            proxyPort = port
+            session?.applySettings(sessionSettings())
+            logger.info(if (port == null) "Torrent traffic goes direct" else "Torrent traffic goes through the server tunnel")
+        }
+    }
 
     override fun download(jobId: String, bytes: ByteArray, indexes: Set<Int>, stagingDir: File): Flow<DownloadProgress> =
         flow {
@@ -510,20 +528,40 @@ class LibTorrentEngine(
     /** Caller holds [lock]. */
     private fun ensureSession(): SessionManager {
         session?.let { return it }
-        val settings = SettingsPack()
-        if (config.localOnly) {
-            settings.listenInterfaces("127.0.0.1:0")
-            settings.setEnableDht(false)
-            settings.setEnableLsd(false)
-            settings.setBoolean(settings_pack.bool_types.enable_upnp.swigValue(), false)
-            settings.setBoolean(settings_pack.bool_types.enable_natpmp.swigValue(), false)
-        }
         val manager = SessionManager(false)
         manager.addListener(moveListener)
-        manager.start(SessionParams(settings))
+        manager.start(SessionParams(sessionSettings()))
         session = manager
         logger.info("Torrent session started")
         return manager
+    }
+
+    /** Every setting that depends on [Config.localOnly] and [proxyPort], set both ways. Caller holds [lock]. */
+    private fun sessionSettings(): SettingsPack {
+        val port = proxyPort
+        val direct = port == null && !config.localOnly
+        val settings = SettingsPack()
+        settings.listenInterfaces(if (direct) DEFAULT_LISTEN else LOOPBACK_LISTEN)
+        settings.setEnableDht(direct)
+        settings.setEnableLsd(direct)
+        settings.setBoolean(settings_pack.bool_types.enable_upnp.swigValue(), direct)
+        settings.setBoolean(settings_pack.bool_types.enable_natpmp.swigValue(), direct)
+        // uTP runs over UDP, which an HTTP proxy does not carry.
+        settings.setBoolean(settings_pack.bool_types.enable_outgoing_utp.swigValue(), port == null)
+        settings.setBoolean(settings_pack.bool_types.enable_incoming_utp.swigValue(), port == null)
+        val proxyType = if (port == null) settings_pack.proxy_type_t.none else settings_pack.proxy_type_t.http
+        settings.setInteger(settings_pack.int_types.proxy_type.swigValue(), proxyType.swigValue())
+        settings.setString(settings_pack.string_types.proxy_hostname.swigValue(), PROXY_HOST)
+        settings.setInteger(settings_pack.int_types.proxy_port.swigValue(), port ?: 0)
+        settings.setBoolean(settings_pack.bool_types.proxy_peer_connections.swigValue(), true)
+        settings.setBoolean(settings_pack.bool_types.proxy_tracker_connections.swigValue(), true)
+        settings.setBoolean(settings_pack.bool_types.proxy_hostnames.swigValue(), true)
+        // Every peer is a WebSocket on the server, which caps tunnels per installation.
+        settings.setInteger(
+            settings_pack.int_types.connections_limit.swigValue(),
+            if (port == null) DEFAULT_CONNECTIONS else PROXIED_CONNECTIONS,
+        )
+        return settings
     }
 
     /** Caller holds [lock]. */
@@ -538,5 +576,10 @@ class LibTorrentEngine(
 
     private companion object {
         val RENAME_TIMEOUT = 2.minutes
+        const val DEFAULT_LISTEN = "0.0.0.0:6881,[::]:6881"
+        const val LOOPBACK_LISTEN = "127.0.0.1:0"
+        const val PROXY_HOST = "127.0.0.1"
+        const val DEFAULT_CONNECTIONS = 200
+        const val PROXIED_CONNECTIONS = 40
     }
 }

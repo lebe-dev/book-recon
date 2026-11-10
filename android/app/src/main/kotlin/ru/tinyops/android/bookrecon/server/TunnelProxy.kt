@@ -14,6 +14,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -23,10 +24,14 @@ import okio.ByteString
 import okio.ByteString.Companion.toByteString
 
 /**
- * HTTP CONNECT proxy on the loopback interface. Each CONNECT to a host the [route] serves
- * becomes a WebSocket to the server's `/api/v1/tunnel`, which opens the TCP connection on the
- * server side; bytes are copied both ways untouched, so TLS stays end to end between the app
- * and the site. OkHttp and WebView use this proxy only for hosts of the route.
+ * HTTP proxy on the loopback interface. Each CONNECT to a host the [route] serves becomes a
+ * WebSocket to the server's `/api/v1/tunnel`, which opens the TCP connection on the server
+ * side; bytes are copied both ways untouched, so TLS stays end to end between the app and the
+ * site. OkHttp and WebView use this proxy only for hosts of the route.
+ *
+ * libtorrent uses it for all torrent traffic: CONNECT to peers, which it names by IP address
+ * and which the server checks itself, and plain `GET http://...` announces to HTTP trackers,
+ * sent on in origin form with `Connection: close`, one request per tunnel.
  *
  * Other apps on the device can reach a loopback port too; the server still limits the tunnel
  * to its host list and to approved installations.
@@ -80,11 +85,12 @@ class TunnelProxy(
             socket.soTimeout = HEADER_TIMEOUT_MILLIS
             val input = BufferedInputStream(socket.getInputStream())
             val output = socket.getOutputStream()
-            val target = readConnect(input, output) ?: return
+            val request = readRequest(input, output) ?: return
+            val target = request.target
             val current = route() ?: return respond(output, 503, "Tunnel Off")
-            if (!current.serves(target.host)) return respond(output, 403, "Host Not Served")
+            if (!current.serves(target.host) && !isIpLiteral(target.host)) return respond(output, 403, "Host Not Served")
             socket.soTimeout = 0
-            Tunnel(socket, input, output, target, current).run()
+            Tunnel(socket, input, output, target, current, request.preface).run()
         } catch (e: IOException) {
             log("Tunnel proxy connection failed: ${e.message}")
         } finally {
@@ -92,26 +98,47 @@ class TunnelProxy(
         }
     }
 
-    /** Reads the request head; answers and returns null unless it is a CONNECT. */
-    private fun readConnect(input: InputStream, output: OutputStream): Target? {
+    /** Where a request goes and, for a plain HTTP request, the head to send there first. */
+    private class ProxyRequest(val target: Target, val preface: ByteArray?)
+
+    /**
+     * Reads the request head; answers and returns null unless it is a CONNECT or a plain HTTP
+     * request with an absolute `http://` URI.
+     */
+    private fun readRequest(input: InputStream, output: OutputStream): ProxyRequest? {
         val requestLine = readLine(input) ?: return null
-        var headerLines = 0
+        val headers = mutableListOf<String>()
         while (true) {
             val line = readLine(input) ?: return null
             if (line.isEmpty()) break
-            if (++headerLines > MAX_HEADER_LINES) {
+            if (headers.size >= MAX_HEADER_LINES) {
                 respond(output, 431, "Request Header Fields Too Large")
                 return null
             }
+            headers += line
         }
         val parts = requestLine.split(' ')
-        if (parts.size != 3 || parts[0] != "CONNECT") {
+        if (parts.size != 3) {
+            respond(output, 400, "Bad Request")
+            return null
+        }
+        val (method, uri, version) = parts
+        if (method == "CONNECT") {
+            val target = Target.parse(uri) ?: return null.also { respond(output, 400, "Bad Request") }
+            return ProxyRequest(target, null)
+        }
+        val url = uri.toHttpUrlOrNull()
+        if (url == null || url.scheme != "http") {
             respond(output, 405, "Method Not Allowed")
             return null
         }
-        val target = Target.parse(parts[1])
-        if (target == null) respond(output, 400, "Bad Request")
-        return target
+        val head = StringBuilder("$method ${url.encodedPath}")
+        url.encodedQuery?.let { head.append('?').append(it) }
+        head.append(' ').append(version).append("\r\n")
+        headers.filter { it.substringBefore(':').trim().lowercase() !in HOP_BY_HOP }
+            .forEach { head.append(it).append("\r\n") }
+        head.append("Connection: close\r\n\r\n")
+        return ProxyRequest(Target(url.host.lowercase(), url.port), head.toString().toByteArray(Charsets.ISO_8859_1))
     }
 
     /** One CONNECT: a WebSocket to the server and the copy loops. */
@@ -121,6 +148,7 @@ class TunnelProxy(
         private val output: OutputStream,
         private val target: Target,
         private val route: TunnelRoute,
+        private val preface: ByteArray?,
     ) : WebSocketListener() {
         private val opened = CompletableFuture<Int>()
         private val done = AtomicBoolean(false)
@@ -152,8 +180,12 @@ class TunnelProxy(
                 respond(output, status, "Tunnel Refused")
                 return
             }
-            output.write("HTTP/1.1 200 Connection established\r\n\r\n".toByteArray(Charsets.ISO_8859_1))
-            output.flush()
+            if (preface == null) {
+                output.write("HTTP/1.1 200 Connection established\r\n\r\n".toByteArray(Charsets.ISO_8859_1))
+                output.flush()
+            } else {
+                ws.send(preface.toByteString())
+            }
             pumpToServer(ws)
         }
 
@@ -241,6 +273,15 @@ class TunnelProxy(
         private const val OPEN = 0
         private const val BAD_GATEWAY = 502
         private const val GATEWAY_TIMEOUT = 504
+        private val HOP_BY_HOP = setOf("connection", "keep-alive", "proxy-connection", "proxy-authorization")
+        private val IPV4 = Regex("""(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})""")
+        private val IPV6 = Regex("""[0-9a-fA-F:.]+""")
+
+        /** True for an IPv4 or IPv6 address literal, the way libtorrent names peers. */
+        fun isIpLiteral(host: String): Boolean {
+            IPV4.matchEntire(host)?.let { match -> return match.groupValues.drop(1).all { it.toInt() <= 255 } }
+            return host.contains(':') && IPV6.matches(host)
+        }
 
         private fun respond(output: OutputStream, code: Int, reason: String) {
             try {

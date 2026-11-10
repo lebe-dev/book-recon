@@ -47,8 +47,8 @@
     <string name="settings_server_status_connecting">Подключение…</string>
     <string name="settings_server_status_awaiting">Откройте бота в Telegram и нажмите «Старт», чтобы подтвердить подключение</string>
     <string name="settings_server_status_pending">Ждите, пока администратор одобрит доступ</string>
-    <string name="settings_server_status_approved">Доступ одобрен: RuTracker и Flibusta открываются через сервер Book Recon</string>
-    <string name="settings_server_status_approved_as">Доступ одобрен для @%1$s: RuTracker и Flibusta открываются через сервер Book Recon</string>
+    <string name="settings_server_status_approved">Доступ одобрен: RuTracker, Flibusta и торренты идут через сервер Book Recon</string>
+    <string name="settings_server_status_approved_as">Доступ одобрен для @%1$s: RuTracker, Flibusta и торренты идут через сервер Book Recon</string>
     <string name="settings_server_status_denied">Администратор отказал в доступе к серверу Book Recon</string>
     <string name="settings_server_problem_unreachable">Сервер недоступен</string>
     <string name="settings_server_problem_not_book_recon">По этому адресу нет сервера Book Recon с доступом для приложения</string>
@@ -59,6 +59,7 @@
     <string name="settings_rutracker_login">Логин</string>
     <string name="settings_rutracker_password">Пароль</string>
     <string name="settings_rutracker_password_stored">Пароль сохранён. Оставьте поле пустым, чтобы не менять его</string>
+    <string name="settings_rutracker_server">Сервер Book Recon подключён: поиск и торренты RuTracker идут через его учётную запись, логин и пароль ниже не используются</string>
     <string name="settings_rutracker_hint">Логин и пароль сохраняются при проверке входа</string>
     <string name="settings_rutracker_show_password">Показать пароль</string>
     <string name="settings_rutracker_hide_password">Скрыть пароль</string>

@@ -85,7 +85,9 @@ class SearchUseCase(
         Source.FLIBUSTA -> flibusta.search(query, SEARCH_LIMIT)
         Source.RUTRACKER -> {
             // The client checks the password itself; a missing login skips it without a request.
-            if (settings.settings.first().rutrackerLogin.isBlank()) throw AppError.RuTrackerAuthRequired()
+            if (ruTracker.needsCredentials() && settings.settings.first().rutrackerLogin.isBlank()) {
+                throw AppError.RuTrackerAuthRequired()
+            }
             ruTracker.search(query, kind, SEARCH_LIMIT).map { it.toResult() }
         }
     }.take(SEARCH_LIMIT)

@@ -154,8 +154,15 @@ so nothing else has to be installed.
    RuTracker or Flibusta, and the server connects to the site. TLS stays end to end between
    the phone and the site: the server only copies bytes. The app's built-in browser view
    (Cloudflare checks, RuTracker captcha) goes the same way, because Cloudflare binds its
-   check to the IP address. Torrent peers and trackers are still reached directly from the
-   phone.
+   check to the IP address.
+5. RuTracker search and `.torrent` files come from the server's Jackett, with the RuTracker
+   account configured there: the app does not use the login and password from its own
+   settings while the server is connected. A `.torrent` can be fetched only for a topic the
+   server found in a search during the last 24 hours.
+6. Torrent downloads go through the tunnel too: the app's torrent engine connects to
+   trackers and peers through the server (DHT, LSD and uTP are off, nothing listens for
+   incoming peers). For peers the server accepts public IP addresses on ports 1024 and up
+   (`APP_TUNNEL_PEERS`).
 
 ### Requirements
 
@@ -181,6 +188,14 @@ APP_API_ENABLED=true
 | `APP_API_LISTEN` | Address of the API server inside the container | `:8081` |
 | `APP_TUNNEL_HOSTS` | Hosts the tunnel may reach, subdomains included, comma-separated | `rutracker.org,rutracker.cc,t-ru.org,flibusta.is,challenges.cloudflare.com` |
 | `APP_TUNNEL_PORTS` | Ports the tunnel may reach | `443,80` |
+| `APP_TUNNEL_PEERS` | Let the tunnel reach BitTorrent peers: public IPs, ports 1024+ | `true` |
+| `APP_RUTRACKER_BOOK_CATEGORIES` | Torznab categories of e-book searches from the app | `7000` |
+| `APP_RUTRACKER_AUDIO_CATEGORIES` | Torznab categories of audiobook searches from the app | `3030` |
+
+RuTracker search for the app is on when `JACKETT_API_KEY` is set (see `.env.example` for
+setting up Jackett and the RuTracker indexer). It uses `JACKETT_URL`, `JACKETT_INDEXER` and
+`JACKETT_TIMEOUT` of the bot. Without Jackett the app shows RuTracker as unavailable while
+connected to the server.
 
 The app uses the host list it gets from the server: only HTTPS requests to these hosts go
 through the tunnel, everything else goes direct. If users set another Flibusta mirror in
@@ -376,8 +391,9 @@ server side). It is off by default:
    the app shows a spinner with "Ждите, пока администратор одобрит доступ" until an admin
    decides.
 
-Once approved, the settings say that RuTracker and Flibusta open through the Book Recon
-server. If the admin denies the request, the settings say so. Turning the switch off removes
+Once approved, the settings say that RuTracker, Flibusta and torrents go through the Book
+Recon server. RuTracker search then uses the server's account: the login and password in
+**Настройки → RuTracker** are not needed and are used again only when the server is off. If the admin denies the request, the settings say so. Turning the switch off removes
 the phone from the server. The Telegram link is valid for 15 minutes: if it expires, tap
 **Подключить** again.
 

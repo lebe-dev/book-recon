@@ -38,6 +38,7 @@ class LibTorrentEngineTest {
     // Seeders and leechers run in their own processes, see TestPeer.
     private val testPeers = mutableListOf<TestPeer>()
     private val engines = mutableListOf<LibTorrentEngine>()
+    private val closeables = mutableListOf<AutoCloseable>()
 
     // Files are not piece-aligned, so the pieces at the edges of a.mp3 and CD2/d.mp3 also
     // carry bytes of b.txt, which libtorrent writes to disk.
@@ -61,6 +62,7 @@ class LibTorrentEngineTest {
     fun close() {
         engines.forEach { it.close() }
         testPeers.forEach { it.close() }
+        closeables.forEach { it.close() }
     }
 
     @Test
@@ -79,6 +81,22 @@ class LibTorrentEngineTest {
         assertArrayEquals(torrent.files[3].data, File(staging, "Author - Title/CD2/d.mp3").readBytes())
         assertFalse(engine.isInSession("job-1"))
         assertFalse(engine.isSessionRunning)
+    }
+
+    @Test
+    fun `with a proxy peers are reached only through it`() = runBlocking {
+        val seeder = seeder(torrent)
+        val proxy = ConnectProxy().also { closeables += it }
+        val engine = engine(peers = listOf(seeder.address))
+        engine.useProxy(proxy.port)
+        val staging = File(dir, "staging/job-1")
+
+        val updates = withTimeout(60.seconds) { engine.download("job-1", torrent.bytes, selected, staging).toList() }
+
+        assertEquals(170_000L, updates.last().completed)
+        assertArrayEquals(torrent.files[0].data, File(staging, "Author - Title/a.mp3").readBytes())
+        assertTrue(proxy.targets.isNotEmpty())
+        assertTrue(proxy.targets.all { it == "127.0.0.1:${seeder.address.port}" }, "targets: ${proxy.targets}")
     }
 
     @Test

@@ -6,5 +6,7 @@ import java.io.File
 
 class TorrentModule(private val app: AppContainer) {
     // Job state and resume data live in private storage that is excluded from backups.
-    val torrentEngine: TorrentEngine by lazy { LibTorrentEngine(File(app.context.noBackupFilesDir, "torrents")) }
+    val libTorrentEngine: LibTorrentEngine by lazy { LibTorrentEngine(File(app.context.noBackupFilesDir, "torrents")) }
+
+    val torrentEngine: TorrentEngine get() = libTorrentEngine
 }

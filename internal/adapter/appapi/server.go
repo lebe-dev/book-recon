@@ -24,10 +24,16 @@ import (
 
 const (
 	defaultRegisterPerMinute   = 10
-	defaultMaxTunnelsPerClient = 32
-	maxRequestBody             = 4 << 10
-	maxMessageSize             = 1 << 20
-	dialTimeout                = 15 * time.Second
+	defaultMaxTunnelsPerClient = 64
+	defaultSearchLimit         = 20
+	maxSearchLimit             = 50
+	maxQueryLength             = 200
+	searchTimeout              = 90 * time.Second
+	// minPeerPort keeps peer tunnels off well-known ports (SMTP, SSH and the like).
+	minPeerPort    = 1024
+	maxRequestBody = 4 << 10
+	maxMessageSize = 1 << 20
+	dialTimeout    = 15 * time.Second
 )
 
 // DialFunc opens the TCP connection of a tunnel.
@@ -45,6 +51,11 @@ type Config struct {
 	RegisterPerMinute int
 	// MaxTunnelsPerClient caps open tunnels of one client; 0 means the default.
 	MaxTunnelsPerClient int
+	// AllowPeers lets the tunnel reach BitTorrent peers: public IP addresses given as
+	// literals, on ports from 1024 up.
+	AllowPeers bool
+	// Tracker serves RuTracker search with the server's account; nil turns it off.
+	Tracker domain.TopicTracker
 	// Dial opens tunnel connections; nil means DialPublic.
 	Dial DialFunc
 }
@@ -87,6 +98,8 @@ func NewServer(cfg Config, clients *usecase.AppClientService, logger *log.Logger
 	mux.HandleFunc("DELETE /api/v1/clients/me", s.authenticated(s.handleDelete))
 	mux.HandleFunc("POST /api/v1/clients/me/link", s.authenticated(s.handleLink))
 	mux.HandleFunc("GET /api/v1/tunnel", requireWebSocket(s.authenticated(s.handleTunnel)))
+	mux.HandleFunc("GET /api/v1/rutracker/search", s.withTracker(s.authenticated(s.approved(s.handleSearch))))
+	mux.HandleFunc("GET /api/v1/rutracker/topics/{id}/torrent", s.withTracker(s.authenticated(s.approved(s.handleTorrent))))
 
 	s.server = &http.Server{
 		Addr:              cfg.Listen,
@@ -102,7 +115,8 @@ func (s *Server) Handler() http.Handler { return s.server.Handler }
 
 // Start serves until Shutdown. Returns nil on graceful shutdown.
 func (s *Server) Start() error {
-	s.logger.Info("app api listening", "addr", s.server.Addr, "tunnel_hosts", s.cfg.AllowedHosts)
+	s.logger.Info("app api listening", "addr", s.server.Addr, "tunnel_hosts", s.cfg.AllowedHosts,
+		"tunnel_peers", s.cfg.AllowPeers, "rutracker_search", s.cfg.Tracker != nil)
 	if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -230,7 +244,7 @@ func (s *Server) handleTunnel(w http.ResponseWriter, r *http.Request, client *do
 		writeError(w, http.StatusForbidden, "not_approved")
 		return
 	}
-	if !s.hostAllowed(host) || !slices.Contains(s.cfg.AllowedPorts, port) {
+	if !s.targetAllowed(host, port) {
 		s.logger.Warn("tunnel to a host outside the allowlist refused", "client_id", client.ID, "host", host, "port", port)
 		writeError(w, http.StatusForbidden, "host_not_allowed")
 		return
@@ -285,6 +299,109 @@ func pipe(ctx context.Context, ws *websocket.Conn, target net.Conn) {
 	}
 	_ = conn.Close()
 	_ = target.Close()
+}
+
+// targetAllowed accepts a host of the allowlist on an allowed port, or, with AllowPeers, a
+// public IP literal on a port from minPeerPort up.
+func (s *Server) targetAllowed(host string, port int) bool {
+	if ip := net.ParseIP(host); ip != nil {
+		return s.cfg.AllowPeers && IsPublicIP(ip) && port >= minPeerPort
+	}
+	return s.hostAllowed(host) && slices.Contains(s.cfg.AllowedPorts, port)
+}
+
+// withTracker answers 503 when the server has no RuTracker search.
+func (s *Server) withTracker(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if s.cfg.Tracker == nil {
+			writeError(w, http.StatusServiceUnavailable, "rutracker_disabled")
+			return
+		}
+		next(w, r)
+	}
+}
+
+// approved lets through clients the admin has approved.
+func (s *Server) approved(next clientHandler) clientHandler {
+	return func(w http.ResponseWriter, r *http.Request, client *domain.AppClient) {
+		ok, err := s.clients.CanTunnel(r.Context(), client)
+		if err != nil {
+			s.logger.Error("failed to check app client access", "client_id", client.ID, "error", err)
+			writeError(w, http.StatusInternalServerError, "internal")
+			return
+		}
+		if !ok {
+			writeError(w, http.StatusForbidden, "not_approved")
+			return
+		}
+		next(w, r, client)
+	}
+}
+
+type topicJSON struct {
+	TopicID string `json:"topicId"`
+	Title   string `json:"title"`
+	Size    int64  `json:"size"`
+	Seeders int    `json:"seeders"`
+	Peers   int    `json:"peers"`
+}
+
+func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request, client *domain.AppClient) {
+	q := r.URL.Query()
+	query := strings.TrimSpace(q.Get("q"))
+	kind := domain.TrackerKind(q.Get("kind"))
+	limit := defaultSearchLimit
+	if raw := q.Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			writeError(w, http.StatusBadRequest, "bad_request")
+			return
+		}
+		limit = min(n, maxSearchLimit)
+	}
+	if query == "" || len([]rune(query)) > maxQueryLength || (kind != domain.TrackerKindBook && kind != domain.TrackerKindAudio) {
+		writeError(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), searchTimeout)
+	defer cancel()
+	topics, err := s.cfg.Tracker.Search(ctx, query, kind, limit)
+	if err != nil {
+		s.logger.Warn("rutracker search for the app failed", "client_id", client.ID, "error", err)
+		writeError(w, http.StatusBadGateway, "rutracker_unavailable")
+		return
+	}
+	out := make([]topicJSON, 0, len(topics))
+	for _, t := range topics {
+		out = append(out, topicJSON{TopicID: t.ID, Title: t.Title, Size: t.Size, Seeders: t.Seeders, Peers: t.Peers})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"topics": out})
+}
+
+func (s *Server) handleTorrent(w http.ResponseWriter, r *http.Request, client *domain.AppClient) {
+	id := r.PathValue("id")
+	if _, err := strconv.ParseUint(id, 10, 64); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), searchTimeout)
+	defer cancel()
+	data, err := s.cfg.Tracker.FetchTorrent(ctx, id)
+	var de *domain.DomainError
+	switch {
+	case errors.As(err, &de) && de.Code == domain.ErrCodeNotFound:
+		writeError(w, http.StatusNotFound, "topic_unknown")
+		return
+	case err != nil:
+		s.logger.Warn("failed to fetch a torrent for the app", "client_id", client.ID, "topic_id", id, "error", err)
+		writeError(w, http.StatusBadGateway, "rutracker_unavailable")
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-bittorrent")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }
 
 func (s *Server) hostAllowed(host string) bool {

@@ -328,3 +328,159 @@ func TestIsPublicIP(t *testing.T) {
 		}
 	}
 }
+
+func TestTunnelToPeers(t *testing.T) {
+	f := newFixture(t, func(c *appapi.Config) { c.AllowPeers = true })
+	token := f.register(t)
+	f.approve(t, token, 42)
+
+	ws, _, err := f.dialTunnel(t, token, "host=104.21.32.39&port=51413")
+	if err != nil {
+		t.Fatalf("a public peer must be allowed: %v", err)
+	}
+	_ = ws.CloseNow()
+	ws, _, err = f.dialTunnel(t, token, "host=2606:4700::1&port=6881")
+	if err != nil {
+		t.Fatalf("an IPv6 peer must be allowed: %v", err)
+	}
+	_ = ws.CloseNow()
+
+	for _, query := range []string{
+		"host=10.0.0.5&port=51413",    // private network of the server
+		"host=127.0.0.1&port=51413",   // the server itself
+		"host=104.21.32.39&port=25",   // well-known port
+		"host=104.21.32.39&port=1023", // still well-known
+	} {
+		ws, resp, err := f.dialTunnel(t, token, query)
+		if err == nil {
+			_ = ws.CloseNow()
+			t.Fatalf("%s: expected the tunnel to be refused", query)
+		}
+		if resp == nil || resp.StatusCode != http.StatusForbidden {
+			t.Fatalf("%s: status = %v, want 403", query, resp)
+		}
+	}
+}
+
+func TestTunnelToPeersIsOffByDefault(t *testing.T) {
+	f := newFixture(t)
+	token := f.register(t)
+	f.approve(t, token, 42)
+	ws, resp, err := f.dialTunnel(t, token, "host=104.21.32.39&port=51413")
+	if err == nil {
+		_ = ws.CloseNow()
+		t.Fatal("expected the tunnel to be refused")
+	}
+	if resp == nil || resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("status = %v, want 403", resp)
+	}
+}
+
+type fakeTracker struct {
+	kinds []domain.TrackerKind
+}
+
+func (f *fakeTracker) Search(_ context.Context, query string, kind domain.TrackerKind, limit int) ([]domain.TrackerTopic, error) {
+	f.kinds = append(f.kinds, kind)
+	if query == "down" {
+		return nil, domain.NewError(domain.ErrCodeServiceDown, "jackett unavailable")
+	}
+	return []domain.TrackerTopic{{ID: "6543210", Title: query, Size: 1024, Seeders: 7, Peers: limit}}, nil
+}
+
+func (f *fakeTracker) FetchTorrent(_ context.Context, topicID string) ([]byte, error) {
+	if topicID != "6543210" {
+		return nil, domain.NewError(domain.ErrCodeNotFound, "unknown topic")
+	}
+	return []byte("d8:announce0:e"), nil
+}
+
+func TestRuTrackerSearch(t *testing.T) {
+	tracker := &fakeTracker{}
+	f := newFixture(t, func(c *appapi.Config) { c.Tracker = tracker })
+	token := f.register(t)
+	f.approve(t, token, 42)
+
+	resp, body := f.do(t, http.MethodGet, "/api/v1/rutracker/search?q=%D0%B4%D0%BE%D0%B7%D0%BE%D1%80&kind=audio&limit=5", token, nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("search status = %d %v", resp.StatusCode, body)
+	}
+	topics, _ := body["topics"].([]any)
+	if len(topics) != 1 {
+		t.Fatalf("topics = %v", body)
+	}
+	topic := topics[0].(map[string]any)
+	if topic["topicId"] != "6543210" || topic["title"] != "дозор" || topic["size"] != 1024.0 ||
+		topic["seeders"] != 7.0 || topic["peers"] != 5.0 {
+		t.Fatalf("topic = %v", topic)
+	}
+	if len(tracker.kinds) != 1 || tracker.kinds[0] != domain.TrackerKindAudio {
+		t.Fatalf("kinds = %v", tracker.kinds)
+	}
+}
+
+func TestRuTrackerSearchRejections(t *testing.T) {
+	f := newFixture(t, func(c *appapi.Config) { c.Tracker = &fakeTracker{} })
+	pending := f.register(t)
+	approved := f.register(t)
+	f.approve(t, approved, 42)
+
+	tests := []struct {
+		name, token, query, reason string
+		code                       int
+	}{
+		{"no token", "", "q=abc&kind=book", "unauthorized", http.StatusUnauthorized},
+		{"not approved", pending, "q=abc&kind=book", "not_approved", http.StatusForbidden},
+		{"empty query", approved, "q=%20&kind=book", "bad_request", http.StatusBadRequest},
+		{"unknown kind", approved, "q=abc&kind=film", "bad_request", http.StatusBadRequest},
+		{"jackett down", approved, "q=down&kind=book", "rutracker_unavailable", http.StatusBadGateway},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, body := f.do(t, http.MethodGet, "/api/v1/rutracker/search?"+tt.query, tt.token, nil)
+			if resp.StatusCode != tt.code || body["error"] != tt.reason {
+				t.Fatalf("got %d %v, want %d %s", resp.StatusCode, body, tt.code, tt.reason)
+			}
+		})
+	}
+}
+
+func TestRuTrackerIsOffWithoutTracker(t *testing.T) {
+	f := newFixture(t)
+	token := f.register(t)
+	f.approve(t, token, 42)
+	for _, path := range []string{"/api/v1/rutracker/search?q=abc&kind=book", "/api/v1/rutracker/topics/6543210/torrent"} {
+		resp, body := f.do(t, http.MethodGet, path, token, nil)
+		if resp.StatusCode != http.StatusServiceUnavailable || body["error"] != "rutracker_disabled" {
+			t.Fatalf("%s: %d %v", path, resp.StatusCode, body)
+		}
+	}
+}
+
+func TestRuTrackerTorrent(t *testing.T) {
+	f := newFixture(t, func(c *appapi.Config) { c.Tracker = &fakeTracker{} })
+	token := f.register(t)
+	f.approve(t, token, 42)
+
+	req, _ := http.NewRequest(http.MethodGet, f.srv.URL+"/api/v1/rutracker/topics/6543210/torrent", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("get torrent: %v", err)
+	}
+	data, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || string(data) != "d8:announce0:e" ||
+		resp.Header.Get("Content-Type") != "application/x-bittorrent" {
+		t.Fatalf("torrent: %d %q %s", resp.StatusCode, data, resp.Header.Get("Content-Type"))
+	}
+
+	r, body := f.do(t, http.MethodGet, "/api/v1/rutracker/topics/42/torrent", token, nil)
+	if r.StatusCode != http.StatusNotFound || body["error"] != "topic_unknown" {
+		t.Fatalf("unknown topic: %d %v", r.StatusCode, body)
+	}
+	r, body = f.do(t, http.MethodGet, "/api/v1/rutracker/topics/abc/torrent", token, nil)
+	if r.StatusCode != http.StatusBadRequest || body["error"] != "bad_request" {
+		t.Fatalf("bad topic id: %d %v", r.StatusCode, body)
+	}
+}

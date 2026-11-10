@@ -59,6 +59,12 @@ interface RuTrackerClient {
     suspend fun isLoggedIn(): Boolean
 
     /**
+     * True when the client logs in with the credentials from settings; false when it goes
+     * through a server that uses its own RuTracker account.
+     */
+    suspend fun needsCredentials(): Boolean = true
+
+    /**
      * Searches the forums of [kind] and returns up to [limit] topics that have seeders. An
      * expired session triggers one automatic [login] and a retry.
      */

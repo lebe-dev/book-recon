@@ -147,6 +147,18 @@ class SearchUseCaseTest {
     }
 
     @Test
+    fun `a client with its own account searches without a login in settings`() = runTest {
+        settings.update { it.copy(rutrackerLogin = "") }
+        val serverClient = object : RuTrackerClient by ruTracker {
+            override suspend fun needsCredentials() = false
+        }
+
+        val final = useCase(serverClient).search("Достоевский", MediaKind.BOOK).toList().last()
+
+        assertTrue(final.sourceState(Source.RUTRACKER) is SourceState.Loaded)
+    }
+
+    @Test
     fun `RuTracker auth error from the client is a source error`() = runTest {
         ruTracker.loggedIn = false
         ruTracker.credentialsSet = false

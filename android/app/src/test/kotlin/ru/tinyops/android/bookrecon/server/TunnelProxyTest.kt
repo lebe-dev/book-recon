@@ -2,6 +2,7 @@ package ru.tinyops.android.bookrecon.server
 
 import java.io.InputStream
 import java.net.Socket
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -10,10 +11,13 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
+import okio.ByteString.Companion.encodeUtf8
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -123,9 +127,68 @@ class TunnelProxyTest {
     }
 
     @Test
-    fun `plain proxy requests are not supported`() {
-        val (socket, head) = connect("GET http://rutracker.org/ HTTP/1.1\r\nHost: rutracker.org\r\n\r\n")
+    fun `plain http requests go through the tunnel in origin form`() {
+        val received = LinkedBlockingQueue<String>()
+        val tracker = object : WebSocketListener() {
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                received += bytes.string(Charsets.ISO_8859_1)
+                webSocket.send("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok".encodeUtf8())
+                // The tracker closes after the answer, as Connection: close asks.
+                webSocket.close(1000, null)
+            }
+        }
+        server.enqueue(MockResponse.Builder().webSocketUpgrade(tracker).build())
+
+        val request = "GET http://bt2.rutracker.org/ann?info_hash=x HTTP/1.1\r\n" +
+            "Host: bt2.rutracker.org\r\nProxy-Connection: keep-alive\r\nConnection: keep-alive\r\n" +
+            "User-Agent: libtorrent\r\n\r\n"
+        val (socket, head) = connect(request)
+        socket.use { assertEquals("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n", head) }
+
+        assertEquals(
+            "GET /ann?info_hash=x HTTP/1.1\r\nHost: bt2.rutracker.org\r\nUser-Agent: libtorrent\r\n" +
+                "Connection: close\r\n\r\n",
+            received.poll(5, TimeUnit.SECONDS),
+        )
+        val upgrade = server.takeRequest()
+        assertEquals("bt2.rutracker.org", upgrade.url.queryParameter("host"))
+        assertEquals("80", upgrade.url.queryParameter("port"))
+    }
+
+    @Test
+    fun `plain http requests to other hosts are refused locally`() {
+        val (socket, head) = connect("GET http://example.com/ HTTP/1.1\r\nHost: example.com\r\n\r\n")
+        socket.use { assertEquals("HTTP/1.1 403", head.take(12)) }
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `requests in origin form are not proxy requests`() {
+        val (socket, head) = connect("GET / HTTP/1.1\r\nHost: rutracker.org\r\n\r\n")
         socket.use { assertEquals("HTTP/1.1 405", head.take(12)) }
+        val (https, httpsHead) = connect("GET https://rutracker.org/ HTTP/1.1\r\n\r\n")
+        https.use { assertEquals("HTTP/1.1 405", httpsHead.take(12)) }
+    }
+
+    @Test
+    fun `peer addresses are left to the server`() {
+        server.enqueue(MockResponse.Builder().webSocketUpgrade(echo).build())
+        server.enqueue(MockResponse.Builder().webSocketUpgrade(echo).build())
+
+        connect("CONNECT 104.21.32.39:51413 HTTP/1.1\r\n\r\n").first.use { }
+        connect("CONNECT [2606:4700::1]:6881 HTTP/1.1\r\n\r\n").first.use { }
+
+        assertEquals("104.21.32.39", server.takeRequest().url.queryParameter("host"))
+        assertEquals("2606:4700::1", server.takeRequest().url.queryParameter("host"))
+    }
+
+    @Test
+    fun `ip literals are recognised`() {
+        assertTrue(TunnelProxy.isIpLiteral("104.21.32.39"))
+        assertTrue(TunnelProxy.isIpLiteral("2606:4700::1"))
+        assertFalse(TunnelProxy.isIpLiteral("rutracker.org"))
+        assertFalse(TunnelProxy.isIpLiteral("1.2.3.4.example.com"))
+        assertFalse(TunnelProxy.isIpLiteral("300.1.1.1"))
     }
 
     @Test

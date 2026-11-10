@@ -69,6 +69,12 @@ type Config struct {
 	AppAPIListen   string   `env:"APP_API_LISTEN" envDefault:":8081"`
 	AppTunnelHosts []string `env:"APP_TUNNEL_HOSTS" envSeparator:"," envDefault:"rutracker.org,rutracker.cc,t-ru.org,flibusta.is,challenges.cloudflare.com"`
 	AppTunnelPorts []int    `env:"APP_TUNNEL_PORTS" envSeparator:"," envDefault:"443,80"`
+	// AppTunnelPeers lets the tunnel reach BitTorrent peers (public IPs, ports 1024+), so the
+	// app downloads torrents through the server too.
+	AppTunnelPeers bool `env:"APP_TUNNEL_PEERS" envDefault:"true"`
+	// RuTracker search for the app through Jackett, on when JACKETT_API_KEY is set.
+	AppRutrackerBookCategories  []string `env:"APP_RUTRACKER_BOOK_CATEGORIES" envSeparator:"," envDefault:"7000"`
+	AppRutrackerAudioCategories []string `env:"APP_RUTRACKER_AUDIO_CATEGORIES" envSeparator:"," envDefault:"3030"`
 }
 
 func Load() (*Config, error) {

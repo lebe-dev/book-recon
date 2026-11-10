@@ -181,10 +181,23 @@ func main() {
 	if cfg.AppAPIEnabled {
 		appClients := usecase.NewAppClientService(storage.NewAppClientRepo(db), accessService, logger)
 		bot.SetAppClientService(appClients)
+		var tracker domain.TopicTracker
+		if cfg.JackettAPIKey != "" {
+			tracker = rtprovider.NewTopics(rtprovider.TopicsConfig{
+				JackettURL:      cfg.JackettURL,
+				JackettAPIKey:   cfg.JackettAPIKey,
+				JackettIndexer:  cfg.JackettIndexer,
+				BookCategories:  cfg.AppRutrackerBookCategories,
+				AudioCategories: cfg.AppRutrackerAudioCategories,
+				Timeout:         cfg.JackettTimeout,
+			}, logger)
+		}
 		appAPI = appapi.NewServer(appapi.Config{
 			Listen:       cfg.AppAPIListen,
 			AllowedHosts: cfg.AppTunnelHosts,
 			AllowedPorts: cfg.AppTunnelPorts,
+			AllowPeers:   cfg.AppTunnelPeers,
+			Tracker:      tracker,
 			BotUsername:  bot.Username,
 			Version:      Version,
 		}, appClients, logger)

@@ -25,7 +25,7 @@ import ru.tinyops.android.bookrecon.core.port.FileStorage
 import ru.tinyops.android.bookrecon.core.port.SettingsRepository
 import ru.tinyops.android.bookrecon.core.port.TorrentEngine
 import ru.tinyops.android.bookrecon.download.SeedingHandoff
-import ru.tinyops.android.bookrecon.download.TorrentLayout
+import ru.tinyops.android.bookrecon.download.placeTorrentFiles
 import ru.tinyops.android.bookrecon.download.planTorrentLayout
 import java.io.File
 import java.time.Instant
@@ -38,16 +38,17 @@ import kotlin.time.toKotlinDuration
 /**
  * Seeding after download (`Settings.seedHours > 0`).
  *
- * A finished torrent is taken over from the queue: the engine moves its files into the
- * library by the same layout the queue uses ([TorrentEngine.moveFiles]), so the book is
- * available right away and the torrent can still find its data. The download becomes
+ * A finished torrent is taken over from the queue: its files are copied into the library by
+ * the same layout the queue uses, so the book is available right away, while the torrent
+ * keeps seeding from its private staging folder, which the app cannot move into the
+ * user's folders. The staged copy is deleted when seeding ends. The download becomes
  * SEEDING with `seedUntil = now + seedHours`.
  *
  * Torrents upload only while seeding is allowed ([setAllowed]), which the seeding job does
  * while the device is charging on an unmetered network; otherwise they are paused. Time on
  * pause counts towards the limit: the deadline is fixed when the download completes. At the
  * deadline, or when the user stops seeding, the torrent leaves the session and the download
- * becomes COMPLETED; the files stay.
+ * becomes COMPLETED; the library files stay.
  *
  * Seeding state lives in the records, so after a process restart seeding continues with the
  * time left, and downloads whose deadline passed meanwhile are completed.
@@ -103,15 +104,8 @@ class SeedingManager(
         if (hours <= 0) return null
         val layout = planTorrentLayout(download, storage)
         // A missing file is reported by the queue's own placement.
-        if (layout.targets.any { (file, _) -> !storage.exists(File(stagingDir, file.path)) }) return null
-        try {
-            torrents.moveFiles(download.id, layout.targets.associate { (file, target) -> file.index to target })
-        } catch (e: AppError) {
-            log("Cannot move download ${download.id} for seeding, placing it without seeding: ${e.code}")
-            moveBack(layout, stagingDir)
-            return null
-        }
-        storage.delete(stagingDir)
+        if (layout.targets.any { (file, _) -> !File(stagingDir, file.path).exists() }) return null
+        placeTorrentFiles(storage, download.kind, layout, stagingDir)
         val now = clock.now()
         val size = download.files.sumOf { it.size }
         log("Download ${download.id} placed and kept for seeding for $hours hours")
@@ -125,21 +119,6 @@ class SeedingManager(
             completedAt = now,
             seedUntil = now.plus(hours.hours.toJavaDuration()),
         )
-    }
-
-    /** Puts files the engine already moved back into staging, so the queue can place them. */
-    private suspend fun moveBack(layout: TorrentLayout, stagingDir: File) {
-        var complete = true
-        layout.targets.forEach { (file, target) ->
-            val staged = File(stagingDir, file.path)
-            if (storage.exists(staged) || !storage.exists(target)) return@forEach
-            runCatching { storage.move(target, staged) }.onFailure {
-                complete = false
-                log("Cannot move a file back to staging: ${it.message}")
-            }
-        }
-        // The audiobook folder is new and now holds empty folders only.
-        if (complete) layout.folder?.let { storage.delete(it) }
     }
 
     /**

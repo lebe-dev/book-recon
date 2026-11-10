@@ -71,25 +71,24 @@ class LayoutTest {
     }
 
     @Test
-    fun `audio folder is placed under the root`() {
+    fun `audio folder keeps its name when free`() {
         assertEquals(
-            "/storage/emulated/0/Audiobooks/Булгаков Михаил - Мастер и Маргарита",
-            audioTargetDir("/storage/emulated/0/Audiobooks/", "Булгаков Михаил - Мастер и Маргарита", taken()),
+            "Булгаков Михаил - Мастер и Маргарита",
+            audioFolderName("Булгаков Михаил - Мастер и Маргарита", taken()),
         )
     }
 
     @Test
     fun `audio folder gets a number on collision`() {
-        val root = "/sdcard/Audiobooks"
-        val exists = taken("$root/Кинг Стивен - Оно", "$root/Кинг Стивен - Оно (2)")
+        val exists = taken("Кинг Стивен - Оно", "Кинг Стивен - Оно (2)")
 
-        assertEquals("$root/Кинг Стивен - Оно (3)", audioTargetDir(root, "Кинг Стивен - Оно", exists))
+        assertEquals("Кинг Стивен - Оно (3)", audioFolderName("Кинг Стивен - Оно", exists))
     }
 
     @Test
     fun `audio folder name is sanitized`() {
-        assertEquals("/a/Без названия", audioTargetDir("/a", "  ...  ", taken()))
-        assertEquals("/a/Хокинг - Время и пространство", audioTargetDir("/a", "Хокинг - Время: и пространство?", taken()))
+        assertEquals("Без названия", audioFolderName("  ...  ", taken()))
+        assertEquals("Хокинг - Время и пространство", audioFolderName("Хокинг - Время: и пространство?", taken()))
     }
 
     @ParameterizedTest(name = "{1}: {0}")

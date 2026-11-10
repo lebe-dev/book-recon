@@ -4,8 +4,8 @@ package ru.tinyops.android.bookrecon.core.domain
  * User settings. The RuTracker password is kept apart, encrypted, and is not part of this
  * class so it never ends up in logs or state dumps.
  *
- * @property audioRoot absolute path of the audiobooks root, null until chosen.
- * @property booksRoot absolute path of the e-books root, null until chosen.
+ * @property audioRoot document tree URI of the audiobooks root picked by the user, null until chosen.
+ * @property booksRoot document tree URI of the e-books root picked by the user, null until chosen.
  * @property rutrackerLogin RuTracker username, empty when not set.
  * @property flibustaBaseUrl Flibusta mirror without a trailing slash.
  * @property flibustaTimeoutSeconds how long to wait for a Flibusta response (headers, and then

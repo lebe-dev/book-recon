@@ -85,22 +85,4 @@ class FakeTorrentEngineTest {
 
         assertTrue(File(target, engine.parse(bytes).files[0].path).exists())
     }
-
-    @Test
-    fun `files are moved one by one to their own targets`() = runTest {
-        val info = engine.parse(bytes)
-        engine.download("job", bytes, setOf(0, 3), tmp).toList()
-        val first = File(tmp, "library/Книга/CD1/01.mp3")
-        val second = File(tmp, "library/Книга/CD2/01.mp3")
-
-        engine.moveFiles("job", mapOf(0 to first, 3 to second))
-
-        assertEquals("${info.files[0].path}\n", first.readText())
-        assertEquals("${info.files[3].path}\n", second.readText())
-        assertFalse(File(tmp, info.files[0].path).exists())
-        assertEquals(mapOf(0 to first, 3 to second), engine.movedFiles("job"))
-        assertThrows<AppError.Validation> { engine.moveFiles("job", mapOf(1 to File(tmp, "x"))) }
-        assertThrows<AppError.StorageFailed> { engine.moveFiles("job", mapOf(0 to second)) }
-        assertThrows<AppError.NotFound> { engine.moveFiles("unknown", emptyMap()) }
-    }
 }

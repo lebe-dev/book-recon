@@ -3,6 +3,7 @@ package ru.tinyops.android.bookrecon.ui.library
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,7 +65,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
@@ -90,14 +90,10 @@ import ru.tinyops.android.bookrecon.ui.common.pillFieldColors
 import ru.tinyops.android.bookrecon.ui.search.formatSize
 import ru.tinyops.android.bookrecon.ui.search.label
 import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
-import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 
 private const val TAG = "Library"
-
-/** Authority of the FileProvider declared in the manifest. */
-private const val FILES_AUTHORITY = "ru.tinyops.android.bookrecon.files"
 
 @Composable
 fun LibraryScreen(onOpenSearch: () -> Unit) {
@@ -151,19 +147,14 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
 }
 
 /**
- * Opens [request] in another app through the FileProvider. Returns false when no app views
- * the file or the path is outside the provider's roots.
+ * Opens [request] in another app. The document is read through the grant this app holds on
+ * the library folder, which the intent passes on for this one view. Returns false when no
+ * app views the file.
  */
 private fun viewFile(context: Context, request: OpenRequest): Boolean {
-    val intent = try {
-        val uri = FileProvider.getUriForFile(context, FILES_AUTHORITY, File(request.path))
-        Intent(Intent.ACTION_VIEW)
-            .setDataAndType(uri, request.mimeType)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    } catch (e: IllegalArgumentException) {
-        context.appContainer.log.appLog.warn(TAG, "Cannot share the file through the file provider", e)
-        return false
-    }
+    val intent = Intent(Intent.ACTION_VIEW)
+        .setDataAndType(Uri.parse(request.uri), request.mimeType)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     return try {
         context.startActivity(intent)
         true

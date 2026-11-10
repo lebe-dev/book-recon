@@ -10,6 +10,7 @@ import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.core.domain.TorrentFile
+import ru.tinyops.android.bookrecon.core.fake.FakeFileStorage
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -63,54 +64,55 @@ class LibraryFilesTest {
         assertEquals("09.11.2026", libraryDate(Instant.parse("2026-11-09T20:30:00Z"), moscow))
     }
 
+    private val storage by lazy { FakeFileStorage(dir) }
+
+    private fun fileUri(kind: MediaKind, path: String): String = storage.uriOf(kind, path)!!
+
     @Test
     fun `book opens its first existing file`() {
-        val second = File(dir, "Том 2.epub").apply { writeText("x") }
-        val download = record(
-            MediaKind.BOOK,
-            paths = listOf(File(dir, "Том 1.epub").path, second.path),
-        )
+        File(dir, "Books/Том 2.epub").apply { parentFile?.mkdirs() }.writeText("x")
+        val download = record(MediaKind.BOOK, paths = listOf("Том 1.epub", "Том 2.epub"))
 
-        assertEquals(OpenTarget.Open(second.path, "application/epub+zip"), resolveOpenTarget(download))
+        assertEquals(
+            OpenTarget.Open(fileUri(MediaKind.BOOK, "Том 2.epub"), "application/epub+zip"),
+            resolveOpenTarget(download, storage),
+        )
     }
 
     @Test
     fun `audiobook opens its first audio file in natural order, looking into subfolders`() {
-        val book = File(dir, "Автор - Книга")
+        val book = File(dir, "Audiobooks/Автор - Книга")
         listOf("cover.jpg", "CD1/10 Глава.mp3", "CD1/2 Глава.mp3", "CD2/01 Глава.mp3", "CD1/notes.txt").forEach {
             File(book, it).apply { parentFile?.mkdirs() }.writeText("x")
         }
 
-        val target = resolveOpenTarget(record(MediaKind.AUDIO, paths = listOf(book.path)))
+        val target = resolveOpenTarget(record(MediaKind.AUDIO, paths = listOf("Автор - Книга")), storage)
 
-        assertEquals(OpenTarget.Open(File(book, "CD1/2 Глава.mp3").path, "audio/mpeg"), target)
+        assertEquals(OpenTarget.Open(fileUri(MediaKind.AUDIO, "Автор - Книга/CD1/2 Глава.mp3"), "audio/mpeg"), target)
     }
 
     @Test
     fun `audiobook path that is a single file opens that file`() {
-        val file = File(dir, "Книга.m4b").apply { writeText("x") }
+        File(dir, "Audiobooks/Книга.m4b").apply { parentFile?.mkdirs() }.writeText("x")
 
         assertEquals(
-            OpenTarget.Open(file.path, "audio/mp4"),
-            resolveOpenTarget(record(MediaKind.AUDIO, paths = listOf(file.path))),
+            OpenTarget.Open(fileUri(MediaKind.AUDIO, "Книга.m4b"), "audio/mp4"),
+            resolveOpenTarget(record(MediaKind.AUDIO, paths = listOf("Книга.m4b")), storage),
         )
     }
 
     @Test
     fun `audiobook folder without audio files has nothing to open`() {
-        val book = File(dir, "Книга").apply { mkdirs() }
+        val book = File(dir, "Audiobooks/Книга").apply { mkdirs() }
         File(book, "cover.jpg").writeText("x")
 
-        assertEquals(OpenTarget.NoAudioFiles, resolveOpenTarget(record(MediaKind.AUDIO, paths = listOf(book.path))))
+        assertEquals(OpenTarget.NoAudioFiles, resolveOpenTarget(record(MediaKind.AUDIO, paths = listOf("Книга")), storage))
     }
 
     @Test
     fun `nothing on disk is reported as missing`() {
-        assertEquals(
-            OpenTarget.Missing,
-            resolveOpenTarget(record(MediaKind.BOOK, paths = listOf(File(dir, "gone.epub").path))),
-        )
-        assertEquals(OpenTarget.Missing, resolveOpenTarget(record(MediaKind.BOOK)))
+        assertEquals(OpenTarget.Missing, resolveOpenTarget(record(MediaKind.BOOK, paths = listOf("gone.epub")), storage))
+        assertEquals(OpenTarget.Missing, resolveOpenTarget(record(MediaKind.BOOK), storage))
     }
 
     private fun record(

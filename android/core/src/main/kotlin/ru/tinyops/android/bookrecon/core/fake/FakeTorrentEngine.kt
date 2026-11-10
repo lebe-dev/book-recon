@@ -35,8 +35,6 @@ class FakeTorrentEngine(
 
         @Volatile
         var seedDuration: Duration? = null
-
-        val moved = ConcurrentHashMap<Int, File>()
     }
 
     private val jobs = ConcurrentHashMap<String, Job>()
@@ -130,28 +128,6 @@ class FakeTorrentEngine(
             if (!from.renameTo(File(dir, root))) throw AppError.StorageFailed("cannot move torrent data")
         }
         job.dir = dir
-    }
-
-    /** Error thrown by the next [moveFiles] after moving its first file, then reset. */
-    @Volatile
-    var failMoveFiles: AppError? = null
-
-    /** Where [moveFiles] put the files of [jobId], by torrent file index. */
-    fun movedFiles(jobId: String): Map<Int, File> = jobs[jobId]?.moved?.toMap().orEmpty()
-
-    override suspend fun moveFiles(jobId: String, targets: Map<Int, File>) {
-        val job = require(jobId)
-        val unknown = targets.keys - job.indexes
-        if (unknown.isNotEmpty()) throw AppError.Validation("files $unknown are not selected")
-        if (targets.values.any { it.exists() }) throw AppError.StorageFailed("target already exists")
-        targets.entries.forEachIndexed { position, (index, target) ->
-            if (position == 1) failMoveFiles?.let { failMoveFiles = null; throw it }
-            val path = job.info.files.first { it.index == index }.path
-            val from = job.moved[index] ?: File(job.dir, path)
-            target.parentFile?.mkdirs()
-            if (from.exists() && !from.renameTo(target)) throw AppError.StorageFailed("cannot move $path")
-            job.moved[index] = target
-        }
     }
 
     private fun require(jobId: String): Job = jobs[jobId] ?: throw AppError.NotFound("unknown job $jobId")

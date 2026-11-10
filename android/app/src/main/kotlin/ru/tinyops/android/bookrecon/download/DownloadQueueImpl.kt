@@ -80,9 +80,9 @@ sealed interface DownloadEvent {
  * background job does once the system lets it run; [pause] puts the running ones back in
  * front of the queue when the job is stopped. At most `Settings.maxConcurrent` run at once.
  *
- * Flibusta books are fetched into the staging folder and renamed into the books root.
- * Torrents download into the staging folder and their files are moved into place once
- * complete. The `.torrent` bytes are kept in [torrentStore], so a torrent can start after a
+ * Flibusta books are fetched into the private staging folder and copied into the books root.
+ * Torrents download into the staging folder and their files are copied into place once
+ * complete; a torrent kept for seeding keeps its staging folder until seeding ends. The `.torrent` bytes are kept in [torrentStore], so a torrent can start after a
  * process restart and be retried after a failure.
  *
  * The first call of any method recovers from a previous process: downloads left in
@@ -135,7 +135,7 @@ class DownloadQueueImpl(
         .distinctUntilChanged()
 
     override suspend fun enqueue(request: DownloadRequest): String {
-        storage.root(request.kind)
+        storage.requireRoot(request.kind)
         val files = selectedFiles(request)
         val id = newId()
         mutex.withLock {
@@ -222,6 +222,8 @@ class DownloadQueueImpl(
             download
         }
         runCatching { torrents.cancel(download.id) }
+        runCatching { storage.deleteStaging(download.id) }
+            .onFailure { warn("Cannot delete seeded files of download ${download.id}: ${it.message}") }
         deleteTorrent(download.id)
     }
 
@@ -381,8 +383,9 @@ class DownloadQueueImpl(
 
     private suspend fun downloadBook(download: Download): Download {
         val format = download.format ?: throw AppError.Validation("book download without a format")
-        val staging = storage.stagingDir(MediaKind.BOOK, download.id)
-        staging.listFiles()?.forEach { storage.delete(it) }
+        storage.requireRoot(MediaKind.BOOK)
+        val staging = storage.stagingDir(download.id)
+        staging.listFiles()?.forEach { it.deleteRecursively() }
         debug { "Downloading book ${download.sourceId} as ${format.extension} from Flibusta" }
         val file = flibusta.download(download.sourceId, format, staging)
         debug { "Book ${download.sourceId} received: ${file.suggestedName}, ${formatBytes(file.tempFile.length())}" }
@@ -390,18 +393,18 @@ class DownloadQueueImpl(
     }
 
     private suspend fun placeBook(download: Download, file: DownloadedFile, staging: File): Download {
-        val root = storage.root(MediaKind.BOOK)
+        storage.requireRoot(MediaKind.BOOK)
         val extension = splitExtension(file.suggestedName).second.ifEmpty { download.format?.extension.orEmpty() }
-        val name = bookTargetName(download.title, download.author, extension) { storage.exists(File(root, it)) }
-        val target = File(root, name)
+        val name = bookTargetName(download.title, download.author, extension) { storage.exists(MediaKind.BOOK, it) }
         val size = file.tempFile.length()
-        storage.move(file.tempFile, target)
-        storage.delete(staging)
-        return completed(download, listOf(target.path), size)
+        storage.copyInto(MediaKind.BOOK, file.tempFile, name)
+        storage.deleteStaging(download.id)
+        return completed(download, listOf(name), size)
     }
 
     private suspend fun downloadTorrent(download: Download): Download {
-        val staging = storage.stagingDir(download.kind, download.id)
+        storage.requireRoot(download.kind)
+        val staging = storage.stagingDir(download.id)
         var lastDecile = -1
         torrentFlow(download, staging).collect { progress ->
             liveProgress.update { it + (download.id to progress) }
@@ -436,32 +439,11 @@ class DownloadQueueImpl(
         }
         val layout = planTorrentLayout(download, storage)
         debug { "Placing ${layout.targets.size} files of download ${download.id}" }
-        placeTorrent(layout, staging)
+        placeTorrentFiles(storage, download.kind, layout, staging)
         runCatching { torrents.cancel(download.id) }
-        storage.delete(staging)
+        storage.deleteStaging(download.id)
         deleteTorrent(download.id)
         return completed(download, layout.paths, download.files.sumOf { it.size })
-    }
-
-    /** Moves the files by [layout]; on failure whatever was placed is removed again. */
-    private suspend fun placeTorrent(layout: TorrentLayout, staging: File) {
-        val placed = mutableListOf<File>()
-        try {
-            layout.targets.forEach { (file, target) ->
-                storage.move(stagedFile(staging, file), target)
-                placed += target
-            }
-        } catch (e: Throwable) {
-            placed.forEach { storage.delete(it) }
-            layout.folder?.let { storage.delete(it) }
-            throw e
-        }
-    }
-
-    private fun stagedFile(staging: File, file: TorrentFile): File {
-        val staged = File(staging, file.path)
-        if (!storage.exists(staged)) throw AppError.StorageFailed("downloaded file is missing: ${file.path}")
-        return staged
     }
 
     private fun completed(download: Download, paths: List<String>, size: Long): Download = download.copy(
@@ -520,7 +502,7 @@ class DownloadQueueImpl(
     }
 
     private suspend fun deleteStaging(download: Download) {
-        runCatching { storage.delete(storage.stagingDir(download.kind, download.id)) }
+        runCatching { storage.deleteStaging(download.id) }
             .onFailure { warn("Cannot delete staging files of download ${download.id}: ${it.message}") }
     }
 

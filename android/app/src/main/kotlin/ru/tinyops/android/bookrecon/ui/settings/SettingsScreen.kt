@@ -30,10 +30,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -88,9 +85,9 @@ import ru.tinyops.android.bookrecon.di.appContainer
 import ru.tinyops.android.bookrecon.launcher.LauncherName
 import ru.tinyops.android.bookrecon.server.ServerState
 import ru.tinyops.android.bookrecon.storage.files.RootCheck
+import ru.tinyops.android.bookrecon.storage.files.TreeUris
 import ru.tinyops.android.bookrecon.ui.nav.VerificationPurpose
 import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
-import android.provider.Settings as SystemSettings
 
 @Composable
 fun SettingsSectionScreen(
@@ -110,9 +107,9 @@ fun SettingsSectionScreen(
                 SettingsViewModel(
                     settings = module.settingsRepository,
                     ruTracker = ruTracker,
-                    hasAllFilesAccess = { module.storage.hasAllFilesAccess() },
                     checkRoot = module.storage::checkRoot,
-                    pathOfTree = module::pathOfTree,
+                    takeGrant = module::takeGrant,
+                    releaseGrant = module::releaseGrant,
                     applyLauncherName = { cyrillic -> LauncherName.apply(appContext, cyrillic) },
                 )
             }
@@ -162,7 +159,6 @@ fun SettingsSectionScreen(
         onBack = onBack,
         state = state,
         actions = SettingsActions(
-            onOpenAccessSettings = { openAllFilesAccessSettings(context) },
             onPickRoot = { kind ->
                 val launcher = if (kind == MediaKind.AUDIO) pickAudioRoot else pickBooksRoot
                 try {
@@ -213,27 +209,8 @@ private fun openLink(context: Context, link: String) {
     }
 }
 
-/** Opens the system screen where the user grants all-files access to this app. */
-private fun openAllFilesAccessSettings(context: Context) {
-    val forApp = Intent(
-        SystemSettings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-        Uri.fromParts("package", context.packageName, null),
-    )
-    val general = Intent(SystemSettings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-    for (intent in listOf(forApp, general)) {
-        try {
-            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            return
-        } catch (_: ActivityNotFoundException) {
-            continue
-        }
-    }
-    Toast.makeText(context, R.string.settings_access_unavailable, Toast.LENGTH_LONG).show()
-}
-
 /** Everything the user can do on the settings screen. */
 data class SettingsActions(
-    val onOpenAccessSettings: () -> Unit = {},
     val onPickRoot: (MediaKind) -> Unit = {},
     val onLoginChange: (String) -> Unit = {},
     val onPasswordChange: (String) -> Unit = {},
@@ -294,7 +271,7 @@ fun SettingsSectionContent(
                     AppearanceBlock(state.settings, actions)
                 }
                 SettingsSection.STORAGE -> Section(null) {
-                    AccessBlock(state.hasAllFilesAccess, actions.onOpenAccessSettings)
+                    ScopeNote()
                     RootItem(MediaKind.AUDIO, state, actions.onPickRoot)
                     RootItem(MediaKind.BOOK, state, actions.onPickRoot)
                     state.rootProblem?.let { problem ->
@@ -393,46 +370,20 @@ private fun ErrorLine(text: String) {
     )
 }
 
+/** Tells that the app reaches only the two folders the user picks. */
 @Composable
-private fun AccessBlock(granted: Boolean, onOpenAccessSettings: () -> Unit) {
-    if (granted) {
-        ListItem(
-            colors = cardListItemColors(),
-            headlineContent = { Text(stringResource(R.string.settings_access_granted)) },
-            leadingContent = { Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-        )
-        return
-    }
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-        shape = MaterialTheme.shapes.large,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.settings_access_missing_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                )
-            }
-            Text(
-                text = stringResource(R.string.settings_access_missing_text),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-            )
-            Button(onClick = onOpenAccessSettings) {
-                Text(stringResource(R.string.settings_access_open))
-            }
-        }
-    }
+private fun ScopeNote() {
+    ListItem(
+        colors = cardListItemColors(),
+        headlineContent = { Text(stringResource(R.string.settings_access_scope_title)) },
+        supportingContent = { Text(stringResource(R.string.settings_access_scope_text)) },
+        leadingContent = { Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+    )
 }
 
 @Composable
 private fun RootItem(kind: MediaKind, state: SettingsUiState, onPickRoot: (MediaKind) -> Unit) {
-    val path = state.settings.rootFor(kind)
+    val path = state.settings.rootFor(kind)?.let { TreeUris.label(it) ?: it }
     val warning = when (state.rootStatus[kind]) {
         RootCheck.MISSING -> R.string.settings_root_missing
         RootCheck.NOT_WRITABLE -> R.string.settings_root_not_writable
@@ -782,7 +733,6 @@ private fun SettingsConfiguredPreview() = SettingsPreview(
             colorTheme = ColorTheme.PISTACHIO,
         ),
         loaded = true,
-        hasAllFilesAccess = true,
         login = "reader",
         passwordStored = true,
         loginCheck = LoginCheck.Success,
@@ -797,7 +747,6 @@ private fun SettingsErrorsPreview() = SettingsPreview(
     section = SettingsSection.SOURCES,
     state = SettingsUiState(
         loaded = true,
-        hasAllFilesAccess = true,
         login = "reader",
         password = "secret",
         loginCheck = LoginCheck.Failed(AppError.RuTrackerLoginFailed()),

@@ -253,7 +253,7 @@ class LibTorrentEngineTest {
     }
 
     @Test
-    fun `files moved to the library keep seeding from there after a restart`() = runBlocking {
+    fun `a finished download keeps seeding from its staging folder after a restart`() = runBlocking {
         // Piece-aligned files: every piece of a selected file is complete, so all can be served.
         val aligned = TestTorrent(
             "Root",
@@ -266,15 +266,6 @@ class LibTorrentEngineTest {
         withTimeout(60.seconds) { first.download("job-1", aligned.bytes, setOf(0, 2), staging).toList() }
         seeder.close()
         testPeers -= seeder
-
-        val a = File(dir, "library/Автор - Книга/a.mp3")
-        val d = File(dir, "library/Автор - Книга/CD2/d.mp3")
-        withTimeout(30.seconds) { first.moveFiles("job-1", mapOf(0 to a, 2 to d)) }
-
-        assertArrayEquals(aligned.files[0].data, a.readBytes())
-        assertArrayEquals(aligned.files[2].data, d.readBytes())
-        assertEquals(emptyList<String>(), filesUnder(staging))
-        assertFalse(first.isInSession("job-1"))
         first.close()
 
         val second = engine(stateDir = stateDir)
@@ -286,28 +277,7 @@ class LibTorrentEngineTest {
 
         assertArrayEquals(aligned.files[0].data, File(leeched, "Root/a.mp3").readBytes())
         assertArrayEquals(aligned.files[2].data, File(leeched, "Root/CD2/d.mp3").readBytes())
-        assertArrayEquals(aligned.files[0].data, a.readBytes())
-    }
-
-    @Test
-    fun `moving files onto existing ones or unselected files fails`() = runBlocking {
-        val seeder = seeder(torrent)
-        val engine = engine(peers = listOf(seeder.address))
-        val staging = File(dir, "staging")
-        withTimeout(60.seconds) { engine.download("job-1", torrent.bytes, selected, staging).toList() }
-        val taken = File(dir, "library/a.mp3")
-        taken.parentFile.mkdirs()
-        taken.writeText("someone else's file")
-
-        val exists = runCatching { engine.moveFiles("job-1", mapOf(0 to taken, 3 to File(dir, "library/d.mp3"))) }
-        val unselected = runCatching { engine.moveFiles("job-1", mapOf(1 to File(dir, "library/b.txt"))) }
-
-        assertTrue(exists.exceptionOrNull() is AppError.StorageFailed, "${exists.exceptionOrNull()}")
-        assertTrue(unselected.exceptionOrNull() is AppError.Validation, "${unselected.exceptionOrNull()}")
-        assertEquals("someone else's file", taken.readText())
-        assertEquals(listOf("Author - Title/CD2/d.mp3", "Author - Title/a.mp3"), filesUnder(staging))
-        assertThrows(AppError.NotFound::class.java) { runBlocking { engine.moveFiles("nope", mapOf(0 to taken)) } }
-        assertFalse(engine.isSessionRunning)
+        assertArrayEquals(aligned.files[0].data, File(staging, "Root/a.mp3").readBytes())
     }
 
     @Test

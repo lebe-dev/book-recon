@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -17,6 +18,7 @@ import ru.tinyops.android.bookrecon.core.domain.Settings
 import ru.tinyops.android.bookrecon.core.port.RuTrackerClient
 import ru.tinyops.android.bookrecon.core.port.SettingsRepository
 import ru.tinyops.android.bookrecon.storage.files.RootCheck
+import ru.tinyops.android.bookrecon.storage.files.TreeUris
 import ru.tinyops.android.bookrecon.ui.nav.VerificationPurpose
 import ru.tinyops.android.bookrecon.ui.search.VerificationRequest
 
@@ -34,8 +36,10 @@ sealed interface LoginCheck {
 
 /** Why a picked folder was not accepted as a root. */
 enum class RootIssue {
-    /** The picker returned a folder that is not on shared storage (cloud, media collections). */
+    /** The picker returned a folder that is not on shared storage (cloud, media collections) or a whole volume. */
     UNSUPPORTED,
+
+    /** The system did not keep the grant on the folder. */
     NO_ACCESS,
     MISSING,
     NOT_WRITABLE,
@@ -59,7 +63,6 @@ data class RootProblem(val kind: MediaKind, val issue: RootIssue)
 data class SettingsUiState(
     val settings: Settings = Settings(),
     val loaded: Boolean = false,
-    val hasAllFilesAccess: Boolean = false,
     val login: String = "",
     val password: String = "",
     val passwordStored: Boolean = false,
@@ -83,19 +86,21 @@ data class SettingsUiState(
  * Settings screen logic: edits go straight to [settings], except the RuTracker credentials
  * and the Flibusta URL, which are saved by their buttons.
  *
- * @param checkRoot checks that a folder exists and accepts files.
- * @param pathOfTree turns a folder picker result into a path, null when unsupported.
+ * @param checkRoot checks that a picked folder is granted, exists and accepts files.
+ * @param takeGrant asks the system to keep the grant on a picked folder across restarts;
+ *   false when it refuses.
+ * @param releaseGrant gives a kept grant back, so the app can reach nothing but its roots.
  * @param applyLauncherName switches the name under the launcher icon (true: Cyrillic).
  */
 class SettingsViewModel(
     private val settings: SettingsRepository,
     private val ruTracker: RuTrackerClient,
-    private val hasAllFilesAccess: () -> Boolean,
     private val checkRoot: suspend (String) -> RootCheck,
-    private val pathOfTree: (String) -> String?,
+    private val takeGrant: (String) -> Boolean,
+    private val releaseGrant: (String) -> Unit,
     private val applyLauncherName: (Boolean) -> Unit = {},
 ) : ViewModel() {
-    private val mutableState = MutableStateFlow(SettingsUiState(hasAllFilesAccess = hasAllFilesAccess()))
+    private val mutableState = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = mutableState.asStateFlow()
 
     /** The web check the login is waiting for, with the error that asked for it. */
@@ -111,9 +116,8 @@ class SettingsViewModel(
         }
     }
 
-    /** The screen is shown again, possibly after the system access settings. */
+    /** The screen is shown again; a folder may be gone or its grant revoked meanwhile. */
     fun onResume() {
-        mutableState.update { it.copy(hasAllFilesAccess = hasAllFilesAccess()) }
         viewModelScope.launch { refreshRoots(mutableState.value.settings) }
     }
 
@@ -262,29 +266,42 @@ class SettingsViewModel(
 
     private suspend fun refreshRoots(stored: Settings) {
         val status = MediaKind.entries.mapNotNull { kind ->
-            val path = stored.rootFor(kind) ?: return@mapNotNull null
-            kind to checkRoot(path)
+            val root = stored.rootFor(kind) ?: return@mapNotNull null
+            kind to checkRoot(root)
         }.toMap()
         mutableState.update { it.copy(rootStatus = status) }
     }
 
     /** Stores the picked folder as the root of [kind]; returns why it was rejected, if it was. */
     private suspend fun acceptRoot(kind: MediaKind, treeUri: String): RootIssue? {
-        val path = pathOfTree(treeUri) ?: return RootIssue.UNSUPPORTED
-        if (!hasAllFilesAccess()) return RootIssue.NO_ACCESS
-        when (checkRoot(path)) {
-            RootCheck.OK -> Unit
-            RootCheck.NO_ACCESS -> return RootIssue.NO_ACCESS
-            RootCheck.MISSING -> return RootIssue.MISSING
-            RootCheck.NOT_WRITABLE -> return RootIssue.NOT_WRITABLE
+        if (!TreeUris.isSupported(treeUri)) return RootIssue.UNSUPPORTED
+        if (!takeGrant(treeUri)) return RootIssue.NO_ACCESS
+        val issue = when (checkRoot(treeUri)) {
+            RootCheck.OK -> null
+            RootCheck.NO_ACCESS -> RootIssue.NO_ACCESS
+            RootCheck.MISSING -> RootIssue.MISSING
+            RootCheck.NOT_WRITABLE -> RootIssue.NOT_WRITABLE
         }
+        if (issue != null) {
+            releaseIfUnused(treeUri)
+            return issue
+        }
+        val previous = settings.settings.first().rootFor(kind)
         settings.update {
             when (kind) {
-                MediaKind.BOOK -> it.copy(booksRoot = path)
-                MediaKind.AUDIO -> it.copy(audioRoot = path)
+                MediaKind.BOOK -> it.copy(booksRoot = treeUri)
+                MediaKind.AUDIO -> it.copy(audioRoot = treeUri)
             }
         }
+        if (previous != null && previous != treeUri) releaseIfUnused(previous)
         return null
+    }
+
+    /** Gives the grant on [treeUri] back unless one of the roots still uses that folder. */
+    private suspend fun releaseIfUnused(treeUri: String) {
+        val stored = settings.settings.first()
+        if (treeUri == stored.audioRoot || treeUri == stored.booksRoot) return
+        releaseGrant(treeUri)
     }
 
     private suspend fun attemptLogin() {

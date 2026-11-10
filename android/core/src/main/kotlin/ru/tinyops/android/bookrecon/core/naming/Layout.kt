@@ -36,19 +36,18 @@ fun bookTargetName(title: String, author: String, extension: String, exists: (St
 }
 
 /**
- * Folder for an audiobook: "<root>/<folderName>", or with " (2)", " (3)"… when taken.
- * [folderName] is sanitized; a trailing slash of [root] is ignored.
+ * Folder name for an audiobook in the audiobooks root: [folderName] sanitized, or with
+ * " (2)", " (3)"… when taken.
  *
- * @param exists tells whether a full path is already taken.
+ * @param exists tells whether a name is already taken in the root.
  * @throws AppError.StorageFailed when no free name is found.
  */
-fun audioTargetDir(root: String, folderName: String, exists: (String) -> Boolean): String {
-    val base = root.trimEnd('/')
+fun audioFolderName(folderName: String, exists: (String) -> Boolean): String {
     val suffixes = sequence {
         yield("")
         for (n in 2..MAX_ATTEMPTS) yield(" ($n)")
     }
-    return suffixes.map { "$base/${fit(folderName, it)}" }.firstOrNull { !exists(it) }
+    return suffixes.map { fit(folderName, it) }.firstOrNull { !exists(it) }
         ?: throw AppError.StorageFailed("no free folder name for the audiobook")
 }
 

@@ -38,11 +38,12 @@ class FakeSettingsRepository(
 }
 
 /**
- * File storage on the real file system under [baseDir], with switchable access and roots.
- * Roots default to `<baseDir>/Books` and `<baseDir>/Audiobooks`; set one to null to test the
- * "root not configured" path.
+ * File storage on the real file system under [baseDir]. Roots default to `<baseDir>/Books`
+ * and `<baseDir>/Audiobooks` and staging lives in `<baseDir>/staging`; set a root to null to
+ * test the "root not configured" path, and [hasAccess] to false to test lost grants.
  */
 class FakeFileStorage(private val baseDir: File) : FileStorage {
+    /** False simulates a root whose grant the user has revoked. */
     @Volatile
     var hasAccess: Boolean = true
 
@@ -52,51 +53,70 @@ class FakeFileStorage(private val baseDir: File) : FileStorage {
     @Volatile
     var audioRoot: File? = File(baseDir, "Audiobooks")
 
-    override fun hasAllFilesAccess(): Boolean = hasAccess
+    private fun rootOrNull(kind: MediaKind): File? = when (kind) {
+        MediaKind.BOOK -> booksRoot
+        MediaKind.AUDIO -> audioRoot
+    }
 
-    override suspend fun root(kind: MediaKind): File {
+    private fun resolve(kind: MediaKind, path: String): File? {
+        if (!hasAccess) return null
+        val root = rootOrNull(kind) ?: return null
+        return File(root, path)
+    }
+
+    override suspend fun requireRoot(kind: MediaKind) {
+        val root = rootOrNull(kind) ?: throw AppError.RootNotConfigured(kind)
         if (!hasAccess) throw AppError.StorageNotGranted()
-        val root = when (kind) {
-            MediaKind.BOOK -> booksRoot
-            MediaKind.AUDIO -> audioRoot
-        } ?: throw AppError.RootNotConfigured(kind)
         root.mkdirs()
-        return root
     }
 
-    override suspend fun stagingDir(kind: MediaKind, jobId: String): File {
-        val staging = File(root(kind), STAGING_FOLDER)
-        val dir = File(staging, jobId)
-        dir.mkdirs()
-        File(staging, NOMEDIA).createNewFile()
-        return dir
+    override suspend fun stagingDir(jobId: String): File = File(baseDir, "$STAGING_FOLDER/$jobId").also { it.mkdirs() }
+
+    override suspend fun deleteStaging(jobId: String) {
+        File(baseDir, "$STAGING_FOLDER/$jobId").deleteRecursively()
     }
 
-    override fun exists(file: File): Boolean = file.exists()
+    override fun exists(kind: MediaKind, path: String): Boolean = resolve(kind, path)?.exists() == true
 
-    override suspend fun move(from: File, to: File) {
-        if (to.exists()) throw AppError.StorageFailed("target already exists: ${to.name}")
-        to.parentFile?.mkdirs()
-        if (!from.renameTo(to)) throw AppError.StorageFailed("cannot move ${from.name}")
+    override fun isFolder(kind: MediaKind, path: String): Boolean = resolve(kind, path)?.isDirectory == true
+
+    override fun listFiles(kind: MediaKind, path: String): List<String> {
+        val root = rootOrNull(kind) ?: return emptyList()
+        val folder = resolve(kind, path)?.takeIf { it.isDirectory } ?: return emptyList()
+        return folder.walkTopDown().filter { it.isFile }.map { it.relativeTo(root).invariantSeparatorsPath }.toList()
     }
 
-    override suspend fun delete(file: File) {
-        file.deleteRecursively()
+    override suspend fun copyInto(kind: MediaKind, from: File, to: String) {
+        requireRoot(kind)
+        val target = resolve(kind, to) ?: throw AppError.StorageNotGranted()
+        if (target.exists()) throw AppError.StorageFailed("target already exists: ${target.name}")
+        target.parentFile?.mkdirs()
+        if (!from.copyRecursively(target, overwrite = false)) {
+            target.deleteRecursively()
+            throw AppError.StorageFailed("cannot copy ${from.name}")
+        }
     }
+
+    override suspend fun delete(kind: MediaKind, path: String) {
+        resolve(kind, path)?.deleteRecursively()
+    }
+
+    override fun uriOf(kind: MediaKind, path: String): String? = resolve(kind, path)?.toURI()?.toString()
 
     companion object {
-        const val STAGING_FOLDER = ".book-recon"
-        const val NOMEDIA = ".nomedia"
+        const val STAGING_FOLDER = "staging"
     }
 }
 
 /**
- * Download records in memory. [fileExists] decides [Download.fileMissing] on every read;
- * by default it checks the real file system.
+ * Download records in memory. [Download.fileMissing] is decided on every read: by [storage]
+ * when given (paths are relative to the root of the download's kind), otherwise by
+ * [fileExists], which by default checks the real file system.
  */
 class FakeDownloadRepository(
     initial: List<Download> = emptyList(),
     private val fileExists: (String) -> Boolean = { File(it).exists() },
+    private val storage: FileStorage? = null,
 ) : DownloadRepository {
     private val state = MutableStateFlow(initial.associateBy { it.id })
 
@@ -151,7 +171,7 @@ class FakeDownloadRepository(
 
     private fun withFileCheck(download: Download): Download {
         if (!download.status.isInLibrary || download.paths.isEmpty()) return download
-        return download.copy(fileMissing = download.paths.none(fileExists))
+        return download.copy(fileMissing = download.paths.none { storage?.exists(download.kind, it) ?: fileExists(it) })
     }
 
     private companion object {

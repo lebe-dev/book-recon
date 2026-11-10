@@ -90,31 +90,40 @@ class FakeStorageTest {
     }
 
     @Test
-    fun `file storage creates hidden staging and reports missing roots`() = runTest {
+    fun `file storage stages outside the roots and reports missing roots`() = runTest {
         val storage = FakeFileStorage(tmp)
 
-        val staging = storage.stagingDir(MediaKind.AUDIO, "job-1")
-        assertEquals(File(tmp, "Audiobooks/.book-recon/job-1"), staging)
-        assertTrue(File(tmp, "Audiobooks/.book-recon/.nomedia").exists())
+        val staging = storage.stagingDir("job-1")
+        assertEquals(File(tmp, "staging/job-1"), staging)
+        storage.deleteStaging("job-1")
+        assertFalse(staging.exists())
 
         storage.booksRoot = null
-        assertEquals(AppError.RootNotConfigured(MediaKind.BOOK), assertThrows<AppError> { storage.root(MediaKind.BOOK) })
+        assertEquals(AppError.RootNotConfigured(MediaKind.BOOK), assertThrows<AppError> { storage.requireRoot(MediaKind.BOOK) })
 
         storage.hasAccess = false
-        assertThrows<AppError.StorageNotGranted> { storage.root(MediaKind.AUDIO) }
+        assertThrows<AppError.StorageNotGranted> { storage.requireRoot(MediaKind.AUDIO) }
     }
 
     @Test
-    fun `move refuses to overwrite`() = runTest {
+    fun `copyInto copies a file or a folder and refuses to overwrite`() = runTest {
         val storage = FakeFileStorage(tmp)
-        val from = File(tmp, "a.txt").apply { writeText("a") }
-        val to = File(tmp, "dir/b.txt")
+        val file = File(tmp, "a.txt").apply { writeText("a") }
+        val folder = File(tmp, "src").apply { mkdirs() }
+        File(folder, "CD1").mkdirs()
+        File(folder, "CD1/01.mp3").writeText("x")
 
-        storage.move(from, to)
-        assertFalse(from.exists())
-        assertTrue(to.exists())
+        storage.copyInto(MediaKind.BOOK, file, "b.txt")
+        storage.copyInto(MediaKind.AUDIO, folder, "Book/Nested")
 
-        File(tmp, "c.txt").writeText("c")
-        assertThrows<AppError.StorageFailed> { storage.move(File(tmp, "c.txt"), to) }
+        assertTrue(file.exists())
+        assertTrue(storage.exists(MediaKind.BOOK, "b.txt"))
+        assertTrue(storage.isFolder(MediaKind.AUDIO, "Book/Nested"))
+        assertEquals(listOf("Book/Nested/CD1/01.mp3"), storage.listFiles(MediaKind.AUDIO, "Book"))
+        assertThrows<AppError.StorageFailed> { storage.copyInto(MediaKind.BOOK, file, "b.txt") }
+
+        storage.delete(MediaKind.BOOK, "b.txt")
+        storage.delete(MediaKind.BOOK, "b.txt")
+        assertFalse(storage.exists(MediaKind.BOOK, "b.txt"))
     }
 }

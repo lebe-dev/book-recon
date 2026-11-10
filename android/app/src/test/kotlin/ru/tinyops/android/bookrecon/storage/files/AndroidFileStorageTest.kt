@@ -3,6 +3,7 @@ package ru.tinyops.android.bookrecon.storage.files
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -17,176 +18,176 @@ class AndroidFileStorageTest {
     @TempDir
     lateinit var dir: File
 
-    private var access = true
-    private var renameWorks = true
+    private val booksUri = "content://com.android.externalstorage.documents/tree/primary%3ABooks"
+    private val audioUri = "content://com.android.externalstorage.documents/tree/primary%3AAudiobooks"
     private val books by lazy { File(dir, "Books").apply { mkdirs() } }
     private val audio by lazy { File(dir, "Audiobooks").apply { mkdirs() } }
-    private val settings by lazy { FakeSettingsRepository(Settings(booksRoot = books.path, audioRoot = audio.path)) }
+    private val staging by lazy { File(dir, "staging") }
+    private val tree by lazy { LocalDocumentTree(mapOf(booksUri to books, audioUri to audio)) }
+    private val settings by lazy { FakeSettingsRepository(Settings(booksRoot = booksUri, audioRoot = audioUri)) }
 
     private fun storage() = AndroidFileStorage(
         settings = settings,
-        hasAccess = { access },
-        rename = { from, to -> renameWorks && from.renameTo(to) },
+        tree = tree,
+        stagingBase = staging,
+        primaryRoot = "/storage/emulated/0",
     )
 
     @Test
-    fun reportsAllFilesAccess() {
-        val storage = storage()
-        assertTrue(storage.hasAllFilesAccess())
-        access = false
-        assertFalse(storage.hasAllFilesAccess())
-    }
-
-    @Test
-    fun rootOfEachKind() = runBlocking {
-        assertEquals(books, storage().root(MediaKind.BOOK))
-        assertEquals(audio, storage().root(MediaKind.AUDIO))
-    }
-
-    @Test
-    fun rootWithoutAccess() = runBlocking {
-        access = false
-        assertThrows<AppError.StorageNotGranted> { runBlocking { storage().root(MediaKind.BOOK) } }
-        Unit
+    fun requireRootAcceptsChosenRoots() = runBlocking {
+        storage().requireRoot(MediaKind.BOOK)
+        storage().requireRoot(MediaKind.AUDIO)
     }
 
     @Test
     fun rootNotChosen() = runBlocking {
         settings.update { it.copy(audioRoot = null) }
-        val error = assertThrows<AppError.RootNotConfigured> { runBlocking { storage().root(MediaKind.AUDIO) } }
+        val error = assertThrows<AppError.RootNotConfigured> { runBlocking { storage().requireRoot(MediaKind.AUDIO) } }
         assertEquals(MediaKind.AUDIO, error.kind)
     }
 
     @Test
-    fun rootThatIsGoneIsNotRecreated() = runBlocking {
+    fun rootWithoutGrant() = runBlocking {
+        tree.granted = false
+        assertThrows<AppError.StorageNotGranted> { runBlocking { storage().requireRoot(MediaKind.BOOK) } }
+        Unit
+    }
+
+    @Test
+    fun rootThatIsGone() = runBlocking {
         books.deleteRecursively()
-        assertThrows<AppError.RootNotConfigured> { runBlocking { storage().root(MediaKind.BOOK) } }
-        assertFalse(books.exists())
-    }
-
-    @Test
-    fun rootThatIsAFile() = runBlocking {
-        val file = File(dir, "file").apply { writeText("x") }
-        settings.update { it.copy(booksRoot = file.path) }
-        assertThrows<AppError.RootNotConfigured> { runBlocking { storage().root(MediaKind.BOOK) } }
+        assertThrows<AppError.RootNotConfigured> { runBlocking { storage().requireRoot(MediaKind.BOOK) } }
         Unit
     }
 
     @Test
-    fun stagingDirHidesItselfFromMediaScanners() = runBlocking {
-        val staging = storage().stagingDir(MediaKind.AUDIO, "job-1")
+    fun stagingIsPrivateAndRemovable() = runBlocking {
+        val storage = storage()
 
-        assertEquals(File(audio, ".book-recon/job-1"), staging)
-        assertTrue(staging.isDirectory)
-        assertTrue(File(audio, ".book-recon/.nomedia").isFile)
+        val dir = storage.stagingDir("job-1")
 
-        assertEquals(staging, storage().stagingDir(MediaKind.AUDIO, "job-1"))
-        assertEquals(File(books, ".book-recon/job-2"), storage().stagingDir(MediaKind.BOOK, "job-2"))
-        assertTrue(File(books, ".book-recon/.nomedia").isFile)
+        assertEquals(File(staging, "job-1"), dir)
+        assertTrue(dir.isDirectory)
+        File(dir, "a.bin").writeText("a")
+        storage.deleteStaging("job-1")
+        assertFalse(dir.exists())
+        storage.deleteStaging("job-1")
     }
 
     @Test
-    fun stagingDirHasTheSameErrorsAsRoot() = runBlocking {
-        settings.update { it.copy(booksRoot = null) }
-        assertThrows<AppError.RootNotConfigured> { runBlocking { storage().stagingDir(MediaKind.BOOK, "job") } }
-        access = false
-        assertThrows<AppError.StorageNotGranted> { runBlocking { storage().stagingDir(MediaKind.AUDIO, "job") } }
+    fun copyIntoPlacesFilesAndFolders() = runBlocking {
+        val storage = storage()
+        val file = File(dir, "src.epub").apply { writeText("book") }
+        val folder = File(dir, "src").apply { mkdirs() }
+        File(folder, "CD1").mkdirs()
+        File(folder, "CD1/01.mp3").writeText("sound")
+
+        storage.copyInto(MediaKind.BOOK, file, "Мастер.epub")
+        storage.copyInto(MediaKind.AUDIO, folder, "Книга")
+
+        assertEquals("book", File(books, "Мастер.epub").readText())
+        assertTrue(file.exists())
+        assertTrue(storage.exists(MediaKind.BOOK, "Мастер.epub"))
+        assertFalse(storage.isFolder(MediaKind.BOOK, "Мастер.epub"))
+        assertTrue(storage.isFolder(MediaKind.AUDIO, "Книга"))
+        assertEquals(listOf("Книга/CD1/01.mp3"), storage.listFiles(MediaKind.AUDIO, "Книга"))
+        assertTrue(storage.uriOf(MediaKind.BOOK, "Мастер.epub")!!.startsWith("content://"))
+    }
+
+    @Test
+    fun copyIntoNeverOverwrites() = runBlocking {
+        val storage = storage()
+        File(books, "a.epub").writeText("old")
+        val file = File(dir, "a.epub").apply { writeText("new") }
+
+        assertThrows<AppError.StorageFailed> { runBlocking { storage.copyInto(MediaKind.BOOK, file, "a.epub") } }
+
+        assertEquals("old", File(books, "a.epub").readText())
+    }
+
+    @Test
+    fun copyIntoReportsFailure() = runBlocking {
+        val storage = storage()
+        tree.failCopies = true
+        val file = File(dir, "a.epub").apply { writeText("new") }
+
+        assertThrows<AppError.StorageFailed> { runBlocking { storage.copyInto(MediaKind.BOOK, file, "a.epub") } }
         Unit
     }
 
     @Test
-    fun moveFileByRename() = runBlocking {
-        val from = File(dir, "a.epub").apply { writeText("book") }
-        val to = File(books, "Автор/Книга.epub")
+    fun copyIntoNeedsAUsableRoot() = runBlocking {
+        tree.granted = false
+        val file = File(dir, "a.epub").apply { writeText("new") }
 
-        storage().move(from, to)
-
-        assertFalse(from.exists())
-        assertEquals("book", to.readText())
-    }
-
-    @Test
-    fun moveFolderByRename() = runBlocking {
-        val from = File(dir, "staging").apply { File(this, "CD1").mkdirs() }
-        File(from, "CD1/01.mp3").writeText("one")
-
-        val to = File(audio, "Книга")
-        storage().move(from, to)
-
-        assertFalse(from.exists())
-        assertEquals("one", File(to, "CD1/01.mp3").readText())
-    }
-
-    @Test
-    fun moveFallsBackToCopyAndDelete() = runBlocking {
-        renameWorks = false
-        val file = File(dir, "a.epub").apply { writeText("book") }
-        val folder = File(dir, "staging").apply { File(this, "CD2").mkdirs() }
-        File(folder, "CD2/02.mp3").writeText("two")
-
-        storage().move(file, File(books, "a.epub"))
-        storage().move(folder, File(audio, "Книга"))
-
-        assertFalse(file.exists())
-        assertFalse(folder.exists())
-        assertEquals("book", File(books, "a.epub").readText())
-        assertEquals("two", File(audio, "Книга/CD2/02.mp3").readText())
-    }
-
-    @Test
-    fun moveNeverOverwrites() = runBlocking {
-        val from = File(dir, "a.epub").apply { writeText("new") }
-        val to = File(books, "a.epub").apply { writeText("old") }
-
-        assertThrows<AppError.StorageFailed> { runBlocking { storage().move(from, to) } }
-        assertEquals("new", from.readText())
-        assertEquals("old", to.readText())
-    }
-
-    @Test
-    fun failedMoveLeavesNoPartialTarget() = runBlocking {
-        renameWorks = false
-        val missing = File(dir, "missing")
-        val to = File(books, "missing")
-
-        assertThrows<AppError.StorageFailed> { runBlocking { storage().move(missing, to) } }
-        assertFalse(to.exists())
+        assertThrows<AppError.StorageNotGranted> { runBlocking { storage().copyInto(MediaKind.BOOK, file, "a.epub") } }
+        Unit
     }
 
     @Test
     fun deleteFilesAndFolders() = runBlocking {
-        val file = File(books, "a.epub").apply { writeText("x") }
-        val folder = File(audio, "Книга/CD1").apply { mkdirs() }
-        File(folder, "01.mp3").writeText("x")
+        val storage = storage()
+        File(books, "a.epub").writeText("a")
+        File(audio, "Книга/CD1").mkdirs()
+        File(audio, "Книга/CD1/01.mp3").writeText("x")
 
-        storage().delete(file)
-        storage().delete(File(audio, "Книга"))
-        storage().delete(File(dir, "missing"))
+        storage.delete(MediaKind.BOOK, "a.epub")
+        storage.delete(MediaKind.AUDIO, "Книга")
+        storage.delete(MediaKind.AUDIO, "Книга")
 
-        assertFalse(file.exists())
+        assertFalse(File(books, "a.epub").exists())
         assertFalse(File(audio, "Книга").exists())
-        assertTrue(storage().exists(books))
-        assertFalse(storage().exists(file))
+    }
+
+    @Test
+    fun deleteNeverRemovesTheRoot() = runBlocking {
+        storage().delete(MediaKind.BOOK, "")
+        storage().delete(MediaKind.BOOK, "/")
+
+        assertTrue(books.isDirectory)
+    }
+
+    @Test
+    fun pathsThatClimbOutOfTheRootAreIgnored() = runBlocking {
+        File(dir, "secret.txt").writeText("x")
+        val storage = storage()
+
+        assertFalse(storage.exists(MediaKind.BOOK, "../secret.txt"))
+        assertNull(storage.uriOf(MediaKind.BOOK, "../secret.txt"))
+        assertThrows<AppError.Validation> {
+            runBlocking { storage.copyInto(MediaKind.BOOK, File(dir, "secret.txt"), "../out.txt") }
+        }
+        Unit
+    }
+
+    @Test
+    fun oldAbsolutePathsInsideTheRootStillResolve() = runBlocking {
+        File(books, "a.epub").writeText("a")
+        File(audio, "Книга").mkdirs()
+        File(audio, "Книга/01.mp3").writeText("x")
+        val storage = storage()
+
+        assertTrue(storage.exists(MediaKind.BOOK, "/storage/emulated/0/Books/a.epub"))
+        assertTrue(storage.isFolder(MediaKind.AUDIO, "/storage/emulated/0/Audiobooks/Книга"))
+        assertEquals(listOf("Книга/01.mp3"), storage.listFiles(MediaKind.AUDIO, "/storage/emulated/0/Audiobooks/Книга"))
+        assertFalse(storage.exists(MediaKind.BOOK, "/storage/emulated/0/Other/a.epub"))
+        assertFalse(storage.exists(MediaKind.BOOK, "/storage/emulated/0/Documents/a.epub"))
     }
 
     @Test
     fun checkRoot() = runBlocking {
         val storage = storage()
-        assertEquals(RootCheck.OK, storage.checkRoot(books.path))
-        assertEquals(listOf<String>(), books.list()!!.toList())
+        assertEquals(RootCheck.OK, storage.checkRoot(booksUri))
+        assertTrue(books.listFiles().orEmpty().isEmpty())
 
-        assertEquals(RootCheck.MISSING, storage.checkRoot(File(dir, "missing").path))
-        assertEquals(RootCheck.MISSING, storage.checkRoot(File(dir, "file").apply { writeText("x") }.path))
+        audio.deleteRecursively()
+        assertEquals(RootCheck.MISSING, storage.checkRoot(audioUri))
 
-        val readOnly = File(dir, "readonly").apply { mkdirs() }
-        readOnly.setWritable(false)
-        try {
-            assertEquals(RootCheck.NOT_WRITABLE, storage.checkRoot(readOnly.path))
-        } finally {
-            readOnly.setWritable(true)
-        }
+        tree.failCopies = true
+        assertEquals(RootCheck.NOT_WRITABLE, storage.checkRoot(booksUri))
+        tree.failCopies = false
 
-        access = false
-        assertEquals(RootCheck.NO_ACCESS, storage.checkRoot(books.path))
+        tree.granted = false
+        assertEquals(RootCheck.NO_ACCESS, storage.checkRoot(booksUri))
     }
 }

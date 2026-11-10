@@ -3,9 +3,11 @@ package ru.tinyops.android.bookrecon.storage.files
 import java.io.ByteArrayOutputStream
 
 /**
- * Turns a folder picked with the system folder picker (a document tree URI) into a plain
- * path on shared storage. The app reads and writes the roots as files thanks to all-files
- * access, so only providers whose document IDs encode a path are supported.
+ * Reads a folder picked with the system folder picker (a document tree URI). The roots are
+ * reached through document grants; only the external storage provider is supported, since
+ * its document IDs are a parent ID, a slash and a name, which lets the app address a file
+ * by its path. [pathOf] turns a tree into a plain path only to read the paths that
+ * version 0.9.0 and older recorded.
  */
 object TreeUris {
     const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
@@ -31,6 +33,30 @@ object TreeUris {
             EXTERNAL_STORAGE_AUTHORITY -> externalStoragePath(documentId, primaryRoot)
             DOWNLOADS_AUTHORITY -> rawPath(documentId)
             else -> null
+        }
+    }
+
+    /** True for a folder, not a whole volume, of the external storage provider. */
+    fun isSupported(treeUri: String): Boolean = label(treeUri) != null
+
+    /**
+     * Short human-readable name of the picked folder: `Books/Fiction` on the primary volume,
+     * `Documents/Notes` for the documents folder, `1234-ABCD:/Audio` on a card. Null for
+     * other providers and for the root of a volume.
+     */
+    fun label(treeUri: String): String? {
+        val tree = parseTree(treeUri) ?: return null
+        if (tree.authority != EXTERNAL_STORAGE_AUTHORITY) return null
+        val documentId = decode(tree.encodedDocumentId) ?: return null
+        val separator = documentId.indexOf(':')
+        if (separator <= 0) return null
+        val volume = documentId.substring(0, separator)
+        if (volume.contains('/')) return null
+        val relative = relativePath(documentId.substring(separator + 1))?.takeIf { it.isNotEmpty() } ?: return null
+        return when (volume) {
+            PRIMARY_VOLUME -> relative
+            HOME_VOLUME -> "$DOCUMENTS_DIR/$relative"
+            else -> "$volume:/$relative"
         }
     }
 

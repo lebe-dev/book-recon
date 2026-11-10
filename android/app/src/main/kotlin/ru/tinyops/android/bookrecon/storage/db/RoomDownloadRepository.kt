@@ -16,7 +16,6 @@ import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.core.port.Clock
 import ru.tinyops.android.bookrecon.core.port.DownloadRepository
 import ru.tinyops.android.bookrecon.core.port.FileStorage
-import java.io.File
 import java.time.Duration
 import java.time.Instant
 
@@ -95,7 +94,7 @@ class RoomDownloadRepository(
 
     private fun withFileCheck(download: Download): Download {
         if (!download.status.isInLibrary || download.paths.isEmpty()) return download
-        return download.copy(fileMissing = download.paths.none { storage.exists(File(it)) })
+        return download.copy(fileMissing = download.paths.none { storage.exists(download.kind, it) })
     }
 
     private fun isProgressOnly(previous: Download, next: Download): Boolean =

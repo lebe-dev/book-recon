@@ -7,24 +7,14 @@ import ru.tinyops.android.bookrecon.core.domain.Settings
 
 class FirstRunTest {
     @Test
-    fun freshInstallNeedsSetup() {
-        assertTrue(needsStorageSetup(hasAllFilesAccess = false, settings = Settings()))
+    fun opensSettingsWhenNoRootIsChosen() {
+        assertTrue(needsStorageSetup(Settings()))
     }
 
     @Test
-    fun accessWithoutRootsNeedsSetup() {
-        assertTrue(needsStorageSetup(hasAllFilesAccess = true, settings = Settings()))
-    }
-
-    @Test
-    fun rootsWithoutAccessNeedSetup() {
-        val settings = Settings(audioRoot = "/storage/emulated/0/Audiobooks", booksRoot = "/storage/emulated/0/Books")
-        assertTrue(needsStorageSetup(hasAllFilesAccess = false, settings = settings))
-    }
-
-    @Test
-    fun accessAndOneRootIsEnough() {
-        assertFalse(needsStorageSetup(hasAllFilesAccess = true, settings = Settings(booksRoot = "/storage/emulated/0/Books")))
-        assertFalse(needsStorageSetup(hasAllFilesAccess = true, settings = Settings(audioRoot = "/storage/emulated/0/Audiobooks")))
+    fun oneChosenRootIsEnough() {
+        val tree = "content://com.android.externalstorage.documents/tree/primary%3A"
+        assertFalse(needsStorageSetup(Settings(booksRoot = "${tree}Books")))
+        assertFalse(needsStorageSetup(Settings(audioRoot = "${tree}Audiobooks")))
     }
 }

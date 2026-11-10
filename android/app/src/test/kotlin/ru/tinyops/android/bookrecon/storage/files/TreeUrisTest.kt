@@ -1,7 +1,9 @@
 package ru.tinyops.android.bookrecon.storage.files
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
@@ -66,5 +68,41 @@ class TreeUrisTest {
                 primaryRoot = "/storage/emulated/10",
             ),
         )
+    }
+
+    @ParameterizedTest(name = "{0} -> {1}")
+    @CsvSource(
+        delimiter = '|',
+        value = [
+            "content://com.android.externalstorage.documents/tree/primary%3AAudiobooks | Audiobooks",
+            "content://com.android.externalstorage.documents/tree/primary%3ABooks%2FFiction | Books/Fiction",
+            "content://com.android.externalstorage.documents/tree/primary%3A%D0%9A%D0%BD%D0%B8%D0%B3%D0%B8 | Книги",
+            "content://com.android.externalstorage.documents/tree/home%3ANotes | Documents/Notes",
+            "content://com.android.externalstorage.documents/tree/1234-ABCD%3AAudio | 1234-ABCD:/Audio",
+        ],
+    )
+    fun labelsTreeUri(uri: String, label: String) {
+        assertEquals(label, TreeUris.label(uri))
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "content://com.android.externalstorage.documents/tree/primary%3A",
+            "content://com.android.providers.downloads.documents/tree/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2FBooks",
+            "content://com.android.providers.media.documents/tree/images",
+            "/storage/emulated/0/Books",
+            "",
+        ],
+    )
+    fun unsupportedTreesHaveNoLabelAndAreNotSupported(uri: String) {
+        assertNull(TreeUris.label(uri))
+        assertFalse(TreeUris.isSupported(uri))
+    }
+
+    @Test
+    fun supportsFoldersOfExternalStorage() {
+        assertTrue(TreeUris.isSupported("content://com.android.externalstorage.documents/tree/primary%3ABooks"))
+        assertTrue(TreeUris.isSupported("content://com.android.externalstorage.documents/tree/1234-ABCD%3AAudio"))
     }
 }

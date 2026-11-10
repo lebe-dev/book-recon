@@ -31,7 +31,7 @@
     <string name="download_error_already">уже загружается</string>
     <string name="download_error_selection_empty">не выбрано ни одного файла</string>
     <string name="download_error_no_matching_files">в раздаче нет подходящих файлов</string>
-    <string name="download_error_storage_not_granted">нет доступа к файлам</string>
+    <string name="download_error_storage_not_granted">нет доступа к папке загрузок</string>
     <string name="download_error_root_not_configured">не выбрана папка для загрузок</string>
     <string name="download_error_storage_failed">не удалось записать файлы</string>
     <string name="download_error_interrupted">загрузка прервана</string>

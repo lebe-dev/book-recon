@@ -117,8 +117,8 @@ sealed class AppError(
     class NoMatchingFiles(val kind: MediaKind) :
         AppError(ErrorCode.NO_MATCHING_FILES, kind.name, "torrent has no ${kind.name.lowercase()} files")
 
-    /** The app has no all-files access. */
-    class StorageNotGranted : AppError(ErrorCode.STORAGE_NOT_GRANTED, null, "all files access is not granted")
+    /** The app lost its access to a chosen root folder, for example the user revoked it. */
+    class StorageNotGranted : AppError(ErrorCode.STORAGE_NOT_GRANTED, null, "access to the root folder is not granted")
 
     /** The root folder for [kind] is not chosen in settings or is gone. */
     class RootNotConfigured(val kind: MediaKind) :

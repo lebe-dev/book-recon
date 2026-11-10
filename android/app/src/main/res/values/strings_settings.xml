@@ -1,3 +1,126 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <string name="settings_back">Назад</string>
+    <string name="settings_hub_appearance">Цветовая тема и тёмный режим</string>
+    <string name="settings_hub_storage">Доступ к файлам и папки для книг и аудиокниг</string>
+    <string name="settings_hub_server">Доступ к RuTracker и Flibusta через свой сервер</string>
+    <string name="settings_hub_sources_title">Источники</string>
+    <string name="settings_hub_sources">Вход в RuTracker и адрес Flibusta</string>
+    <string name="settings_hub_downloads">Формат, сеть, очередь и раздача</string>
+    <string name="settings_hub_diagnostics_title">Диагностика</string>
+    <string name="settings_hub_diagnostics">Отчёты об ошибках и журнал приложения</string>
+    <string name="settings_section_appearance">Оформление</string>
+    <string name="settings_theme">Цветовая тема</string>
+    <string name="settings_theme_blueberry">Черника</string>
+    <string name="settings_theme_pistachio">Фисташка</string>
+    <string name="settings_theme_apple">Яблоко</string>
+    <string name="settings_theme_bilberry">Голубика</string>
+    <string name="settings_theme_marshmallow">Зефир</string>
+    <string name="settings_theme_cocoa">Какао</string>
+    <string name="settings_cyrillic_name">Название для своих</string>
+    <string name="settings_cyrillic_name_text">Под иконкой и в поиске на телефоне приложение называется «Бук Ракун». Если иконка пропала с рабочего стола, добавьте её снова</string>
+    <string name="settings_dark_mode">Тёмная тема</string>
+    <string name="settings_dark_mode_system">Системная</string>
+    <string name="settings_dark_mode_light">Светлая</string>
+    <string name="settings_dark_mode_dark">Тёмная</string>
+
+    <string name="settings_section_storage">Файлы</string>
+    <string name="settings_access_granted">Доступ ко всем файлам разрешён</string>
+    <string name="settings_access_missing_title">Нужен доступ ко всем файлам</string>
+    <string name="settings_access_missing_text">Книги и аудиокниги сохраняются в выбранные вами папки, где их видят читалки и плееры. Для этого приложению нужен доступ ко всем файлам. Откройте системные настройки, включите «Доступ ко всем файлам» и вернитесь назад.</string>
+    <string name="settings_access_open">Открыть настройки доступа</string>
+    <string name="settings_access_unavailable">Не удалось открыть системные настройки</string>
+    <string name="settings_root_audio">Папка аудиокниг</string>
+    <string name="settings_root_books">Папка книг</string>
+    <string name="settings_root_not_chosen">Не выбрана, нажмите, чтобы выбрать</string>
+    <string name="settings_root_missing">Папка не найдена, выберите заново</string>
+    <string name="settings_root_not_writable">В папку нельзя записать, выберите другую</string>
+    <string name="settings_root_no_access">Сначала разрешите доступ ко всем файлам</string>
+    <string name="settings_root_issue_unsupported">Эту папку нельзя использовать: выберите папку во внутренней памяти или на карте памяти</string>
+    <string name="settings_root_issue_missing">Выбранная папка не найдена</string>
+    <string name="settings_root_issue_not_writable">В выбранную папку нельзя записать файлы</string>
+    <string name="settings_root_issue_no_access">Сначала разрешите доступ ко всем файлам, затем выберите папку</string>
+    <string name="settings_root_picker_unavailable">Не удалось открыть выбор папки</string>
+
+    <string name="settings_section_server">Сервер Book Recon</string>
+    <string name="settings_server_enable">Через сервер Book Recon</string>
+    <string name="settings_server_text">Открывать RuTracker и Flibusta через сервер, если их блокирует ваша сеть. Доступ одобряет администратор сервера в Telegram-боте</string>
+    <string name="settings_server_url">Адрес сервера</string>
+    <string name="settings_server_url_hint">Пустое поле — без сервера</string>
+    <string name="settings_server_url_error">Введите адрес вида https://books.example.com</string>
+    <string name="settings_server_connect">Подключить</string>
+    <string name="settings_server_retry">Повторить</string>
+    <string name="settings_server_open_telegram">Открыть Telegram</string>
+    <string name="settings_server_cancel">Отменить</string>
+    <string name="settings_server_disconnect">Отключить</string>
+    <string name="settings_server_status_disconnected">Не подключено</string>
+    <string name="settings_server_status_connecting">Подключение…</string>
+    <string name="settings_server_status_awaiting">Откройте бота в Telegram и нажмите «Старт», чтобы подтвердить подключение</string>
+    <string name="settings_server_status_pending">Ждите, пока администратор одобрит доступ</string>
+    <string name="settings_server_status_approved">Доступ одобрен: RuTracker, Flibusta и торренты идут через сервер Book Recon</string>
+    <string name="settings_server_status_approved_as">Доступ одобрен для @%1$s: RuTracker, Flibusta и торренты идут через сервер Book Recon</string>
+    <string name="settings_server_status_denied">Администратор отказал в доступе к серверу Book Recon</string>
+    <string name="settings_server_problem_unreachable">Сервер недоступен</string>
+    <string name="settings_server_problem_not_book_recon">По этому адресу нет сервера Book Recon с доступом для приложения</string>
+    <string name="settings_server_problem_server_error">Сервер ответил ошибкой</string>
+    <string name="settings_server_no_app">Не удалось открыть ссылку: нет ни Telegram, ни браузера</string>
+
+    <string name="settings_section_rutracker">RuTracker</string>
+    <string name="settings_rutracker_login">Логин</string>
+    <string name="settings_rutracker_password">Пароль</string>
+    <string name="settings_rutracker_password_stored">Пароль сохранён. Оставьте поле пустым, чтобы не менять его</string>
+    <string name="settings_rutracker_server">Сервер Book Recon подключён: поиск и торренты RuTracker идут через его учётную запись, логин и пароль ниже не используются</string>
+    <string name="settings_rutracker_hint">Логин и пароль сохраняются при проверке входа</string>
+    <string name="settings_rutracker_show_password">Показать пароль</string>
+    <string name="settings_rutracker_hide_password">Скрыть пароль</string>
+    <string name="settings_rutracker_check">Проверить вход</string>
+    <string name="settings_rutracker_forget">Забыть</string>
+    <string name="settings_rutracker_checking">Входим…</string>
+    <string name="settings_rutracker_success">Вход выполнен</string>
+    <string name="settings_login_error_auth_required">Введите логин и пароль</string>
+    <string name="settings_login_error_failed">Неверный логин или пароль</string>
+    <string name="settings_login_error_captcha">Вход не выполнен: RuTracker просит ввести капчу</string>
+    <string name="settings_login_error_cloudflare">Вход не выполнен: проверка Cloudflare не пройдена</string>
+    <string name="settings_login_error_network">Нет соединения с RuTracker. Проверьте интернет или VPN</string>
+    <string name="settings_login_error_timeout">RuTracker не ответил вовремя</string>
+    <string name="settings_login_error_storage">Не удалось сохранить пароль</string>
+    <string name="settings_login_error_other">Не удалось проверить вход, попробуйте позже</string>
+
+    <string name="settings_section_flibusta">Flibusta</string>
+    <string name="settings_flibusta_url">Адрес сайта</string>
+    <string name="settings_flibusta_url_hint">Пустое поле — адрес по умолчанию</string>
+    <string name="settings_flibusta_timeout">Время ожидания ответа</string>
+    <string name="settings_flibusta_timeout_text">Сколько ждать ответа сайта, прежде чем считать запрос неудавшимся. Если Flibusta часто не отвечает, увеличьте</string>
+    <string name="settings_flibusta_timeout_seconds">%1$d с</string>
+    <string name="settings_flibusta_url_error">Введите адрес вида https://flibusta.is</string>
+    <string name="settings_save">Сохранить</string>
+
+    <string name="settings_section_downloads">Загрузки</string>
+    <string name="settings_preferred_format">Предпочтительный формат книги</string>
+    <string name="settings_server_torrent_peers">Пиры через сервер</string>
+    <string name="settings_server_torrent_peers_text">Трекер RuTracker всегда идёт через сервер. Включите, если ваша сеть блокирует и раздающих; многие из них недоступны с сервера, и загрузка может не начаться</string>
+    <string name="settings_wifi_only">Только Wi-Fi</string>
+    <string name="settings_wifi_only_text">Загружать только по Wi-Fi и другим безлимитным сетям</string>
+    <string name="settings_max_concurrent">Одновременных загрузок</string>
+
+    <string name="settings_no_seeders_retry">Повтор, если нет сидов</string>
+    <string name="settings_no_seeders_retry_text">Пока приложение открыто, торрент без сидов или зависшая загрузка запускаются снова через выбранное время</string>
+    <string name="settings_no_seeders_retry_off">Выкл</string>
+    <string name="settings_no_seeders_retry_minutes">%1$d мин</string>
+    <string name="settings_section_seeding">Раздача после загрузки</string>
+    <string name="settings_seeding_text">Раздавать скачанные торренты, пока телефон на зарядке и подключён к Wi-Fi</string>
+    <string name="settings_seeding_off">Выкл</string>
+    <string name="settings_seeding_hours">%1$d ч</string>
+
+    <string name="settings_section_log">Журнал</string>
+    <string name="settings_log_open">Журнал приложения</string>
+    <string name="settings_log_open_text">Скачивания, ошибки и сеть. Можно скопировать или сохранить в файл</string>
+    <string name="settings_version">Версия %1$s (%2$s)</string>
+    <string name="settings_source_enabled_rutracker">Искать на RuTracker</string>
+    <string name="settings_source_enabled_flibusta">Искать на Flibusta</string>
+    <string name="settings_github">Проект на GitHub</string>
+    <string name="settings_section_reports">Отчёты об ошибках</string>
+    <string name="settings_reports_send">Отправлять отчёты об ошибках</string>
+    <string name="settings_reports_text">Сбои и непредвиденные ошибки отправляются разработчику без персональных данных и ключей, только с моделью телефона и версией Android. Логины и пароли не отправляются</string>
 </resources>

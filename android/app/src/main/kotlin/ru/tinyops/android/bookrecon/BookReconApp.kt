@@ -10,5 +10,8 @@ class BookReconApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        container.log.start()
+        container.reports.start()
+        container.server.start()
     }
 }

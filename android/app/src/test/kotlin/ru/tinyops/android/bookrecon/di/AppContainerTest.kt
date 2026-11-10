@@ -9,8 +9,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import ru.tinyops.android.bookrecon.core.domain.MediaKind
-import ru.tinyops.android.bookrecon.core.fake.FakeData
+import ru.tinyops.android.bookrecon.core.flibusta.FlibustaSourceImpl
+import ru.tinyops.android.bookrecon.net.OkHttpHttpClient
+import ru.tinyops.android.bookrecon.server.RoutingRuTrackerClient
+import ru.tinyops.android.bookrecon.storage.db.RoomDownloadRepository
+import ru.tinyops.android.bookrecon.storage.files.AndroidFileStorage
+import ru.tinyops.android.bookrecon.storage.settings.DataStoreSettingsRepository
+import ru.tinyops.android.bookrecon.torrent.LibTorrentEngine
 
 @RunWith(RobolectricTestRunner::class)
 // Robolectric 4.17 fails to set up SDK 36+ on JDK 21 (ApplicationSharedMemory), so pin 35.
@@ -21,15 +26,13 @@ class AppContainerTest {
         val app = AppContainer(ApplicationProvider.getApplicationContext())
 
         assertEquals(2, app.settings.settingsRepository.settings.first().maxConcurrent)
-        assertTrue(app.settings.fileStorage.hasAllFilesAccess())
-        assertTrue(app.flibusta.flibustaSource.search("Булгаков", 10).isNotEmpty())
-        assertTrue(app.ruTracker.ruTrackerClient.search("мастер", MediaKind.AUDIO, 10).isNotEmpty())
-        assertEquals(
-            FakeData.torrentInfo(FakeData.AUDIO_TOPIC_CD),
-            app.torrent.torrentEngine.parse(FakeData.torrentBytes(FakeData.AUDIO_TOPIC_CD)),
-        )
-        assertEquals(3, app.database.downloadRepository.observeLibrary().first().size)
-        assertEquals(404, app.network.httpClient.get("https://example.org/").use { it.code })
+        assertTrue(app.settings.settingsRepository is DataStoreSettingsRepository)
+        assertTrue(app.settings.fileStorage is AndroidFileStorage)
+        assertTrue(app.flibusta.flibustaSource is FlibustaSourceImpl)
+        assertTrue(app.ruTracker.ruTrackerClient is RoutingRuTrackerClient)
+        assertTrue(app.torrent.torrentEngine is LibTorrentEngine)
+        assertTrue(app.database.downloadRepository is RoomDownloadRepository)
+        assertTrue(app.network.httpClient is OkHttpHttpClient)
         assertTrue(app.download.downloadQueue.observe().first().isEmpty())
     }
 }

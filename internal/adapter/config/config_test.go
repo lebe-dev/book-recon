@@ -56,3 +56,68 @@ func TestLoadAudiobooksEnabled(t *testing.T) {
 		t.Errorf("AudiobooksMaxDownloadSize = %d, want 1GB", cfg.AudiobooksMaxDownloadSize)
 	}
 }
+
+func TestLoadAppAPIDefaults(t *testing.T) {
+	t.Setenv("TELEGRAM_TOKEN", "x")
+	t.Setenv("AUDIOBOOKS_ENABLED", "false")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.AppAPIEnabled || cfg.AppAPIListen != ":8081" {
+		t.Errorf("app api = %v %q, want disabled on :8081", cfg.AppAPIEnabled, cfg.AppAPIListen)
+	}
+	if strings.Join(cfg.AppTunnelHosts, ",") != "rutracker.org,rutracker.cc,t-ru.org,flibusta.is,challenges.cloudflare.com" {
+		t.Errorf("AppTunnelHosts = %v", cfg.AppTunnelHosts)
+	}
+	if len(cfg.AppTunnelPorts) != 2 || cfg.AppTunnelPorts[0] != 443 || cfg.AppTunnelPorts[1] != 80 {
+		t.Errorf("AppTunnelPorts = %v", cfg.AppTunnelPorts)
+	}
+}
+
+func TestLoadAppAPIRequiresTunnelHosts(t *testing.T) {
+	t.Setenv("TELEGRAM_TOKEN", "x")
+	t.Setenv("AUDIOBOOKS_ENABLED", "false")
+	t.Setenv("APP_API_ENABLED", "true")
+	t.Setenv("APP_TUNNEL_HOSTS", " , ")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "APP_TUNNEL_HOSTS") {
+		t.Fatalf("Load() error = %v, want APP_TUNNEL_HOSTS", err)
+	}
+}
+
+func TestLoadTorrentRateLimitDefault(t *testing.T) {
+	t.Setenv("TELEGRAM_TOKEN", "x")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.TorrentDownloadRateLimit != 1<<20 {
+		t.Errorf("TorrentDownloadRateLimit = %d, want 1 MiB/s", cfg.TorrentDownloadRateLimit)
+	}
+}
+
+func TestLoadTorrentRateLimitCustomAndOff(t *testing.T) {
+	t.Setenv("TELEGRAM_TOKEN", "x")
+	t.Setenv("TORRENT_DOWNLOAD_RATE_LIMIT", "512KB")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.TorrentDownloadRateLimit != 512<<10 {
+		t.Errorf("TorrentDownloadRateLimit = %d, want 512 KiB/s", cfg.TorrentDownloadRateLimit)
+	}
+
+	t.Setenv("TORRENT_DOWNLOAD_RATE_LIMIT", "0")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.TorrentDownloadRateLimit != 0 {
+		t.Errorf("TorrentDownloadRateLimit = %d, want 0 (unlimited)", cfg.TorrentDownloadRateLimit)
+	}
+}

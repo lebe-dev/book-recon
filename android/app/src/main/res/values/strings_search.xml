@@ -1,3 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="search_field_label">Название или автор</string>
+    <string name="search_action">Найти</string>
+    <string name="search_clear">Очистить</string>
+    <string name="search_history_remove">Удалить из истории</string>
+    <string name="search_query_too_short">Введите хотя бы 2 символа</string>
+    <string name="search_kind_books">Книги</string>
+    <string name="search_kind_audio">Аудиокниги</string>
+
+    <string name="search_hint_books">Ищем книги на Flibusta и RuTracker</string>
+    <string name="search_hint_audio">Ищем аудиокниги на RuTracker</string>
+    <string name="search_nothing_found">Ничего не найдено</string>
+
+    <string name="search_source_flibusta" translatable="false">Flibusta</string>
+    <string name="search_source_rutracker" translatable="false">RuTracker</string>
+    <string name="search_source_loading">%1$s: ищем…</string>
+    <string name="search_source_error">%1$s: %2$s</string>
+    <string name="search_open_settings">Настройки</string>
+    <string name="search_retry">Повторить</string>
+    <string name="search_pass_verification">Пройти</string>
+
+    <string name="search_error_network">нет соединения</string>
+    <string name="search_error_service_down">сайт недоступен</string>
+    <string name="search_error_timeout">сайт не ответил вовремя</string>
+    <string name="search_error_not_found">страница не найдена</string>
+    <string name="search_error_parse">не удалось разобрать ответ сайта</string>
+    <string name="search_error_cloudflare">нужна проверка Cloudflare</string>
+    <string name="search_error_auth_required">нужен вход</string>
+    <string name="search_error_login_failed">неверный логин или пароль</string>
+    <string name="search_error_captcha">нужно ввести капчу</string>
+    <string name="search_error_validation">запрос не подходит</string>
+    <string name="search_error_unknown">ошибка поиска</string>
+
+    <string name="search_downloaded">Скачано</string>
+    <string name="search_seeders_peers">Сиды %1$d · пиры %2$d</string>
+    <string name="search_size">%1$s %2$s</string>
+    <string name="search_size_and_stats">%1$s · %2$s</string>
+    <string name="search_size_bytes">Б</string>
+    <string name="search_size_kilobytes">КБ</string>
+    <string name="search_size_megabytes">МБ</string>
+    <string name="search_size_gigabytes">ГБ</string>
 </resources>

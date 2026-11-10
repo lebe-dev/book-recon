@@ -29,6 +29,11 @@ type Messages struct {
 	AccessUnblocked         string
 	AccessRequestNamePrefix string // used for both generation and parsing ("Имя: " / "Name: ")
 
+	// --- Android app link ---
+	AppLinkInvalid     string
+	AppLinkApproved    string
+	AppLinkRequestSent string
+
 	// --- Search ---
 	SearchEmpty        string
 	SearchCacheMiss    string
@@ -90,6 +95,8 @@ type Messages struct {
 	AccessDeniedFor      func(name string) string
 	AccessRevokedFor     func(name string) string
 	AccessRequestNotify  func(id int64, name, username string) string
+	AccessRequestFromApp func(device string) string
+	AppClientsCount      func(n int) string
 	ProviderError        func(provider, errMsg string) string
 	BroadcastTitle       func(text string) string
 	BroadcastComplete    func(sent, failed int) string

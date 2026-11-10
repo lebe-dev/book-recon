@@ -17,6 +17,7 @@ import (
 	"github.com/anacrolix/torrent/storage"
 	"github.com/charmbracelet/log"
 	"github.com/lebe-dev/book-recon/internal/domain"
+	"golang.org/x/time/rate"
 )
 
 // jobIDPattern matches download directory names; anything else in the root is left alone.
@@ -30,6 +31,8 @@ type DownloaderConfig struct {
 	StallTimeout time.Duration
 	// Upload to peers while downloading (helps tracker ratio). No seeding after completion.
 	AllowUpload bool
+	// Caps the download speed; nil means no limit.
+	RateLimiter *rate.Limiter
 	// How often progress is sampled.
 	PollInterval time.Duration
 	// Tests only: keep the client off the network.
@@ -60,6 +63,9 @@ func NewDownloader(cfg DownloaderConfig, logger *log.Logger) (*Downloader, error
 	tcfg.Seed = false
 	tcfg.DisableIPv6 = true
 	tcfg.ListenPort = 0
+	if cfg.RateLimiter != nil {
+		tcfg.DownloadRateLimiter = cfg.RateLimiter
+	}
 	if cfg.disableNetwork {
 		tcfg.NoDHT = true
 		tcfg.DisableTrackers = true

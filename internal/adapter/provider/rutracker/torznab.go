@@ -25,6 +25,9 @@ type TorznabItem struct {
 	Link     string `xml:"link"`
 	Category string `xml:"category"`
 	PubDate  string `xml:"pubDate"`
+	// GUID and Comments hold the topic URL (viewtopic.php?t=<id>) on RuTracker.
+	GUID     string `xml:"guid"`
+	Comments string `xml:"comments"`
 
 	// Parsed from torznab:attr elements.
 	Seeders int

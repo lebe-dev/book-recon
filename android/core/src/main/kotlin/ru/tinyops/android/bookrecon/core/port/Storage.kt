@@ -26,19 +26,22 @@ interface SettingsRepository {
 }
 
 /**
- * Download history and queue. Reads fill [Download.fileMissing] by checking the paths on
- * disk; it is never stored.
+ * Download history and queue. Reads fill [Download.fileMissing] of library downloads
+ * (COMPLETED and SEEDING) by checking the paths on disk; it is never stored.
  */
 interface DownloadRepository {
     /**
      * Downloads shown on the downloads screen: DOWNLOADING, then SEEDING, then QUEUED by
-     * queue position, then FAILED; ties are ordered by creation time, oldest first.
+     * queue position, then FAILED, then CANCELLED; ties are ordered by creation time, oldest
+     * first.
      */
     fun observeQueue(): Flow<List<Download>>
 
     /**
-     * COMPLETED downloads, newest first. [query] matches title or author case-insensitively,
-     * empty matches all; [kind] null means both kinds.
+     * Library downloads, newest first by completion time: COMPLETED and SEEDING, whose files
+     * are already in the roots ([DownloadStatus.isInLibrary]). A download that stops seeding
+     * keeps its completion time, so it stays in place. [query] matches title or author
+     * case-insensitively, empty matches all; [kind] null means both kinds.
      */
     fun observeLibrary(query: String = "", kind: MediaKind? = null): Flow<List<Download>>
 
@@ -47,8 +50,11 @@ interface DownloadRepository {
     /** All downloads with one of [statuses], oldest first; used to recover after restart. */
     suspend fun listByStatus(statuses: Set<DownloadStatus>): List<Download>
 
-    /** The newest COMPLETED download of this source item, or null. */
-    suspend fun findCompleted(source: Source, sourceId: String): Download?
+    /**
+     * The newest library download (COMPLETED or SEEDING) of this source item, or null; the
+     * "already downloaded" mark is this record without [Download.fileMissing].
+     */
+    suspend fun findInLibrary(source: Source, sourceId: String): Download?
 
     /** Inserts a new download; throws if the ID exists. */
     suspend fun insert(download: Download)

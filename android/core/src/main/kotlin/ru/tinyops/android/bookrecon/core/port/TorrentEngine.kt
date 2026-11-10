@@ -54,4 +54,17 @@ interface TorrentEngine {
      * until the move is done; throws StorageFailed if it fails.
      */
     suspend fun moveStorage(jobId: String, dir: File)
+
+    /**
+     * Moves each selected file of a completed download to its own absolute path, keyed by
+     * [ru.tinyops.android.bookrecon.core.domain.TorrentFile.index], and remembers the new
+     * places, so [seed] finds the data there even after a process restart. Unlike
+     * [moveStorage] the files may be renamed and spread over any folders of the same file
+     * system, which is what the library layout needs.
+     *
+     * Throws NotFound for an unknown job, Validation for an index that was not selected and
+     * StorageFailed when a target exists or a move fails; files moved before the failure stay
+     * at their targets.
+     */
+    suspend fun moveFiles(jobId: String, targets: Map<Int, File>)
 }

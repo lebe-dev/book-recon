@@ -1,9 +1,18 @@
 package ru.tinyops.android.bookrecon.di
 
-import ru.tinyops.android.bookrecon.core.fake.FakeTorrentEngine
 import ru.tinyops.android.bookrecon.core.port.TorrentEngine
+import ru.tinyops.android.bookrecon.torrent.AppLogTorrentLogger
+import ru.tinyops.android.bookrecon.torrent.LibTorrentEngine
+import java.io.File
 
-@Suppress("unused")
 class TorrentModule(private val app: AppContainer) {
-    val torrentEngine: TorrentEngine by lazy { FakeTorrentEngine() }
+    // Job state and resume data live in private storage that is excluded from backups.
+    val libTorrentEngine: LibTorrentEngine by lazy {
+        LibTorrentEngine(
+            File(app.context.noBackupFilesDir, "torrents"),
+            logger = AppLogTorrentLogger(app.log.appLog),
+        )
+    }
+
+    val torrentEngine: TorrentEngine get() = libTorrentEngine
 }

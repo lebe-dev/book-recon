@@ -1,3 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="downloads_section_active">Загружаются</string>
+    <string name="downloads_section_queued">В очереди</string>
+    <string name="downloads_section_seeding">Раздаются</string>
+    <string name="downloads_section_failed">Не удалось загрузить</string>
+    <string name="downloads_section_cancelled">Отменены</string>
+
+    <string name="downloads_kind_book">Книга</string>
+    <string name="downloads_kind_audio">Аудиокнига</string>
+    <string name="downloads_subtitle">%1$s · %2$s</string>
+
+    <string name="downloads_progress">%1$s %2$s из %3$s %4$s</string>
+    <string name="downloads_progress_unknown">Загружается…</string>
+    <string name="downloads_speed">%1$s %2$s/с</string>
+    <plurals name="downloads_peers">
+        <item quantity="one">%1$d пир</item>
+        <item quantity="few">%1$d пира</item>
+        <item quantity="many">%1$d пиров</item>
+        <item quantity="other">%1$d пира</item>
+    </plurals>
+    <string name="downloads_queue_position">Позиция в очереди: %1$d</string>
+
+    <string name="downloads_seeding_today">Раздаётся до %1$s</string>
+    <string name="downloads_seeding_tomorrow">Раздаётся до завтра, %1$s</string>
+    <string name="downloads_seeding_later">Раздаётся до %1$s, %2$s</string>
+    <string name="downloads_seeding_hint">Только на Wi-Fi и зарядке</string>
+
+    <string name="downloads_error">Ошибка: %1$s</string>
+
+    <string name="downloads_cancel">Отменить</string>
+    <string name="downloads_stop_seeding">Остановить раздачу</string>
+    <string name="downloads_retry">Повторить</string>
+    <string name="downloads_restart">Загрузить снова</string>
+    <string name="downloads_dismiss">Убрать</string>
+    <string name="downloads_settings">Настройки</string>
+
+    <string name="downloads_cancel_title">Отменить загрузку?</string>
+    <string name="downloads_cancel_text">«%1$s» — уже скачанные части будут удалены.</string>
+    <string name="downloads_cancel_confirm">Отменить загрузку</string>
+    <string name="downloads_cancel_keep">Не отменять</string>
+
+    <string name="downloads_empty_title">Загрузок нет</string>
+    <string name="downloads_empty_text">Найдите книгу или аудиокнигу в поиске — она появится здесь, пока загружается.</string>
+    <string name="downloads_load_failed">Не удалось прочитать список загрузок: %1$s</string>
+
+    <string name="downloads_action_failed_cancel">Не удалось отменить: %1$s</string>
+    <string name="downloads_action_failed_retry">Не удалось повторить: %1$s</string>
+    <string name="downloads_action_failed_stop_seeding">Не удалось остановить раздачу: %1$s</string>
+    <string name="downloads_action_failed_dismiss">Не удалось убрать: %1$s</string>
 </resources>

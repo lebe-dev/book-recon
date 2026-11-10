@@ -113,7 +113,7 @@ class FakeDownloadRepository(
     override fun observeLibrary(query: String, kind: MediaKind?): Flow<List<Download>> = state.map { records ->
         val needle = query.trim().lowercase()
         records.values
-            .filter { it.status == DownloadStatus.COMPLETED }
+            .filter { it.status.isInLibrary }
             .filter { kind == null || it.kind == kind }
             .filter { needle.isEmpty() || needle in it.title.lowercase() || needle in it.author.lowercase() }
             .sortedByDescending { it.completedAt ?: it.createdAt }
@@ -125,9 +125,9 @@ class FakeDownloadRepository(
     override suspend fun listByStatus(statuses: Set<DownloadStatus>): List<Download> =
         state.value.values.filter { it.status in statuses }.sortedBy { it.createdAt }
 
-    override suspend fun findCompleted(source: Source, sourceId: String): Download? =
+    override suspend fun findInLibrary(source: Source, sourceId: String): Download? =
         state.value.values
-            .filter { it.status == DownloadStatus.COMPLETED && it.source == source && it.sourceId == sourceId }
+            .filter { it.status.isInLibrary && it.source == source && it.sourceId == sourceId }
             .maxByOrNull { it.completedAt ?: it.createdAt }
             ?.let(::withFileCheck)
 
@@ -150,7 +150,7 @@ class FakeDownloadRepository(
     }
 
     private fun withFileCheck(download: Download): Download {
-        if (download.status != DownloadStatus.COMPLETED || download.paths.isEmpty()) return download
+        if (!download.status.isInLibrary || download.paths.isEmpty()) return download
         return download.copy(fileMissing = download.paths.none(fileExists))
     }
 
@@ -160,6 +160,7 @@ class FakeDownloadRepository(
             DownloadStatus.SEEDING,
             DownloadStatus.QUEUED,
             DownloadStatus.FAILED,
+            DownloadStatus.CANCELLED,
         )
 
         val queueOrder: Comparator<Download> = compareBy<Download> {
@@ -167,7 +168,8 @@ class FakeDownloadRepository(
                 DownloadStatus.DOWNLOADING -> 0
                 DownloadStatus.SEEDING -> 1
                 DownloadStatus.QUEUED -> 2
-                else -> 3
+                DownloadStatus.FAILED -> 3
+                else -> 4
             }
         }.thenBy { it.queuePosition ?: Int.MAX_VALUE }.thenBy { it.createdAt }
     }

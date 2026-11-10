@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/lebe-dev/book-recon/internal/adapter/appapi"
 	"github.com/lebe-dev/book-recon/internal/adapter/audiobook"
+	"github.com/lebe-dev/book-recon/internal/adapter/bandwidth"
 	"github.com/lebe-dev/book-recon/internal/adapter/config"
 	"github.com/lebe-dev/book-recon/internal/adapter/i18n"
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/flibusta"
@@ -90,6 +92,11 @@ func main() {
 		logger.Info("provider enabled", "provider", "flibusta")
 	}
 
+	torrentRateLimiter := bandwidth.NewLimiter(int64(cfg.TorrentDownloadRateLimit))
+	if torrentRateLimiter != nil {
+		logger.Info("torrent download speed is limited", "bytes_per_second", int64(cfg.TorrentDownloadRateLimit))
+	}
+
 	var rutrackerProvider *rtprovider.Provider
 	if cfg.RutrackerEnabled {
 		torrentMgr, err := rtprovider.NewTorrentManager(rtprovider.TorrentConfig{
@@ -97,6 +104,7 @@ func main() {
 			DownloadTimeout: cfg.RutrackerDownloadTimeout,
 			MaxTorrentSize:  cfg.RutrackerMaxTorrentSize,
 			MaxConcurrent:   3,
+			RateLimiter:     torrentRateLimiter,
 		}, logger)
 		if err != nil {
 			logger.Fatal("failed to create torrent manager", "error", err)
@@ -133,6 +141,7 @@ func main() {
 			Dir:          cfg.AudiobooksDownloadDir,
 			StallTimeout: cfg.AudiobooksStallTimeout,
 			AllowUpload:  cfg.AudiobooksAllowUpload,
+			RateLimiter:  torrentRateLimiter,
 		}, logger)
 		if err != nil {
 			logger.Fatal("failed to create audiobook downloader", "error", err)
@@ -167,7 +176,7 @@ func main() {
 
 	bookService := usecase.NewBookService(providers, userRepo, searchCache, logger)
 	bookService.SetProviderTimeout(cfg.ProviderTimeout)
-	accessService := usecase.NewAccessService(accessRepo, userRegistry, logger)
+	accessService := usecase.NewAccessService(accessRepo, userRegistry, cfg.AllowedUsers, cfg.AdminUsers, logger)
 
 	bot, err := telegram.New(cfg.TelegramToken, bookService, accessService, userRegistry, cfg.AllowedUsers, cfg.AdminUsers, Version, msg, logger)
 	if err != nil {
@@ -175,6 +184,38 @@ func main() {
 	}
 
 	bookService.SetOnProviderError(bot.NotifyProviderError)
+
+	var appAPI *appapi.Server
+	if cfg.AppAPIEnabled {
+		appClients := usecase.NewAppClientService(storage.NewAppClientRepo(db), accessService, logger)
+		bot.SetAppClientService(appClients)
+		var tracker domain.TopicTracker
+		if cfg.JackettAPIKey != "" {
+			tracker = rtprovider.NewTopics(rtprovider.TopicsConfig{
+				JackettURL:      cfg.JackettURL,
+				JackettAPIKey:   cfg.JackettAPIKey,
+				JackettIndexer:  cfg.JackettIndexer,
+				BookCategories:  cfg.AppRutrackerBookCategories,
+				AudioCategories: cfg.AppRutrackerAudioCategories,
+				Timeout:         cfg.JackettTimeout,
+			}, logger)
+		}
+		appAPI = appapi.NewServer(appapi.Config{
+			Listen:       cfg.AppAPIListen,
+			AllowedHosts: cfg.AppTunnelHosts,
+			AllowedPorts: cfg.AppTunnelPorts,
+			AllowPeers:   cfg.AppTunnelPeers,
+			Tracker:      tracker,
+			BotUsername:  bot.Username,
+			Version:      Version,
+		}, appClients, logger)
+		go func() {
+			defer sentryadapter.Recover()
+			if err := appAPI.Start(); err != nil {
+				logger.Fatal("app api server failed", "error", err)
+			}
+		}()
+	}
 
 	var audioWeb *audiobook.WebServer
 	if audioService != nil {
@@ -211,6 +252,13 @@ func main() {
 
 	logger.Info("shutting down...")
 	bot.Stop()
+	if appAPI != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		if err := appAPI.Shutdown(ctx); err != nil {
+			logger.Warn("app api server shutdown", "error", err)
+		}
+		cancel()
+	}
 	if audioWeb != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		if err := audioWeb.Shutdown(ctx); err != nil {

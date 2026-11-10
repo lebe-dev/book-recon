@@ -1,6 +1,7 @@
 *.md
 !README.md
-!README.ru.md
+!docs/
+!docs/*.md
 !DEV.md
 
 .env
@@ -8,6 +9,7 @@
 
 /book-recon
 /bin/book-recon
+/bin/book-recon-*.apk
 /flibusta-engine
 
 /go-rutracker

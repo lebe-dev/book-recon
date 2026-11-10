@@ -6,7 +6,7 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -59,7 +59,7 @@ private enum class TopLevelDestination(
 ) {
     SEARCH(SearchRoute, SearchRoute::class, R.string.nav_search, Icons.Filled.Search),
     DOWNLOADS(DownloadsRoute, DownloadsRoute::class, R.string.nav_downloads, Icons.Filled.Download),
-    LIBRARY(LibraryRoute, LibraryRoute::class, R.string.nav_library, Icons.AutoMirrored.Filled.LibraryBooks),
+    LIBRARY(LibraryRoute, LibraryRoute::class, R.string.nav_library, Icons.Filled.Book),
     SETTINGS(SettingsRoute, SettingsRoute::class, R.string.nav_settings, Icons.Filled.Settings),
 }
 

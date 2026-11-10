@@ -70,6 +70,10 @@ data class SettingsUiState(
     val rootProblem: RootProblem? = null,
     val pendingVerification: VerificationRequest? = null,
 ) {
+    /** Both credentials are there: a login and a password, typed now or already stored. */
+    val canCheckLogin: Boolean
+        get() = login.isNotBlank() && (password.isNotEmpty() || passwordStored)
+
     /** The URL field differs from the stored URL. */
     val flibustaUrlChanged: Boolean
         get() = flibustaUrl.trim().trimEnd('/') != settings.flibustaBaseUrl
@@ -127,10 +131,10 @@ class SettingsViewModel(
         mutableState.update { it.copy(password = password) }
     }
 
-    /** Saves the login and a newly typed password, then logs in to RuTracker. */
+    /** Saves the login and a newly typed password, then logs in to RuTracker; does nothing while a credential is missing. */
     fun onCheckLogin() {
         val current = mutableState.value
-        if (current.loginCheck == LoginCheck.Running) return
+        if (current.loginCheck == LoginCheck.Running || !current.canCheckLogin) return
         val login = current.login.trim()
         val password = current.password
         awaitedVerification = null

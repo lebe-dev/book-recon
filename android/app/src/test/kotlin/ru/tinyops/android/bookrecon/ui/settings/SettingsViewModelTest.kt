@@ -100,6 +100,35 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun checkLoginNeedsALoginAndAPassword() = runVmTest { vm ->
+        assertTrue(vm.state.value.canCheckLogin)
+
+        vm.onLoginChange("   ")
+        assertFalse(vm.state.value.canCheckLogin)
+        vm.onCheckLogin()
+        advanceUntilIdle()
+        assertEquals(0, ruTracker.loginCount)
+        assertEquals(LoginCheck.Idle, vm.state.value.loginCheck)
+
+        vm.onLoginChange("reader")
+        assertTrue(vm.state.value.canCheckLogin)
+    }
+
+    @Test
+    fun checkLoginWithoutAnyPasswordIsOff() = runVmTest { vm ->
+        vm.onForgetCredentials()
+        advanceUntilIdle()
+        vm.onLoginChange("reader")
+        assertFalse(vm.state.value.canCheckLogin)
+        vm.onCheckLogin()
+        advanceUntilIdle()
+        assertEquals(0, ruTracker.loginCount)
+
+        vm.onPasswordChange("typed")
+        assertTrue(vm.state.value.canCheckLogin)
+    }
+
+    @Test
     fun rejectedLogin() = runVmTest { vm ->
         ruTracker.behavior.failNext(AppError.RuTrackerLoginFailed())
         vm.onCheckLogin()

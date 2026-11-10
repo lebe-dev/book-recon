@@ -477,7 +477,7 @@ private fun RuTrackerBlock(state: SettingsUiState, actions: SettingsActions) {
             enabled = !running,
             visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done, autoCorrectEnabled = false),
-            keyboardActions = KeyboardActions(onDone = { check() }),
+            keyboardActions = KeyboardActions(onDone = { if (state.canCheckLogin) check() }),
             supportingText = {
                 Text(
                     stringResource(
@@ -498,7 +498,7 @@ private fun RuTrackerBlock(state: SettingsUiState, actions: SettingsActions) {
             modifier = Modifier.fillMaxWidth(),
         )
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = check, enabled = !running) {
+            Button(onClick = check, enabled = !running && state.canCheckLogin) {
                 Text(stringResource(R.string.settings_rutracker_check))
             }
             val canForget = state.login.isNotEmpty() || state.passwordStored || state.password.isNotEmpty()

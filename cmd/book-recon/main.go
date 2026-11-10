@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/lebe-dev/book-recon/internal/adapter/appapi"
 	"github.com/lebe-dev/book-recon/internal/adapter/audiobook"
+	"github.com/lebe-dev/book-recon/internal/adapter/bandwidth"
 	"github.com/lebe-dev/book-recon/internal/adapter/config"
 	"github.com/lebe-dev/book-recon/internal/adapter/i18n"
 	"github.com/lebe-dev/book-recon/internal/adapter/provider/flibusta"
@@ -91,6 +92,11 @@ func main() {
 		logger.Info("provider enabled", "provider", "flibusta")
 	}
 
+	torrentRateLimiter := bandwidth.NewLimiter(int64(cfg.TorrentDownloadRateLimit))
+	if torrentRateLimiter != nil {
+		logger.Info("torrent download speed is limited", "bytes_per_second", int64(cfg.TorrentDownloadRateLimit))
+	}
+
 	var rutrackerProvider *rtprovider.Provider
 	if cfg.RutrackerEnabled {
 		torrentMgr, err := rtprovider.NewTorrentManager(rtprovider.TorrentConfig{
@@ -98,6 +104,7 @@ func main() {
 			DownloadTimeout: cfg.RutrackerDownloadTimeout,
 			MaxTorrentSize:  cfg.RutrackerMaxTorrentSize,
 			MaxConcurrent:   3,
+			RateLimiter:     torrentRateLimiter,
 		}, logger)
 		if err != nil {
 			logger.Fatal("failed to create torrent manager", "error", err)
@@ -134,6 +141,7 @@ func main() {
 			Dir:          cfg.AudiobooksDownloadDir,
 			StallTimeout: cfg.AudiobooksStallTimeout,
 			AllowUpload:  cfg.AudiobooksAllowUpload,
+			RateLimiter:  torrentRateLimiter,
 		}, logger)
 		if err != nil {
 			logger.Fatal("failed to create audiobook downloader", "error", err)

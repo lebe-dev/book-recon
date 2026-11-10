@@ -43,6 +43,10 @@ type Config struct {
 	RutrackerMaxTorrentSize  int64         `env:"RUTRACKER_MAX_TORRENT_SIZE" envDefault:"52428800"`
 	RutrackerDownloadDir     string        `env:"RUTRACKER_DOWNLOAD_DIR" envDefault:"/tmp/book-recon-torrents"`
 
+	// Total torrent download speed of the server per second, shared by books and audiobooks.
+	// Zero disables the limit.
+	TorrentDownloadRateLimit ByteSize `env:"TORRENT_DOWNLOAD_RATE_LIMIT" envDefault:"1MB"`
+
 	// Audiobooks from RuTracker via Jackett. AUDIOBOOKS_ENABLED is the master switch:
 	// when false the feature can't be turned on from the bot.
 	AudiobooksEnabled          bool          `env:"AUDIOBOOKS_ENABLED" envDefault:"false"`

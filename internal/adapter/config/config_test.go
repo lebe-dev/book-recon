@@ -87,3 +87,37 @@ func TestLoadAppAPIRequiresTunnelHosts(t *testing.T) {
 		t.Fatalf("Load() error = %v, want APP_TUNNEL_HOSTS", err)
 	}
 }
+
+func TestLoadTorrentRateLimitDefault(t *testing.T) {
+	t.Setenv("TELEGRAM_TOKEN", "x")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.TorrentDownloadRateLimit != 1<<20 {
+		t.Errorf("TorrentDownloadRateLimit = %d, want 1 MiB/s", cfg.TorrentDownloadRateLimit)
+	}
+}
+
+func TestLoadTorrentRateLimitCustomAndOff(t *testing.T) {
+	t.Setenv("TELEGRAM_TOKEN", "x")
+	t.Setenv("TORRENT_DOWNLOAD_RATE_LIMIT", "512KB")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.TorrentDownloadRateLimit != 512<<10 {
+		t.Errorf("TorrentDownloadRateLimit = %d, want 512 KiB/s", cfg.TorrentDownloadRateLimit)
+	}
+
+	t.Setenv("TORRENT_DOWNLOAD_RATE_LIMIT", "0")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.TorrentDownloadRateLimit != 0 {
+		t.Errorf("TorrentDownloadRateLimit = %d, want 0 (unlimited)", cfg.TorrentDownloadRateLimit)
+	}
+}

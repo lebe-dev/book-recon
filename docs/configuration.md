@@ -25,6 +25,7 @@
 | `RUTRACKER_MAX_BOOKS` | Максимум книг из одного торрента | `5` |
 | `RUTRACKER_MAX_TORRENT_SIZE` | Максимальный размер торрента в байтах | `52428800` (50 МБ) |
 | `RUTRACKER_DOWNLOAD_DIR` | Директория для загрузки торрентов | `/tmp/book-recon-torrents` |
+| `TORRENT_DOWNLOAD_RATE_LIMIT` | Общий лимит скорости скачивания торрентов на весь сервер в секунду (книги и аудиокниги вместе; `B`, `KB`, `MB`, `GB` или байты; `0` — без лимита) | `1MB` |
 | `APP_API_ENABLED` | API для Android-приложения: регистрация и туннель | `false` |
 | `APP_API_LISTEN` | Адрес HTTP-сервера API | `:8081` |
 | `APP_TUNNEL_HOSTS` | Хосты, к которым ведёт туннель (с поддоменами), через запятую | `rutracker.org,rutracker.cc,t-ru.org,flibusta.is,challenges.cloudflare.com` |

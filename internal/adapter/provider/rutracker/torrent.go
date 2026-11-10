@@ -14,6 +14,7 @@ import (
 	"github.com/anacrolix/torrent/storage"
 	"github.com/charmbracelet/log"
 	"golang.org/x/sync/semaphore"
+	"golang.org/x/time/rate"
 )
 
 // TorrentConfig holds configuration for TorrentManager.
@@ -22,6 +23,8 @@ type TorrentConfig struct {
 	DownloadTimeout time.Duration
 	MaxTorrentSize  int64
 	MaxConcurrent   int64
+	// RateLimiter caps the download speed; nil means no limit.
+	RateLimiter *rate.Limiter
 }
 
 // DownloadedFile represents a file downloaded from a torrent.
@@ -56,6 +59,9 @@ func NewTorrentManager(cfg TorrentConfig, logger *log.Logger) (*TorrentManager, 
 	tcfg.Seed = false
 	tcfg.DisableIPv6 = true
 	tcfg.ListenPort = 0
+	if cfg.RateLimiter != nil {
+		tcfg.DownloadRateLimiter = cfg.RateLimiter
+	}
 
 	client, err := torrent.NewClient(tcfg)
 	if err != nil {

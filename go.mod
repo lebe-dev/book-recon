@@ -109,7 +109,7 @@ require (
 	golang.org/x/crypto v0.55.0 // indirect
 	golang.org/x/exp v0.0.0-20260824195058-e88cd73687aa // indirect
 	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/time v0.15.0 // indirect
+	golang.org/x/time v0.15.0
 	lukechampine.com/blake3 v1.4.1 // indirect
 	modernc.org/libc v1.75.5 // indirect
 	modernc.org/mathutil v1.7.1 // indirect

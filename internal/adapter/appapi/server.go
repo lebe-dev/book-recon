@@ -326,7 +326,11 @@ func DialPublic(ctx context.Context, network, addr string) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	var dialer net.Dialer
+	// IPv4 first: containers often resolve AAAA records without having an IPv6 route.
+	slices.SortStableFunc(ips, func(a, b net.IPAddr) int {
+		return boolToInt(a.IP.To4() == nil) - boolToInt(b.IP.To4() == nil)
+	})
+	dialer := net.Dialer{Timeout: 5 * time.Second}
 	lastErr := errors.New("no public address for " + host)
 	for _, ip := range ips {
 		if !IsPublicIP(ip.IP) {
@@ -339,6 +343,13 @@ func DialPublic(ctx context.Context, network, addr string) (net.Conn, error) {
 		lastErr = err
 	}
 	return nil, lastErr
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 var sharedAddressSpace = &net.IPNet{IP: net.IPv4(100, 64, 0, 0), Mask: net.CIDRMask(10, 32)}

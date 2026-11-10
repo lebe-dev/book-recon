@@ -21,6 +21,8 @@ junit4 = "4.13.2"
 robolectric = "4.17"
 androidx-test-core = "1.7.0"
 turbine = "1.2.1"
+sentry = "8.63.0"
+sentry-gradle = "6.26.0"
 
 [libraries]
 # Kotlin
@@ -73,6 +75,10 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 libtorrent4j-macos = { module = "org.libtorrent4j:libtorrent4j-macos", version.ref = "libtorrent4j" }
 libtorrent4j-linux = { module = "org.libtorrent4j:libtorrent4j-linux", version.ref = "libtorrent4j" }
 
+# Error reporting
+sentry-android-core = { module = "io.sentry:sentry-android-core", version.ref = "sentry" }
+sentry-android-ndk = { module = "io.sentry:sentry-android-ndk", version.ref = "sentry" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-lint = { id = "com.android.lint", version.ref = "agp" }
@@ -81,3 +87,4 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 room = { id = "androidx.room", version.ref = "room" }
+sentry = { id = "io.sentry.android.gradle", version.ref = "sentry-gradle" }

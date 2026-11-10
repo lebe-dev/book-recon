@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
+    alias(libs.plugins.sentry)
 }
 
 val repoRoot = rootProject.layout.projectDirectory.dir("..")
@@ -22,21 +23,31 @@ fun versionCodeOf(version: String): Int {
     return major * 10000 + minor * 100 + patch
 }
 
-// Release signing comes from the environment first, then from the root .env file.
+// Release signing and Sentry come from the environment first, then from the root .env file.
 val dotEnv: Properties = Properties().apply {
     val file = repoRoot.file(".env").asFile
     if (file.isFile) file.reader().use { load(it) }
 }
 
-fun signingValue(name: String): String? =
+fun envValue(name: String): String? =
     (providers.environmentVariable(name).orNull ?: dotEnv.getProperty(name))?.trim()?.removeSurrounding("\"")?.ifBlank { null }
 
-val releaseStoreFile = signingValue("ANDROID_KEYSTORE")
-val releaseStorePassword = signingValue("ANDROID_KEYSTORE_PASSWORD")
-val releaseKeyAlias = signingValue("ANDROID_KEY_ALIAS")
-val releaseKeyPassword = signingValue("ANDROID_KEY_PASSWORD")
+val releaseStoreFile = envValue("ANDROID_KEYSTORE")
+val releaseStorePassword = envValue("ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias = envValue("ANDROID_KEY_ALIAS")
+val releaseKeyPassword = envValue("ANDROID_KEY_PASSWORD")
 val hasReleaseSigning =
     listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { it != null }
+
+// The DSN is baked into the APK; without it the app never sends error reports.
+val sentryDsn = envValue("SENTRY_DSN").orEmpty()
+
+// R8 mappings are uploaded to Sentry by release builds when all three are set.
+val sentryOrg = envValue("SENTRY_ORG")
+val sentryProject = envValue("SENTRY_PROJECT")
+val sentryAuthToken = envValue("SENTRY_AUTH_TOKEN")
+val sentryUrl = envValue("SENTRY_URL")
+val canUploadMappings = listOf(sentryOrg, sentryProject, sentryAuthToken).all { it != null }
 
 android {
     namespace = "ru.tinyops.android.bookrecon"
@@ -50,6 +61,7 @@ android {
         targetSdk = 37
         versionName = appVersionName
         versionCode = versionCodeOf(appVersionName)
+        buildConfigField("String", "SENTRY_DSN", "\"${sentryDsn.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 
     signingConfigs {
@@ -90,6 +102,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
@@ -118,7 +131,34 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
+sentry {
+    // Every minified build gets a mapping UUID in its assets, so Sentry can match its
+    // stack traces; the upload itself needs the credentials.
+    includeProguardMapping = true
+    autoUploadProguardMapping = canUploadMappings
+    sentryOrg?.let { org = it }
+    sentryProject?.let { projectName = it }
+    sentryAuthToken?.let { authToken = it }
+    sentryUrl?.let { url = it }
+    uploadNativeSymbols = false
+    includeSourceContext = false
+    telemetry = false
+    // The SDK is declared below; no bytecode rewriting of OkHttp, Room, files or logcat.
+    autoInstallation { enabled = false }
+    tracingInstrumentation { enabled = false }
+}
+
 val releaseRequested = gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }
+if (releaseRequested && sentryDsn.isEmpty()) {
+    logger.warn("WARNING: SENTRY_DSN is not set. The release APK will not send error reports.")
+}
+if (releaseRequested && !canUploadMappings) {
+    logger.warn(
+        "WARNING: R8 mappings will not be uploaded to Sentry. Set SENTRY_ORG, SENTRY_PROJECT " +
+            "and SENTRY_AUTH_TOKEN (and SENTRY_URL for self-hosted Sentry) in the environment " +
+            "or in the root .env file.",
+    )
+}
 if (!hasReleaseSigning && releaseRequested) {
     logger.warn(
         "WARNING: release signing is not configured. Set ANDROID_KEYSTORE, " +
@@ -153,6 +193,9 @@ dependencies {
 
     implementation(libs.okhttp)
     implementation(libs.jsoup)
+
+    implementation(libs.sentry.android.core)
+    implementation(libs.sentry.android.ndk)
 
     implementation(libs.libtorrent4j)
     implementation(libs.libtorrent4j.android.arm64)

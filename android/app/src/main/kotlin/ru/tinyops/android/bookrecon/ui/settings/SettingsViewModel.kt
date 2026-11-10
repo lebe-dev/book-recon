@@ -205,6 +205,8 @@ class SettingsViewModel(
 
     fun onSeedHoursChange(hours: Int) = save { it.copy(seedHours = hours.coerceAtLeast(0)) }
 
+    fun onSendErrorReportsChange(enabled: Boolean) = save { it.copy(sendErrorReports = enabled) }
+
     private fun save(transform: (Settings) -> Settings) {
         viewModelScope.launch { settings.update(transform) }
     }

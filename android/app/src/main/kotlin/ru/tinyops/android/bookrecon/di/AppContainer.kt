@@ -19,6 +19,7 @@ class AppContainer(context: Context) {
     val torrent: TorrentModule by lazy { TorrentModule(this) }
     val download: DownloadModule by lazy { DownloadModule(this) }
     val search: SearchModule by lazy { SearchModule(this) }
+    val reports: ReportsModule by lazy { ReportsModule(this) }
 }
 
 val Context.appContainer: AppContainer

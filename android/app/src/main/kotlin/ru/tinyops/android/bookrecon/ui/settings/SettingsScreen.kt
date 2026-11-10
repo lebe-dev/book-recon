@@ -150,6 +150,7 @@ fun SettingsScreen(
             onWifiOnlyChange = viewModel::onWifiOnlyChange,
             onMaxConcurrentChange = viewModel::onMaxConcurrentChange,
             onSeedHoursChange = viewModel::onSeedHoursChange,
+            onSendErrorReportsChange = viewModel::onSendErrorReportsChange,
         ),
     )
 }
@@ -186,6 +187,7 @@ data class SettingsActions(
     val onWifiOnlyChange: (Boolean) -> Unit = {},
     val onMaxConcurrentChange: (Int) -> Unit = {},
     val onSeedHoursChange: (Int) -> Unit = {},
+    val onSendErrorReportsChange: (Boolean) -> Unit = {},
 )
 
 /** Stateless body of the settings screen, also used by previews. */
@@ -226,6 +228,10 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
         SectionDivider()
         SectionTitle(R.string.settings_section_seeding)
         SeedingBlock(state.settings.seedHours, actions.onSeedHoursChange)
+
+        SectionDivider()
+        SectionTitle(R.string.settings_section_reports)
+        ErrorReportsBlock(state.settings.sendErrorReports, actions.onSendErrorReportsChange)
     }
 }
 
@@ -493,6 +499,16 @@ private fun SeedingBlock(seedHours: Int, onSeedHoursChange: (Int) -> Unit) {
             onSelect = onSeedHoursChange,
         )
     }
+}
+
+@Composable
+private fun ErrorReportsBlock(enabled: Boolean, onChange: (Boolean) -> Unit) {
+    ListItem(
+        modifier = Modifier.clickable { onChange(!enabled) },
+        headlineContent = { Text(stringResource(R.string.settings_reports_send)) },
+        supportingContent = { Text(stringResource(R.string.settings_reports_text)) },
+        trailingContent = { Switch(checked = enabled, onCheckedChange = onChange) },
+    )
 }
 
 @Composable

@@ -256,4 +256,18 @@ class SettingsViewModelTest {
         assertEquals(6, stored.seedHours)
         assertEquals(stored, vm.state.value.settings)
     }
+
+    @Test
+    fun errorReportsAreOffUntilTurnedOn() = runVmTest { vm ->
+        assertFalse(vm.state.value.settings.sendErrorReports)
+
+        vm.onSendErrorReportsChange(true)
+        advanceUntilIdle()
+        assertTrue(settings.settings.first().sendErrorReports)
+        assertTrue(vm.state.value.settings.sendErrorReports)
+
+        vm.onSendErrorReportsChange(false)
+        advanceUntilIdle()
+        assertFalse(settings.settings.first().sendErrorReports)
+    }
 }

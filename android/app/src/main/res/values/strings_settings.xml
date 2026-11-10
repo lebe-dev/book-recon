@@ -18,6 +18,8 @@
     <string name="settings_theme_bilberry">Голубика</string>
     <string name="settings_theme_marshmallow">Зефир</string>
     <string name="settings_theme_cocoa">Какао</string>
+    <string name="settings_cyrillic_name">Название для своих</string>
+    <string name="settings_cyrillic_name_text">Под иконкой и в поиске на телефоне приложение называется «Бук Ракун». Если иконка пропала с рабочего стола, добавьте её снова</string>
     <string name="settings_dark_mode">Тёмная тема</string>
     <string name="settings_dark_mode_system">Системная</string>
     <string name="settings_dark_mode_light">Светлая</string>
@@ -117,8 +119,8 @@
     <string name="settings_version">Версия %1$s (%2$s)</string>
     <string name="settings_source_enabled_rutracker">Искать на RuTracker</string>
     <string name="settings_source_enabled_flibusta">Искать на Flibusta</string>
+    <string name="settings_github">Проект на GitHub</string>
     <string name="settings_section_reports">Отчёты об ошибках</string>
     <string name="settings_reports_send">Отправлять отчёты об ошибках</string>
-    <string name="settings_github">Проект на GitHub</string>
     <string name="settings_reports_text">Сбои и непредвиденные ошибки отправляются разработчику без персональных данных и ключей, только с моделью телефона и версией Android. Логины и пароли не отправляются</string>
 </resources>

@@ -85,6 +85,7 @@ data class SettingsUiState(
  *
  * @param checkRoot checks that a folder exists and accepts files.
  * @param pathOfTree turns a folder picker result into a path, null when unsupported.
+ * @param applyLauncherName switches the name under the launcher icon (true: Cyrillic).
  */
 class SettingsViewModel(
     private val settings: SettingsRepository,
@@ -92,6 +93,7 @@ class SettingsViewModel(
     private val hasAllFilesAccess: () -> Boolean,
     private val checkRoot: suspend (String) -> RootCheck,
     private val pathOfTree: (String) -> String?,
+    private val applyLauncherName: (Boolean) -> Unit = {},
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SettingsUiState(hasAllFilesAccess = hasAllFilesAccess()))
     val state: StateFlow<SettingsUiState> = mutableState.asStateFlow()
@@ -233,6 +235,11 @@ class SettingsViewModel(
     fun onColorThemeChange(theme: ColorTheme) = save { it.copy(colorTheme = theme) }
 
     fun onDarkModeChange(mode: DarkMode) = save { it.copy(darkMode = mode) }
+
+    fun onCyrillicAppNameChange(enabled: Boolean) {
+        applyLauncherName(enabled)
+        save { it.copy(cyrillicAppName = enabled) }
+    }
 
     private fun save(transform: (Settings) -> Settings) {
         viewModelScope.launch { settings.update(transform) }

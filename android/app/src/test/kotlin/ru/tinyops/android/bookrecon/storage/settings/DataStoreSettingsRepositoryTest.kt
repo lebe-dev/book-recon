@@ -70,6 +70,7 @@ class DataStoreSettingsRepositoryTest {
         assertFalse(settings.logDebug)
         assertEquals(ColorTheme.BLUEBERRY, settings.colorTheme)
         assertEquals(DarkMode.SYSTEM, settings.darkMode)
+        assertFalse(settings.cyrillicAppName)
         assertNull(settings.audioRoot)
         assertNull(settings.booksRoot)
         assertEquals("", settings.rutrackerLogin)
@@ -93,6 +94,7 @@ class DataStoreSettingsRepositoryTest {
             logDebug = true,
             colorTheme = ColorTheme.COCOA,
             darkMode = DarkMode.DARK,
+            cyrillicAppName = true,
         )
         repository().update { changed }
         closeStores()

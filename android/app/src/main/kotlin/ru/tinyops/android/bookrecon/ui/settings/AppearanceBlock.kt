@@ -3,6 +3,7 @@ package ru.tinyops.android.bookrecon.ui.settings
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,11 +18,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -65,6 +68,15 @@ internal fun AppearanceBlock(settings: Settings, actions: SettingsActions) {
             }
         }
     }
+    ListItem(
+        colors = cardListItemColors(),
+        modifier = Modifier.clickable { actions.onCyrillicAppNameChange(!settings.cyrillicAppName) },
+        headlineContent = { Text(stringResource(R.string.settings_cyrillic_name)) },
+        supportingContent = { Text(stringResource(R.string.settings_cyrillic_name_text)) },
+        trailingContent = {
+            Switch(checked = settings.cyrillicAppName, onCheckedChange = actions.onCyrillicAppNameChange)
+        },
+    )
 }
 
 @Composable

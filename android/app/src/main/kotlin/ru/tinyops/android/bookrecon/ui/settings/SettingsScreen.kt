@@ -85,6 +85,7 @@ import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Settings
 import ru.tinyops.android.bookrecon.di.appContainer
+import ru.tinyops.android.bookrecon.launcher.LauncherName
 import ru.tinyops.android.bookrecon.server.ServerState
 import ru.tinyops.android.bookrecon.storage.files.RootCheck
 import ru.tinyops.android.bookrecon.ui.nav.VerificationPurpose
@@ -101,6 +102,7 @@ fun SettingsSectionScreen(
 ) {
     val context = LocalContext.current
     val factory = remember(context) {
+        val appContext = context.applicationContext
         val module = context.appContainer.settings
         val ruTracker = context.appContainer.ruTracker.ruTrackerClient
         viewModelFactory {
@@ -111,6 +113,7 @@ fun SettingsSectionScreen(
                     hasAllFilesAccess = { module.storage.hasAllFilesAccess() },
                     checkRoot = module.storage::checkRoot,
                     pathOfTree = module::pathOfTree,
+                    applyLauncherName = { cyrillic -> LauncherName.apply(appContext, cyrillic) },
                 )
             }
         }
@@ -187,6 +190,7 @@ fun SettingsSectionScreen(
             onOpenLog = onOpenLog,
             onColorThemeChange = viewModel::onColorThemeChange,
             onDarkModeChange = viewModel::onDarkModeChange,
+            onCyrillicAppNameChange = viewModel::onCyrillicAppNameChange,
         ),
         server = serverState,
         serverActions = ServerActions(
@@ -250,6 +254,7 @@ data class SettingsActions(
     val onOpenLog: () -> Unit = {},
     val onColorThemeChange: (ColorTheme) -> Unit = {},
     val onDarkModeChange: (DarkMode) -> Unit = {},
+    val onCyrillicAppNameChange: (Boolean) -> Unit = {},
 )
 
 /** Stateless body of one settings subpage, also used by previews. */

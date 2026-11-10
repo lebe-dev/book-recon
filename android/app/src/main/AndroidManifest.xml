@@ -37,12 +37,34 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize" />
+
+        <!--
+            Two launcher entries with different labels: the Settings switch enables one and
+            disables the other, which renames the icon and what the launcher search matches.
+        -->
+        <activity-alias
+            android:name=".LauncherDefaultAlias"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherCyrillicAlias"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/app_name_cyrillic"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <service
             android:name=".download.DownloadJobService"

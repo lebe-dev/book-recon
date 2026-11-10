@@ -37,6 +37,7 @@ class SettingsViewModelTest {
     )
     private val ruTracker = FakeRuTrackerClient()
     private var access = true
+    private val launcherNames = mutableListOf<Boolean>()
     private val rootChecks = mutableMapOf<String, RootCheck>()
 
     @BeforeEach
@@ -55,6 +56,7 @@ class SettingsViewModelTest {
         hasAllFilesAccess = { access },
         checkRoot = { path -> rootChecks[path] ?: RootCheck.OK },
         pathOfTree = { uri -> uri.removePrefix("tree:").takeIf { it != uri } },
+        applyLauncherName = { launcherNames += it },
     )
 
     private fun runVmTest(block: suspend TestScope.(SettingsViewModel) -> Unit) = runTest(dispatcher) {
@@ -286,6 +288,21 @@ class SettingsViewModelTest {
         assertEquals(4, stored.maxConcurrent)
         assertEquals(6, stored.seedHours)
         assertEquals(stored, vm.state.value.settings)
+    }
+
+    @Test
+    fun cyrillicAppNameIsSavedAndAppliedToTheLauncher() = runVmTest { vm ->
+        vm.onCyrillicAppNameChange(true)
+        advanceUntilIdle()
+
+        assertTrue(settings.settings.first().cyrillicAppName)
+        assertEquals(listOf(true), launcherNames)
+
+        vm.onCyrillicAppNameChange(false)
+        advanceUntilIdle()
+
+        assertFalse(settings.settings.first().cyrillicAppName)
+        assertEquals(listOf(true, false), launcherNames)
     }
 
     @Test

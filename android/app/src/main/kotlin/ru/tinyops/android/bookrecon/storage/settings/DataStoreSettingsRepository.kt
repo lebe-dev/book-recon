@@ -44,6 +44,7 @@ internal object SettingsKeys {
     val LOG_DEBUG = booleanPreferencesKey("log_debug")
     val COLOR_THEME = stringPreferencesKey("color_theme")
     val DARK_MODE = stringPreferencesKey("dark_mode")
+    val CYRILLIC_APP_NAME = booleanPreferencesKey("cyrillic_app_name")
 
     /** Base64 of the password sealed by [SecretCipher]. */
     val RUTRACKER_PASSWORD = stringPreferencesKey("rutracker_password_sealed")
@@ -138,6 +139,7 @@ private fun Preferences.toSettings(): Settings {
         logDebug = this[SettingsKeys.LOG_DEBUG] ?: defaults.logDebug,
         colorTheme = enumOrNull<ColorTheme>(this[SettingsKeys.COLOR_THEME]) ?: defaults.colorTheme,
         darkMode = enumOrNull<DarkMode>(this[SettingsKeys.DARK_MODE]) ?: defaults.darkMode,
+        cyrillicAppName = this[SettingsKeys.CYRILLIC_APP_NAME] ?: defaults.cyrillicAppName,
     ).normalized()
 }
 
@@ -160,6 +162,7 @@ private fun MutablePreferences.write(settings: Settings) {
     this[SettingsKeys.LOG_DEBUG] = settings.logDebug
     this[SettingsKeys.COLOR_THEME] = settings.colorTheme.name
     this[SettingsKeys.DARK_MODE] = settings.darkMode.name
+    this[SettingsKeys.CYRILLIC_APP_NAME] = settings.cyrillicAppName
 }
 
 /** The constant named [name], null for a missing or unknown name (written by another version). */

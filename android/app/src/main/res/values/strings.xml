@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Book Recon</string>
+    <string name="app_name_cyrillic">Бук Ракун</string>
     <string name="nav_search">Поиск</string>
     <string name="nav_downloads">Загрузки</string>
     <string name="nav_library">Библиотека</string>

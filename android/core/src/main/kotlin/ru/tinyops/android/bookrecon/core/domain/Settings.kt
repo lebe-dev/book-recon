@@ -24,6 +24,7 @@ package ru.tinyops.android.bookrecon.core.domain
  * @property logDebug record DEBUG lines (requests, queue steps, torrent progress) in the app log.
  * @property colorTheme color theme of the app.
  * @property darkMode light or dark app, or following the system.
+ * @property cyrillicAppName show "Бук Ракун" under the launcher icon instead of "Book Recon".
  */
 data class Settings(
     val audioRoot: String? = null,
@@ -44,6 +45,7 @@ data class Settings(
     val colorTheme: ColorTheme = ColorTheme.BLUEBERRY,
     val darkMode: DarkMode = DarkMode.SYSTEM,
     val torrentPeersThroughServer: Boolean = false,
+    val cyrillicAppName: Boolean = false,
 ) {
     /** Root folder for downloads of the given kind, null until chosen. */
     fun rootFor(kind: MediaKind): String? = when (kind) {

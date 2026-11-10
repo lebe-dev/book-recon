@@ -3,6 +3,7 @@ package ru.tinyops.android.bookrecon.ui.search
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -55,10 +56,71 @@ class SearchViewModelTest {
         Dispatchers.resetMain()
     }
 
+    private val chosen = MutableStateFlow(MediaKind.entries.toSet())
+
     private fun viewModel(handle: SavedStateHandle = SavedStateHandle()) =
-        SearchViewModel(SearchUseCase(flibusta, ruTracker, settings, downloads), history, handle)
+        SearchViewModel(SearchUseCase(flibusta, ruTracker, settings, downloads), history, handle, chosen)
 
     private fun runVmTest(block: suspend TestScope.() -> Unit) = runTest(dispatcher) { block() }
+
+    @Test
+    fun `a kind without a chosen folder cannot be selected or searched`() = runVmTest {
+        chosen.value = setOf(MediaKind.BOOK)
+        val vm = viewModel()
+        runCurrent()
+
+        vm.onKindChange(MediaKind.AUDIO)
+        runCurrent()
+
+        assertEquals(MediaKind.BOOK, vm.state.value.kind)
+        assertEquals(setOf(MediaKind.BOOK), vm.state.value.chosenKinds)
+    }
+
+    @Test
+    fun `the tab moves to a kind that has a folder when its own folder is gone`() = runVmTest {
+        val vm = viewModel()
+        runCurrent()
+        vm.onQueryChange("Булгаков")
+        vm.onSearch()
+        runCurrent()
+
+        chosen.value = setOf(MediaKind.AUDIO)
+        advanceUntilIdle()
+
+        assertEquals(MediaKind.AUDIO, vm.state.value.kind)
+        assertTrue(vm.state.value.search != null)
+    }
+
+    @Test
+    fun `without any folder nothing is searched`() = runVmTest {
+        chosen.value = emptySet()
+        val vm = viewModel()
+        runCurrent()
+
+        vm.onQueryChange("Булгаков")
+        vm.onSearch()
+        advanceUntilIdle()
+
+        assertNull(vm.state.value.search)
+        assertTrue(vm.state.value.history.isEmpty())
+    }
+
+    @Test
+    fun `choosing the missing folder resumes the submitted search`() = runVmTest {
+        val vm = viewModel()
+        runCurrent()
+        vm.onQueryChange("Булгаков")
+        vm.onSearch()
+        runCurrent()
+        chosen.value = emptySet()
+        runCurrent()
+        assertNull(vm.state.value.search)
+
+        chosen.value = setOf(MediaKind.BOOK)
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value.search!!.results.isNotEmpty())
+    }
 
     @Test
     fun `starts empty on the books tab`() = runVmTest {

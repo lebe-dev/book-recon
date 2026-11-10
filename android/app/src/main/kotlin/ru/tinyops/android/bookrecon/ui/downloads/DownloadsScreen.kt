@@ -74,7 +74,7 @@ fun DownloadsScreen(onOpenSettings: () -> Unit) {
     val context = LocalContext.current
     val factory = remember(context) {
         val app = context.appContainer
-        viewModelFactory { initializer { DownloadsViewModel(app.download.downloadQueue) } }
+        viewModelFactory { initializer { DownloadsViewModel(app.download.downloadQueue, app.settings.chosenKinds) } }
     }
     val viewModel: DownloadsViewModel = viewModel(factory = factory)
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -208,10 +208,10 @@ private fun DownloadsList(state: DownloadsUiState, actions: DownloadsActions, no
             SeedingItem(download, download.id in state.busy, actions, now, zone)
         }
         section(R.string.downloads_section_failed, state.failed) { download ->
-            FailedItem(download, download.id in state.busy, actions)
+            FailedItem(download, download.id in state.busy, download.kind in state.chosenKinds, actions)
         }
         section(R.string.downloads_section_cancelled, state.cancelled) { download ->
-            CancelledItem(download, download.id in state.busy, actions)
+            CancelledItem(download, download.id in state.busy, download.kind in state.chosenKinds, actions)
         }
     }
 }
@@ -365,13 +365,18 @@ private fun SeedingItem(download: Download, busy: Boolean, actions: DownloadsAct
 
 /** A cancelled download keeps its torrent, so it can start again; partial files are gone. */
 @Composable
-private fun CancelledItem(download: Download, busy: Boolean, actions: DownloadsActions) {
+private fun CancelledItem(download: Download, busy: Boolean, rootChosen: Boolean, actions: DownloadsActions) {
     DownloadCard(download) {
         ActionRow {
             TextButton(onClick = { actions.onDismiss(download.id) }, enabled = !busy) {
                 Text(stringResource(R.string.downloads_dismiss))
             }
-            Button(onClick = { actions.onRetry(download.id) }, enabled = !busy) {
+            if (!rootChosen) {
+                TextButton(onClick = actions.onOpenSettings) {
+                    Text(stringResource(R.string.downloads_settings))
+                }
+            }
+            Button(onClick = { actions.onRetry(download.id) }, enabled = !busy && rootChosen) {
                 Text(stringResource(R.string.downloads_restart))
             }
         }
@@ -379,7 +384,7 @@ private fun CancelledItem(download: Download, busy: Boolean, actions: DownloadsA
 }
 
 @Composable
-private fun FailedItem(download: Download, busy: Boolean, actions: DownloadsActions) {
+private fun FailedItem(download: Download, busy: Boolean, rootChosen: Boolean, actions: DownloadsActions) {
     val error = download.error ?: AppError.Unknown()
     DownloadCard(download, failed = true) {
         Text(
@@ -394,7 +399,7 @@ private fun FailedItem(download: Download, busy: Boolean, actions: DownloadsActi
             ) {
                 Text(stringResource(R.string.downloads_dismiss))
             }
-            if (error.fixableInSettings()) {
+            if (error.fixableInSettings() || !rootChosen) {
                 TextButton(
                     onClick = actions.onOpenSettings,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onErrorContainer),
@@ -404,7 +409,7 @@ private fun FailedItem(download: Download, busy: Boolean, actions: DownloadsActi
             }
             Button(
                 onClick = { actions.onRetry(download.id) },
-                enabled = !busy,
+                enabled = !busy && rootChosen,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.onErrorContainer,
                     contentColor = MaterialTheme.colorScheme.errorContainer,

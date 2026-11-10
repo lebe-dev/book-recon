@@ -4,9 +4,11 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.tinyops.android.bookrecon.core.domain.AppError
@@ -27,6 +29,8 @@ data class VerificationRequest(val url: String, val purpose: VerificationPurpose
  * @property submittedQuery the last query sent to the sources; switching the tab repeats it.
  * @property search the latest snapshot of the running or finished search, null before the first one.
  * @property queryTooShort the user submitted a query the sources would not accept.
+ * @property chosenKinds kinds whose download folder is chosen; a kind outside it cannot be
+ *   selected or searched, since nothing could be downloaded.
  * @property history the last submitted queries, newest first.
  * @property pendingVerification a web check to open now; the screen acknowledges it with
  *   [SearchViewModel.onVerificationOpened].
@@ -37,6 +41,7 @@ data class SearchUiState(
     val submittedQuery: String? = null,
     val search: SearchState? = null,
     val queryTooShort: Boolean = false,
+    val chosenKinds: Set<MediaKind> = MediaKind.entries.toSet(),
     val pendingVerification: VerificationRequest? = null,
     val history: List<String> = emptyList(),
 )
@@ -45,11 +50,15 @@ data class SearchUiState(
  * Runs searches through [searchUseCase]. The query, the tab and the last submitted query live
  * in [savedState], so they survive rotation and process death; a restored submitted query is
  * searched again. Every accepted query goes to [history].
+ *
+ * Only kinds in [chosenKinds] (those with a chosen download folder) are offered: the tab
+ * moves to another kind when its folder is gone, and without any folder nothing is searched.
  */
 class SearchViewModel(
     private val searchUseCase: SearchUseCase,
     private val history: SearchHistory,
     private val savedState: SavedStateHandle,
+    private val chosenKinds: Flow<Set<MediaKind>> = flowOf(MediaKind.entries.toSet()),
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(
         SearchUiState(
@@ -68,6 +77,7 @@ class SearchViewModel(
 
     init {
         mutableState.value.submittedQuery?.let { start(it, mutableState.value.kind) }
+        viewModelScope.launch { chosenKinds.collect(::onChosenKinds) }
         viewModelScope.launch {
             history.queries.collect { queries -> mutableState.update { it.copy(history = queries) } }
         }
@@ -79,7 +89,7 @@ class SearchViewModel(
     }
 
     fun onKindChange(kind: MediaKind) {
-        if (kind == mutableState.value.kind) return
+        if (kind == mutableState.value.kind || kind !in mutableState.value.chosenKinds) return
         savedState[KEY_KIND] = kind.name
         mutableState.update { it.copy(kind = kind) }
         val submitted = mutableState.value.submittedQuery ?: return
@@ -88,6 +98,7 @@ class SearchViewModel(
 
     fun onSearch() {
         val query = mutableState.value.query
+        if (mutableState.value.kind !in mutableState.value.chosenKinds) return
         if (!SearchUseCase.accepts(query)) {
             mutableState.update { it.copy(queryTooShort = true) }
             return
@@ -125,7 +136,33 @@ class SearchViewModel(
         onRetry()
     }
 
+    /** The set of kinds with a download folder changed: keep the tab on one of them. */
+    private fun onChosenKinds(kinds: Set<MediaKind>) {
+        mutableState.update { it.copy(chosenKinds = kinds) }
+        val current = mutableState.value.kind
+        val submitted = mutableState.value.submittedQuery
+        if (current in kinds) {
+            // A folder chosen meanwhile brings back a search that was held back.
+            if (submitted != null && mutableState.value.search == null) start(submitted, current)
+            return
+        }
+        val replacement = MediaKind.entries.firstOrNull { it in kinds }
+        if (replacement == null) {
+            searchJob?.cancel()
+            mutableState.update { it.copy(search = null) }
+            return
+        }
+        savedState[KEY_KIND] = replacement.name
+        mutableState.update { it.copy(kind = replacement) }
+        if (submitted != null) start(submitted, replacement)
+    }
+
     private fun start(query: String, kind: MediaKind) {
+        if (kind !in mutableState.value.chosenKinds) {
+            searchJob?.cancel()
+            mutableState.update { it.copy(search = null) }
+            return
+        }
         searchJob?.cancel()
         verificationRequested = false
         mutableState.update { it.copy(search = null, pendingVerification = null) }

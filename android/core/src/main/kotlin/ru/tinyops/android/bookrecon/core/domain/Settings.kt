@@ -47,6 +47,13 @@ data class Settings(
     val torrentPeersThroughServer: Boolean = false,
     val cyrillicAppName: Boolean = false,
 ) {
+    /** True when the root folder for [kind] is chosen. */
+    fun hasRoot(kind: MediaKind): Boolean = rootFor(kind) != null
+
+    /** Kinds of books whose root folder is chosen: only these can be searched and downloaded. */
+    val chosenKinds: Set<MediaKind>
+        get() = MediaKind.entries.filterTo(mutableSetOf()) { hasRoot(it) }
+
     /** Root folder for downloads of the given kind, null until chosen. */
     fun rootFor(kind: MediaKind): String? = when (kind) {
         MediaKind.BOOK -> booksRoot

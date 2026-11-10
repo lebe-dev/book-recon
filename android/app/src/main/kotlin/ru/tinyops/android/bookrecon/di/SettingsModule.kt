@@ -7,6 +7,10 @@ import android.os.Environment
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.port.FileStorage
 import ru.tinyops.android.bookrecon.core.port.SettingsRepository
 import ru.tinyops.android.bookrecon.storage.files.AndroidFileStorage
@@ -29,6 +33,11 @@ class SettingsModule(private val app: AppContainer) {
             cipher = AesGcmCipher { KeystoreKeys.aesKey(PASSWORD_KEY_ALIAS) },
             log = { app.log.appLog.warn(TAG, it) },
         )
+    }
+
+    /** Kinds of books whose download folder is chosen; the screens enable only these. */
+    val chosenKinds: Flow<Set<MediaKind>> by lazy {
+        settingsRepository.settings.map { it.chosenKinds }.distinctUntilChanged()
     }
 
     /**

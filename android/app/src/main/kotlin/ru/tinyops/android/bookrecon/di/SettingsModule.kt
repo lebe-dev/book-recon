@@ -2,7 +2,6 @@ package ru.tinyops.android.bookrecon.di
 
 import android.content.Context
 import android.os.Environment
-import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
@@ -25,7 +24,7 @@ class SettingsModule(private val app: AppContainer) {
         DataStoreSettingsRepository(
             store = app.context.settingsStore,
             cipher = AesGcmCipher { KeystoreKeys.aesKey(PASSWORD_KEY_ALIAS) },
-            log = { Log.w(TAG, it) },
+            log = { app.log.appLog.warn(TAG, it) },
         )
     }
 

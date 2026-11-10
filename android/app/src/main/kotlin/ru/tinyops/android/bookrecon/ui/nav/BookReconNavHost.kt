@@ -1,6 +1,5 @@
 package ru.tinyops.android.bookrecon.ui.nav
 
-import android.util.Log
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
@@ -42,6 +41,7 @@ import ru.tinyops.android.bookrecon.di.appContainer
 import ru.tinyops.android.bookrecon.ui.book.FlibustaBookScreen
 import ru.tinyops.android.bookrecon.ui.downloads.DownloadsScreen
 import ru.tinyops.android.bookrecon.ui.library.LibraryScreen
+import ru.tinyops.android.bookrecon.ui.log.LogScreen
 import ru.tinyops.android.bookrecon.ui.search.SearchScreen
 import ru.tinyops.android.bookrecon.ui.settings.SettingsScreen
 import ru.tinyops.android.bookrecon.ui.topic.RuTrackerTopicScreen
@@ -134,8 +134,12 @@ fun BookReconNavHost(navController: NavHostController = rememberNavController())
                 val verificationResults = remember(entry) { entry.savedStateHandle.verificationResults() }
                 SettingsScreen(
                     onOpenVerification = { url, purpose -> navController.navigate(WebVerificationRoute(url, purpose)) },
+                    onOpenLog = { navController.navigate(LogRoute) },
                     verificationResults = verificationResults,
                 )
+            }
+            composable<LogRoute> {
+                LogScreen(onBack = { navController.popBackStack() })
             }
             composable<WebVerificationRoute> { entry ->
                 val route = entry.toRoute<WebVerificationRoute>()
@@ -166,7 +170,7 @@ private fun OpenSettingsOnFirstRun(navController: NavHostController) {
         val module = context.appContainer.settings
         val settings = module.settingsRepository.settings.first()
         if (!needsStorageSetup(module.fileStorage.hasAllFilesAccess(), settings)) return@LaunchedEffect
-        Log.i(TAG, "Storage is not set up, opening settings")
+        context.appContainer.log.appLog.info(TAG, "Storage is not set up, opening settings")
         navController.navigateToTopLevel(SettingsRoute)
     }
 }

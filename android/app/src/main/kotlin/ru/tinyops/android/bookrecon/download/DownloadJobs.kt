@@ -1,10 +1,10 @@
 package ru.tinyops.android.bookrecon.download
 
 import android.app.job.JobInfo
+import ru.tinyops.android.bookrecon.di.appContainer
 import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
-import android.util.Log
 
 /**
  * Schedules the single user-initiated data transfer job that runs the download queue. The job
@@ -43,7 +43,7 @@ object DownloadJobs {
      */
     fun updateNetwork(context: Context, wifiOnly: Boolean) {
         if (!isPending(context)) return
-        Log.i(TAG, "The Wi-Fi only setting changed, rescheduling the download job")
+        context.appContainer.log.appLog.info(TAG, "The Wi-Fi only setting changed, rescheduling the download job")
         scheduleJob(context, context.getSystemService(JobScheduler::class.java), wifiOnly)
     }
 
@@ -57,13 +57,13 @@ object DownloadJobs {
         val scheduled = try {
             scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS
         } catch (e: IllegalStateException) {
-            Log.w(TAG, "The system refused to schedule the download job", e)
+            context.appContainer.log.appLog.warn(TAG, "The system refused to schedule the download job", e)
             false
         } catch (e: SecurityException) {
-            Log.w(TAG, "The download job is not allowed", e)
+            context.appContainer.log.appLog.warn(TAG, "The download job is not allowed", e)
             false
         }
-        if (scheduled) Log.i(TAG, "Scheduled the download job, Wi-Fi only: $wifiOnly")
+        if (scheduled) context.appContainer.log.appLog.info(TAG, "Scheduled the download job, Wi-Fi only: $wifiOnly")
         return scheduled
     }
 }

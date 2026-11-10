@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.util.Log
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +34,7 @@ class DownloadJobService : JobService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var work: Job? = null
     private var cancelReceiver: BroadcastReceiver? = null
-    private val seeding by lazy { SeedingJobRunner(appContainer.download.seeding, appContainer.download.scope) }
+    private val seeding by lazy { SeedingJobRunner(appContainer.download.seeding, appContainer.download.scope, appContainer.log.appLog) }
 
     override fun onStartJob(params: JobParameters): Boolean {
         if (params.jobId == SeedingJobs.JOB_ID) {
@@ -47,7 +46,7 @@ class DownloadJobService : JobService() {
         DownloadNotifications.ensureChannel(this)
         showProgress(params, QueueSummary.EMPTY)
         registerCancelReceiver()
-        Log.i(TAG, "Download job started")
+        appContainer.log.appLog.info(TAG, "Download job started")
 
         work = scope.launch {
             val queue = module.queue
@@ -71,7 +70,7 @@ class DownloadJobService : JobService() {
             }
             updates.cancel()
             queue.pause()
-            Log.i(TAG, "Download queue is empty, finishing the job")
+            appContainer.log.appLog.info(TAG, "Download queue is empty, finishing the job")
             jobFinished(params, false)
         }
         return true
@@ -79,10 +78,10 @@ class DownloadJobService : JobService() {
 
     override fun onStopJob(params: JobParameters): Boolean {
         if (params.jobId == SeedingJobs.JOB_ID) {
-            Log.i(TAG, "Seeding job stopped by the system, reason ${params.stopReason}")
+            appContainer.log.appLog.info(TAG, "Seeding job stopped by the system, reason ${params.stopReason}")
             return seeding.stop()
         }
-        Log.i(TAG, "Download job stopped by the system, reason ${params.stopReason}")
+        appContainer.log.appLog.warn(TAG, "Download job stopped by the system, reason ${params.stopReason}")
         work?.cancel()
         DownloadJobs.running = false
         appContainer.download.pauseQueue()
@@ -111,7 +110,7 @@ class DownloadJobService : JobService() {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val id = intent.getStringExtra(DownloadNotifications.EXTRA_DOWNLOAD_ID) ?: return
-                Log.i(TAG, "Cancel requested from the notification for download $id")
+                appContainer.log.appLog.info(TAG, "Cancel requested from the notification for download $id")
                 module.scope.launch { module.queue.cancel(id) }
             }
         }

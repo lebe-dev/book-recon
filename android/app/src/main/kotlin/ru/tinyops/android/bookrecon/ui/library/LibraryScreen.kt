@@ -3,7 +3,6 @@ package ru.tinyops.android.bookrecon.ui.library
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -162,14 +161,14 @@ private fun viewFile(context: Context, request: OpenRequest): Boolean {
             .setDataAndType(uri, request.mimeType)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     } catch (e: IllegalArgumentException) {
-        Log.w(TAG, "Cannot share the file through the file provider", e)
+        context.appContainer.log.appLog.warn(TAG, "Cannot share the file through the file provider", e)
         return false
     }
     return try {
         context.startActivity(intent)
         true
     } catch (_: ActivityNotFoundException) {
-        Log.i(TAG, "No app can view files of type ${request.mimeType}")
+        context.appContainer.log.appLog.info(TAG, "No app can view files of type ${request.mimeType}")
         false
     }
 }

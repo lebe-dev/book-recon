@@ -1,7 +1,6 @@
 package ru.tinyops.android.bookrecon.di
 
 import android.os.Build
-import android.util.Log
 import java.net.ProxySelector
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
@@ -27,7 +26,7 @@ import ru.tinyops.android.bookrecon.storage.settings.KeystoreKeys
 /** Connection to the Book Recon server and the tunnel through it. */
 class ServerModule(private val app: AppContainer) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val log: (String) -> Unit = { Log.i(TAG, it) }
+    private val log: (String) -> Unit = { app.log.appLog.info(TAG, it) }
 
     /** Talks to the server directly: it must never route through its own tunnel. */
     private val directClient: OkHttpClient by lazy {
@@ -49,7 +48,7 @@ class ServerModule(private val app: AppContainer) {
         DataStoreServerStore(
             store = app.settings.dataStore,
             cipher = AesGcmCipher { KeystoreKeys.aesKey(TOKEN_KEY_ALIAS) },
-            log = { Log.w(TAG, it) },
+            log = { app.log.appLog.warn(TAG, it) },
         )
     }
 

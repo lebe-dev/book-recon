@@ -5,7 +5,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.util.Log
+import ru.tinyops.android.bookrecon.log.AppLog
 import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -25,6 +25,7 @@ class WebViewChallengeSolver(
     private val context: Context,
     private val cookies: CookieStore,
     private val timeout: Duration = DEFAULT_TIMEOUT,
+    private val log: AppLog? = null,
 ) : ChallengeSolver {
 
     private val main = Handler(Looper.getMainLooper())
@@ -36,15 +37,15 @@ class WebViewChallengeSolver(
         val passed = AtomicBoolean(false)
         val done = CountDownLatch(1)
 
-        Log.i(TAG, "Starting a background Cloudflare check for ${url.host}")
+        log?.info(TAG, "Starting a background Cloudflare check for ${url.host}")
         main.post { Attempt(target, before, passed, done).start() }
         // The attempt ends itself on its deadline; the margin covers a busy main thread.
         val finished = done.await(timeout.inWholeMilliseconds + MAIN_THREAD_MARGIN_MS, TimeUnit.MILLISECONDS)
         if (passed.get()) {
-            Log.i(TAG, "Background Cloudflare check passed for ${url.host}")
+            log?.info(TAG, "Background Cloudflare check passed for ${url.host}")
             return true
         }
-        Log.w(TAG, "Background Cloudflare check failed for ${url.host} (finished: $finished)")
+        log?.warn(TAG, "Background Cloudflare check failed for ${url.host} (finished: $finished)")
         return false
     }
 
@@ -79,7 +80,7 @@ class WebViewChallengeSolver(
                 WebView(context)
             } catch (e: RuntimeException) {
                 // WebView is missing or being updated; the user can still pass the check by hand.
-                Log.w(TAG, "WebView is not available for the Cloudflare check", e)
+                log?.warn(TAG, "WebView is not available for the Cloudflare check", e)
                 done.countDown()
                 return
             }

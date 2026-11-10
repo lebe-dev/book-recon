@@ -30,4 +30,7 @@ data object LibraryRoute
 data object SettingsRoute
 
 @Serializable
+data object LogRoute
+
+@Serializable
 data class WebVerificationRoute(val url: String, val purpose: VerificationPurpose)

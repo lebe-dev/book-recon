@@ -3,7 +3,6 @@ package ru.tinyops.android.bookrecon.download
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import kotlinx.coroutines.launch
 import ru.tinyops.android.bookrecon.di.appContainer
 
@@ -14,7 +13,7 @@ import ru.tinyops.android.bookrecon.di.appContainer
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
-        Log.i(TAG, "Device booted, checking downloads and seeding")
+        context.appContainer.log.appLog.info(TAG, "Device booted, checking downloads and seeding")
         val pending = goAsync()
         val module = context.appContainer.download
         module.scope.launch {

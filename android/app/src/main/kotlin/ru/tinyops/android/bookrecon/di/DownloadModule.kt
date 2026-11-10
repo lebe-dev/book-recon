@@ -1,6 +1,5 @@
 package ru.tinyops.android.bookrecon.di
 
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -22,6 +21,8 @@ import ru.tinyops.android.bookrecon.download.seeding.SeedingManager
 import java.io.File
 
 class DownloadModule(private val app: AppContainer) {
+    private val appLog get() = app.log.appLog
+
     /** Lives as long as the process; downloads must outlive any screen. */
     val scope: CoroutineScope by lazy { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
 
@@ -35,7 +36,7 @@ class DownloadModule(private val app: AppContainer) {
             scope = scope,
             stopSeeding = { queue.stopSeeding(it) },
             onSeeding = { SeedingJobs.schedule(app.context) },
-            log = { Log.i(SEEDING_TAG, it) },
+            log = { appLog.info(SEEDING_TAG, it) },
             report = app.reports.errorReporting::report,
         )
     }
@@ -51,7 +52,9 @@ class DownloadModule(private val app: AppContainer) {
             scope = scope,
             seeding = seeding,
             onWork = ::scheduleJob,
-            log = { Log.i(TAG, it) },
+            log = { appLog.info(TAG, it) },
+            warn = { appLog.warn(TAG, it) },
+            debug = { appLog.debug(TAG, it) },
             report = app.reports.errorReporting::report,
         ).also { queue ->
             scope.launch {
@@ -66,7 +69,7 @@ class DownloadModule(private val app: AppContainer) {
 
     /** Retries of torrents without seeders; run while the app is on screen. */
     val noSeedersRetry: NoSeedersRetry by lazy {
-        NoSeedersRetry(queue, app.settings.settingsRepository, log = { Log.i(TAG, it) })
+        NoSeedersRetry(queue, app.settings.settingsRepository, log = { appLog.info(TAG, it) })
     }
 
     /**
@@ -93,7 +96,7 @@ class DownloadModule(private val app: AppContainer) {
                 DownloadJobs.schedule(app.context, wifiOnly)
             },
             scheduleSeeding = { SeedingJobs.schedule(app.context) },
-            log = { Log.i(BOOT_TAG, it) },
+            log = { appLog.info(BOOT_TAG, it) },
         ).run()
     }
 

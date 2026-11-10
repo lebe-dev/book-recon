@@ -3,6 +3,7 @@ package ru.tinyops.android.bookrecon.di
 import android.webkit.WebSettings
 import okhttp3.OkHttpClient
 import ru.tinyops.android.bookrecon.core.port.HttpClient
+import ru.tinyops.android.bookrecon.log.LoggingInterceptor
 import ru.tinyops.android.bookrecon.net.ChallengeSolver
 import ru.tinyops.android.bookrecon.net.CookieStore
 import ru.tinyops.android.bookrecon.net.OkHttpHttpClient
@@ -18,7 +19,7 @@ class NetworkModule(private val app: AppContainer) {
     /** User-Agent of WebView: `cf_clearance` passed there is valid only with the same one. */
     val userAgent: String by lazy { WebSettings.getDefaultUserAgent(app.context) }
 
-    val challengeSolver: ChallengeSolver by lazy { WebViewChallengeSolver(app.context, cookieStore) }
+    val challengeSolver: ChallengeSolver by lazy { WebViewChallengeSolver(app.context, cookieStore, log = app.log.appLog) }
 
     /** The single OkHttp client of the app. */
     val okHttpClient: OkHttpClient by lazy {
@@ -27,6 +28,7 @@ class NetworkModule(private val app: AppContainer) {
             challengeSolver,
             userAgent = { userAgent },
             proxySelector = app.server.proxySelector,
+            logging = LoggingInterceptor(app.log.appLog),
         )
     }
 

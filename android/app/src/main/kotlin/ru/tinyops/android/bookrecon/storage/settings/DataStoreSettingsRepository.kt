@@ -32,6 +32,7 @@ internal object SettingsKeys {
     val WIFI_ONLY = booleanPreferencesKey("wifi_only")
     val MAX_CONCURRENT = intPreferencesKey("max_concurrent")
     val SEED_HOURS = intPreferencesKey("seed_hours")
+    val SEND_ERROR_REPORTS = booleanPreferencesKey("send_error_reports")
 
     /** Base64 of the password sealed by [SecretCipher]. */
     val RUTRACKER_PASSWORD = stringPreferencesKey("rutracker_password_sealed")
@@ -116,6 +117,7 @@ private fun Preferences.toSettings(): Settings {
         wifiOnly = this[SettingsKeys.WIFI_ONLY] ?: defaults.wifiOnly,
         maxConcurrent = this[SettingsKeys.MAX_CONCURRENT] ?: defaults.maxConcurrent,
         seedHours = this[SettingsKeys.SEED_HOURS] ?: defaults.seedHours,
+        sendErrorReports = this[SettingsKeys.SEND_ERROR_REPORTS] ?: defaults.sendErrorReports,
     ).normalized()
 }
 
@@ -128,6 +130,7 @@ private fun MutablePreferences.write(settings: Settings) {
     this[SettingsKeys.WIFI_ONLY] = settings.wifiOnly
     this[SettingsKeys.MAX_CONCURRENT] = settings.maxConcurrent
     this[SettingsKeys.SEED_HOURS] = settings.seedHours
+    this[SettingsKeys.SEND_ERROR_REPORTS] = settings.sendErrorReports
 }
 
 private fun MutablePreferences.setOrRemove(key: Preferences.Key<String>, value: String?) {

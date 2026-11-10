@@ -12,6 +12,8 @@ package ru.tinyops.android.bookrecon.core.domain
  * @property maxConcurrent downloads running at the same time, 1..[MAX_CONCURRENT_LIMIT].
  * @property seedHours keep seeding on Wi-Fi and charger for this many hours after a torrent
  *   completes; 0 turns seeding after download off.
+ * @property sendErrorReports send crashes and unexpected errors to Sentry; off until the user
+ *   turns it on.
  */
 data class Settings(
     val audioRoot: String? = null,
@@ -22,6 +24,7 @@ data class Settings(
     val wifiOnly: Boolean = false,
     val maxConcurrent: Int = DEFAULT_MAX_CONCURRENT,
     val seedHours: Int = 0,
+    val sendErrorReports: Boolean = false,
 ) {
     /** Root folder for downloads of the given kind, null until chosen. */
     fun rootFor(kind: MediaKind): String? = when (kind) {

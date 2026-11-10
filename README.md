@@ -168,6 +168,13 @@ in the background and show their progress in a notification.
 While a download is running, its files live in a hidden `.book-recon` folder inside the
 chosen folder, and they are moved into place once the download finishes.
 
+### Error reports
+
+Error reports are off by default. **Настройки → Отчёты об ошибках** turns them on: crashes
+(including native ones and ANRs) and unexpected download errors go to Sentry with the phone
+model and Android version. The Sentry environment is the device model, such as
+`google-pixel-11-pro`. The RuTracker login and password are never sent.
+
 ### Update
 
 Install the new APK over the old one: settings, history and downloaded files are kept.
@@ -199,6 +206,20 @@ ANDROID_KEY_PASSWORD=...
 Without these variables `just android-release` builds an unsigned APK that cannot be
 installed. Keep the keystore outside the repository and back it up: without it an
 installed app cannot be updated, only removed and installed again.
+
+Error reports and R8 mappings use these variables from `.env` or the environment:
+
+```
+SENTRY_DSN=https://...@sentry.example.com/1   # baked into the APK; empty disables reports
+SENTRY_ORG=...                                # mapping upload: all three are needed
+SENTRY_PROJECT=...
+SENTRY_AUTH_TOKEN=...
+SENTRY_URL=https://sentry.example.com         # only for self-hosted Sentry
+```
+
+`SENTRY_DSN` is the same variable the bot reads. A release build uploads its R8 mapping to
+Sentry, so stack traces from the app show the original code lines; without the three upload
+variables the build prints a warning and skips the upload.
 
 `just release` builds the signed APK and then builds and pushes the Docker image. It fails
 before pushing the image if signing is not configured. Attach

@@ -89,6 +89,7 @@ sealed interface DownloadEvent {
  *
  * @param onWork called after new work is queued, to schedule the background job.
  * @param log receives plain-English log lines.
+ * @param report receives errors nobody expected (they fail a download as UNKNOWN).
  */
 class DownloadQueueImpl(
     private val repository: DownloadRepository,
@@ -102,6 +103,7 @@ class DownloadQueueImpl(
     private val seeding: SeedingHandoff = SeedingHandoff.None,
     private val onWork: () -> Unit = {},
     private val log: (String) -> Unit = {},
+    private val report: (Throwable) -> Unit = {},
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) : DownloadQueue {
 
@@ -357,7 +359,9 @@ class DownloadQueueImpl(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            withContext(NonCancellable) { fail(download, e.toAppError()) }
+            val error = e.toAppError()
+            if (error is AppError.Unknown) report(e)
+            withContext(NonCancellable) { fail(download, error) }
         } finally {
             withContext(NonCancellable) {
                 liveProgress.update { it - download.id }

@@ -57,6 +57,7 @@ import kotlin.time.toKotlinDuration
  * @param onSeeding called while something is seeding, to make sure the seeding job is
  *   scheduled.
  * @param log receives plain-English log lines.
+ * @param report receives errors nobody expected while updating seeding.
  */
 class SeedingManager(
     private val repository: DownloadRepository,
@@ -68,6 +69,7 @@ class SeedingManager(
     private val stopSeeding: suspend (String) -> Unit,
     private val onSeeding: () -> Unit = {},
     private val log: (String) -> Unit = {},
+    private val report: (Throwable) -> Unit = {},
 ) : SeedingHandoff {
 
     private val mutex = Mutex()
@@ -154,6 +156,7 @@ class SeedingManager(
                     throw e
                 } catch (e: Exception) {
                     log("Cannot update seeding, retrying later: ${e.message}")
+                    if (e !is AppError) report(e)
                     clock.now().plus(MAX_WAIT.toJavaDuration())
                 } ?: break
                 val wait = java.time.Duration.between(clock.now(), next).toKotlinDuration()

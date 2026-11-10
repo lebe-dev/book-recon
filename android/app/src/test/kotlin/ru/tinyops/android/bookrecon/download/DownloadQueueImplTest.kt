@@ -49,6 +49,7 @@ class DownloadQueueImplTest {
     private lateinit var storage: FakeFileStorage
     private var ids = 0
     private var workRequests = 0
+    private val reported = mutableListOf<Throwable>()
 
     @BeforeEach
     fun setUp() {
@@ -66,6 +67,7 @@ class DownloadQueueImplTest {
         clock = clock,
         seeding = seeding,
         onWork = { workRequests++ },
+        report = { reported += it },
         newId = { "job-${++ids}" },
     )
 
@@ -248,6 +250,20 @@ class DownloadQueueImplTest {
         assertEquals(listOf(a, b), events.map { it.download.id })
         assertTrue(events[0] is DownloadEvent.Failed)
         assertTrue(events[1] is DownloadEvent.Completed)
+        assertTrue(reported.isEmpty(), "expected failures are not reported")
+    }
+
+    @Test
+    fun unexpectedFailureIsReported() = runTest {
+        val queue = queue(backgroundScope)
+        queue.start()
+        val unexpected = AppError.Unknown("boom", IllegalStateException("boom"))
+        flibusta.behavior.failNext(unexpected)
+        val a = queue.enqueue(book("11111"))
+
+        advance(BOOK_SECONDS)
+        assertEquals(DownloadStatus.FAILED, status(a))
+        assertEquals(listOf<Throwable>(unexpected), reported)
     }
 
     @Test

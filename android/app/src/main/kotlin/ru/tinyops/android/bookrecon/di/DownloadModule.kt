@@ -35,6 +35,7 @@ class DownloadModule(private val app: AppContainer) {
             stopSeeding = { queue.stopSeeding(it) },
             onSeeding = { SeedingJobs.schedule(app.context) },
             log = { Log.i(SEEDING_TAG, it) },
+            report = app.reports.errorReporting::report,
         )
     }
 
@@ -50,6 +51,7 @@ class DownloadModule(private val app: AppContainer) {
             seeding = seeding,
             onWork = ::scheduleJob,
             log = { Log.i(TAG, it) },
+            report = app.reports.errorReporting::report,
         ).also { queue ->
             scope.launch {
                 DownloadNotifications.ensureChannel(app.context)

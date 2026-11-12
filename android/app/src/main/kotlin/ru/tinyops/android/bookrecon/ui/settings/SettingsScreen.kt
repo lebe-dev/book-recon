@@ -68,6 +68,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -94,6 +95,7 @@ import ru.tinyops.android.bookrecon.storage.files.RootCheck
 import ru.tinyops.android.bookrecon.storage.files.TreeUris
 import ru.tinyops.android.bookrecon.ui.nav.VerificationPurpose
 import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
+import ru.tinyops.android.bookrecon.update.release
 
 @Composable
 fun SettingsSectionScreen(
@@ -132,12 +134,15 @@ fun SettingsSectionScreen(
     val connectionCheck = remember(context) { context.appContainer.diagnostics.connectionCheck }
     val connectionTest by connectionCheck.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val updates = remember(context) { context.appContainer.updates }
+    val updateState by updates.updater.state.collectAsStateWithLifecycle()
 
     // Access may have been granted in the system settings while the screen was hidden; the
     // admin may have decided on the server request while the user was in Telegram.
     LifecycleResumeEffect(viewModel, serverViewModel) {
         viewModel.onResume()
         serverViewModel.onResume()
+        updates.updater.onResume()
         onPauseOrDispose {}
     }
 
@@ -213,7 +218,30 @@ fun SettingsSectionScreen(
             onOpenTelegram = serverViewModel::onOpenTelegram,
             onDisconnect = serverViewModel::onDisconnect,
         ),
+        updates = UpdatesUiState(updateState, updates.currentVersion),
+        updateActions = UpdateActions(
+            onCheck = updates.updater::check,
+            onInstall = updates.updater::install,
+            onCancel = updates.updater::cancel,
+            onAllowInstall = { openInstallPermission(context) },
+            onConfirmInstall = { updates.openConfirmation(context) },
+            onOpenUrl = { openLink(context, it) },
+            onAutoCheckChange = viewModel::onAutoCheckUpdatesChange,
+        ),
     )
+}
+
+/** Opens the system page where the user allows this app to install updates. */
+private fun openInstallPermission(context: Context) {
+    val intent = Intent(
+        android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+        "package:${context.packageName}".toUri(),
+    )
+    try {
+        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, R.string.updates_no_settings, Toast.LENGTH_LONG).show()
+    }
 }
 
 /** Opens a t.me link in Telegram, or in a browser when Telegram is not installed. */
@@ -271,6 +299,8 @@ fun SettingsSectionContent(
     serverActions: ServerActions = ServerActions(),
     connectionTest: ConnectionCheckState = ConnectionCheckState.Idle,
     connectionTestActions: ConnectionTestActions = ConnectionTestActions(),
+    updates: UpdatesUiState = UpdatesUiState(),
+    updateActions: UpdateActions = UpdateActions(),
 ) {
     val approved = server.connection as? ServerState.Approved
     val testBlock: @Composable ColumnScope.() -> Unit = {
@@ -365,6 +395,7 @@ fun SettingsSectionContent(
                         SeedingBlock(state.settings.seedHours, actions.onSeedHoursChange)
                     }
                 }
+                SettingsSection.UPDATES -> UpdatesSection(updates, state.settings.autoCheckUpdates, updateActions)
                 SettingsSection.DIAGNOSTICS -> {
                     Section(R.string.settings_section_connection_test, testBlock)
                     Section(R.string.settings_section_reports) {
@@ -376,6 +407,18 @@ fun SettingsSectionContent(
                 }
             }
         }
+    }
+}
+
+/** The updates page: status, notes of an offered release, options; each on its own card. */
+@Composable
+private fun UpdatesSection(updates: UpdatesUiState, autoCheck: Boolean, actions: UpdateActions) {
+    Column {
+        Section(null) { UpdateStatusBlock(updates, actions) }
+        if (updates.state.release != null) {
+            Section(null) { ReleaseNotesBlock(updates.state, actions.onOpenUrl) }
+        }
+        Section(null) { UpdateOptionsBlock(autoCheck, actions) }
     }
 }
 

@@ -28,6 +28,10 @@ package ru.tinyops.android.bookrecon.core.domain
  * @property flibustaRoute reach Flibusta directly or through the Book Recon server.
  * @property rutrackerRoute reach RuTracker (search, `.torrent` and tracker announces) directly
  *   or through the Book Recon server.
+ * @property autoCheckUpdates look for a new release in the background at every app start;
+ *   off until the user turns it on.
+ * @property skippedUpdateVersion a release (`0.10.0`) the user chose to skip: the start check
+ *   does not offer it again, a check by hand still does. Empty when none is skipped.
  */
 data class Settings(
     val audioRoot: String? = null,
@@ -51,6 +55,8 @@ data class Settings(
     val cyrillicAppName: Boolean = false,
     val flibustaRoute: SourceRoute = SourceRoute.DIRECT,
     val rutrackerRoute: SourceRoute = SourceRoute.DIRECT,
+    val autoCheckUpdates: Boolean = false,
+    val skippedUpdateVersion: String = "",
 ) {
     /** Route chosen for [source]. */
     fun routeFor(source: Source): SourceRoute = when (source) {

@@ -72,6 +72,8 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(ColorTheme.BLUEBERRY, settings.colorTheme)
         assertEquals(DarkMode.SYSTEM, settings.darkMode)
         assertFalse(settings.cyrillicAppName)
+        assertFalse(settings.autoCheckUpdates)
+        assertEquals("", settings.skippedUpdateVersion)
         assertNull(settings.audioRoot)
         assertNull(settings.booksRoot)
         assertEquals("", settings.rutrackerLogin)
@@ -96,6 +98,8 @@ class DataStoreSettingsRepositoryTest {
             colorTheme = ColorTheme.COCOA,
             darkMode = DarkMode.DARK,
             cyrillicAppName = true,
+            autoCheckUpdates = true,
+            skippedUpdateVersion = "0.10.0",
         )
         repository().update { changed }
         closeStores()

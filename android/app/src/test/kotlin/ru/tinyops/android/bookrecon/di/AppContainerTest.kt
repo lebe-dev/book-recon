@@ -16,6 +16,7 @@ import ru.tinyops.android.bookrecon.storage.db.RoomDownloadRepository
 import ru.tinyops.android.bookrecon.storage.files.AndroidFileStorage
 import ru.tinyops.android.bookrecon.storage.settings.DataStoreSettingsRepository
 import ru.tinyops.android.bookrecon.torrent.LibTorrentEngine
+import ru.tinyops.android.bookrecon.update.UpdateState
 
 @RunWith(RobolectricTestRunner::class)
 // Robolectric 4.17 fails to set up SDK 36+ on JDK 21 (ApplicationSharedMemory), so pin 35.
@@ -34,5 +35,6 @@ class AppContainerTest {
         assertTrue(app.database.downloadRepository is RoomDownloadRepository)
         assertTrue(app.network.httpClient is OkHttpHttpClient)
         assertTrue(app.download.downloadQueue.observe().first().isEmpty())
+        assertEquals(UpdateState.Idle, app.updates.updater.state.value)
     }
 }

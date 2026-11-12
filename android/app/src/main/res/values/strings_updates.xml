@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="settings_hub_updates_title">Обновления</string>
+    <string name="settings_hub_updates">Проверка новой версии на GitHub</string>
+
+    <string name="updates_current">Установлена версия %1$s</string>
+    <string name="updates_check">Проверить обновления</string>
+    <string name="updates_check_again">Проверить снова</string>
+    <string name="updates_checking">Проверяем…</string>
+    <string name="updates_up_to_date">Установлена последняя версия</string>
+    <string name="updates_available">Доступна версия %1$s</string>
+    <string name="updates_size">Размер %1$s</string>
+    <string name="updates_notes">Что нового</string>
+    <string name="updates_install">Скачать и установить</string>
+    <string name="updates_retry">Повторить</string>
+    <string name="updates_cancel">Отменить</string>
+    <string name="updates_downloading">Скачано %1$s из %2$s</string>
+    <string name="updates_needs_permission">Разрешите приложению устанавливать обновления: откроются настройки Android, включите «Разрешить установку из этого источника» и вернитесь сюда</string>
+    <string name="updates_allow">Разрешить установку</string>
+    <string name="updates_no_settings">Не удалось открыть настройки Android</string>
+    <string name="updates_installing">Подтвердите установку в окне Android</string>
+    <string name="updates_open_installer">Открыть окно установки</string>
+    <string name="updates_release_page">Страница релиза</string>
+    <string name="updates_all_releases">Все релизы на GitHub</string>
+    <string name="updates_auto">Проверять при запуске</string>
+    <string name="updates_auto_text">В фоне при каждом запуске приложения. Если вышла новая версия, появится окно с описанием</string>
+    <string name="updates_megabytes">%1$.1f МБ</string>
+
+    <string name="updates_error_network">Нет соединения с GitHub</string>
+    <string name="updates_error_timeout">GitHub не ответил вовремя</string>
+    <string name="updates_error_service_down">GitHub временно недоступен или ограничил запросы, попробуйте позже</string>
+    <string name="updates_error_no_releases">На GitHub нет опубликованных релизов</string>
+    <string name="updates_error_bad_answer">GitHub ответил непонятно</string>
+    <string name="updates_error_corrupted">Скачанный файл повреждён, скачайте его снова</string>
+    <string name="updates_error_storage">Не хватает места для обновления</string>
+    <string name="updates_error_signature">Обновление подписано другим ключом. Debug-сборку нужно удалить и установить релизную вручную</string>
+    <string name="updates_error_install">Android не установил обновление</string>
+    <string name="updates_error_unknown">Не удалось проверить обновления</string>
+
+    <string name="updates_dialog_title">Доступна версия %1$s</string>
+    <string name="updates_dialog_update">Обновить</string>
+    <string name="updates_dialog_later">Позже</string>
+    <string name="updates_dialog_skip">Пропустить версию</string>
+    <string name="updates_dialog_no_notes">Описание изменений есть на странице релиза</string>
+</resources>

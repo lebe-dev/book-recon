@@ -245,6 +245,8 @@ class SettingsViewModel(
 
     fun onDarkModeChange(mode: DarkMode) = save { it.copy(darkMode = mode) }
 
+    fun onAutoCheckUpdatesChange(enabled: Boolean) = save { it.copy(autoCheckUpdates = enabled) }
+
     fun onCyrillicAppNameChange(enabled: Boolean) {
         applyLauncherName(enabled)
         save { it.copy(cyrillicAppName = enabled) }

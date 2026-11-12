@@ -56,6 +56,10 @@ just android-release  # тесты, android-lint и покрытие, затем
 Версия приложения берётся из корневого файла `VERSION`, общего с ботом. Android не ставит
 APK с меньшим `versionCode`, поэтому `VERSION` повышается при каждом релизе.
 
+Приложение обновляется из GitHub Releases (`lebe-dev/book-recon`, `releases/latest`): релиз
+должен быть не черновиком и не pre-release, тег вида `vX.Y.Z`, а APK приложен как
+`book-recon-<VERSION>.apk`. Иначе приложение обновление не увидит.
+
 ### Подпись и Sentry
 
 Переменные читаются из окружения или корневого `.env`:

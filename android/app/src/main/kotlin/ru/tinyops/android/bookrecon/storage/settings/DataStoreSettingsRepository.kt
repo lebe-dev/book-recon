@@ -56,6 +56,8 @@ internal object SettingsKeys {
      * carried both sources, and an upgrade must not cut it off.
      */
     val SERVER_APPROVED_HOSTS = stringSetPreferencesKey("server_approved_hosts")
+    val AUTO_CHECK_UPDATES = booleanPreferencesKey("auto_check_updates")
+    val SKIPPED_UPDATE_VERSION = stringPreferencesKey("skipped_update_version")
 
     /** Base64 of the password sealed by [SecretCipher]. */
     val RUTRACKER_PASSWORD = stringPreferencesKey("rutracker_password_sealed")
@@ -154,6 +156,8 @@ private fun Preferences.toSettings(): Settings {
         cyrillicAppName = this[SettingsKeys.CYRILLIC_APP_NAME] ?: defaults.cyrillicAppName,
         flibustaRoute = enumOrNull<SourceRoute>(this[SettingsKeys.FLIBUSTA_ROUTE]) ?: legacyRoute,
         rutrackerRoute = enumOrNull<SourceRoute>(this[SettingsKeys.RUTRACKER_ROUTE]) ?: legacyRoute,
+        autoCheckUpdates = this[SettingsKeys.AUTO_CHECK_UPDATES] ?: defaults.autoCheckUpdates,
+        skippedUpdateVersion = this[SettingsKeys.SKIPPED_UPDATE_VERSION] ?: defaults.skippedUpdateVersion,
     ).normalized()
 }
 
@@ -179,6 +183,8 @@ private fun MutablePreferences.write(settings: Settings) {
     this[SettingsKeys.CYRILLIC_APP_NAME] = settings.cyrillicAppName
     this[SettingsKeys.FLIBUSTA_ROUTE] = settings.flibustaRoute.name
     this[SettingsKeys.RUTRACKER_ROUTE] = settings.rutrackerRoute.name
+    this[SettingsKeys.AUTO_CHECK_UPDATES] = settings.autoCheckUpdates
+    this[SettingsKeys.SKIPPED_UPDATE_VERSION] = settings.skippedUpdateVersion
 }
 
 /** The constant named [name], null for a missing or unknown name (written by another version). */

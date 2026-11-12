@@ -308,6 +308,16 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun autoCheckUpdatesIsOffByDefaultAndSaved() = runVmTest { vm ->
+        assertFalse(vm.state.value.settings.autoCheckUpdates)
+
+        vm.onAutoCheckUpdatesChange(true)
+        advanceUntilIdle()
+
+        assertTrue(settings.settings.first().autoCheckUpdates)
+    }
+
+    @Test
     fun cyrillicAppNameIsSavedAndAppliedToTheLauncher() = runVmTest { vm ->
         vm.onCyrillicAppNameChange(true)
         advanceUntilIdle()

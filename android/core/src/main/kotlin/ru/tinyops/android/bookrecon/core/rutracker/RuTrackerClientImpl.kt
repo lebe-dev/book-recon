@@ -12,6 +12,7 @@ import org.jsoup.nodes.Document
 import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.TorrentTopic
+import ru.tinyops.android.bookrecon.core.mirror.MirrorFallback
 import ru.tinyops.android.bookrecon.core.port.HttpClient
 import ru.tinyops.android.bookrecon.core.port.HttpResponse
 import ru.tinyops.android.bookrecon.core.port.RuTrackerClient
@@ -58,8 +59,7 @@ class RuTrackerClientImpl(
 
     private val bases = baseUrls.map { it.trimEnd('/') }.filter { it.isNotEmpty() }.distinct()
 
-    @Volatile
-    private var lastWorking: String? = null
+    private val mirrors = MirrorFallback("RuTracker")
 
     private val loginMutex = Mutex()
 
@@ -105,28 +105,7 @@ class RuTrackerClientImpl(
         }
     }
 
-    private fun candidates(): List<String> {
-        val preferred = lastWorking?.takeIf { it in bases } ?: return bases
-        return listOf(preferred) + (bases - preferred)
-    }
-
-    /**
-     * Runs [block] against the mirrors in turn until one answers. Only failures to reach a
-     * mirror move on to the next one; a rejected password or a missing topic would be the same
-     * everywhere.
-     */
-    private suspend fun <T> onMirrors(block: suspend (base: String) -> T): T {
-        var failure: AppError? = null
-        for (base in candidates()) {
-            try {
-                return block(base).also { lastWorking = base }
-            } catch (e: AppError) {
-                if (e !is AppError.Network && e !is AppError.ServiceDown && e !is AppError.Timeout) throw e
-                failure = e
-            }
-        }
-        throw failure ?: AppError.Network("no RuTracker mirror is configured")
-    }
+    private suspend fun <T> onMirrors(block: suspend (base: String) -> T): T = mirrors.run(bases, block)
 
     /**
      * Runs [block], which returns [Page.LoginRequired] when the session is gone. Then logs in

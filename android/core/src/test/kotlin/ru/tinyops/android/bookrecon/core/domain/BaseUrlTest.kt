@@ -20,4 +20,22 @@ class BaseUrlTest {
     fun blankStaysEmpty() {
         assertEquals("", normalizeBaseUrl("  "))
     }
+
+    @Test
+    fun lowercasesSchemeAndHostButKeepsThePath() {
+        assertEquals("https://flibusta.is", normalizeBaseUrl("HTTPS://Flibusta.IS/"))
+        assertEquals("https://flibusta.site", normalizeBaseUrl("Flibusta.Site"))
+        assertEquals("https://books.example.com:8081/Lib", normalizeBaseUrl("Books.Example.com:8081/Lib/"))
+    }
+
+    @Test
+    fun trimsTabsAndNewlinesAroundTheAddress() {
+        assertEquals("https://flibusta.is", normalizeBaseUrl("\t https://flibusta.is \n"))
+    }
+
+    @Test
+    fun typedHttpsOfAKnownMirrorStaysAKnownMirror() {
+        val typed = Settings(flibustaBaseUrl = normalizeBaseUrl(" HTTPS://Flibusta.Is/ "))
+        assertEquals(Settings.FLIBUSTA_MIRRORS, typed.flibustaFallbackUrls)
+    }
 }

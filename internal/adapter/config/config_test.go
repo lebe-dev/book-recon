@@ -68,7 +68,7 @@ func TestLoadAppAPIDefaults(t *testing.T) {
 	if cfg.AppAPIEnabled || cfg.AppAPIListen != ":8081" {
 		t.Errorf("app api = %v %q, want disabled on :8081", cfg.AppAPIEnabled, cfg.AppAPIListen)
 	}
-	if strings.Join(cfg.AppTunnelHosts, ",") != "rutracker.org,rutracker.cc,t-ru.org,flibusta.is,challenges.cloudflare.com" {
+	if strings.Join(cfg.AppTunnelHosts, ",") != "rutracker.org,rutracker.cc,t-ru.org,flibusta.is,flibusta.site,challenges.cloudflare.com" {
 		t.Errorf("AppTunnelHosts = %v", cfg.AppTunnelHosts)
 	}
 	if len(cfg.AppTunnelPorts) != 2 || cfg.AppTunnelPorts[0] != 443 || cfg.AppTunnelPorts[1] != 80 {

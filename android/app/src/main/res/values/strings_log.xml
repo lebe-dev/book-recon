@@ -11,6 +11,8 @@
     <string name="log_save">В файл</string>
     <string name="log_saved">Журнал сохранён</string>
     <string name="log_save_failed">Не удалось сохранить файл</string>
+    <string name="log_share">Поделиться</string>
+    <string name="log_share_failed">Не удалось подготовить файл</string>
     <string name="log_clear">Очистить</string>
     <string name="log_empty">Журнал пуст. Включите уровень выше и пользуйтесь приложением</string>
     <string name="log_both_off">Оба уровня выключены: новые записи не добавляются</string>

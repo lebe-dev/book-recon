@@ -11,7 +11,7 @@
 | `DB_PATH` | Путь к файлу SQLite | `book-recon.db` |
 | `LOG_LEVEL` | Уровень логирования | `info` |
 | `PROVIDER_TIMEOUT` | Таймаут поиска у одного провайдера | `30s` |
-| `FLIBUSTA_BASE_URL` | Базовый URL Flibusta (зеркала: `https://flibusta.site`, `https://flibusta.is`) | `https://flibusta.site` |
+| `FLIBUSTA_BASE_URL` | Зеркала Flibusta через запятую, перебираются по порядку: если зеркало не отвечает (сеть, таймаут, 5xx), берётся следующее, а рабочее запоминается до перезапуска. Пусто — встроенный список: `https://flibusta.site`, `https://flibusta.is` | пусто |
 | `FLIBUSTA_ENABLED` | Включить Flibusta | `true` |
 | `ROYALLIB_BASE_URL` | Базовый URL RoyalLib | `https://royallib.com` |
 | `ROYALLIB_ENABLED` | Включить RoyalLib | `false` |

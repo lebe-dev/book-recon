@@ -18,7 +18,7 @@ type Config struct {
 	LogLevel          string   `env:"LOG_LEVEL" envDefault:"info"`
 	UserAgent         string   `env:"USER_AGENT" envDefault:"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"`
 	RoyallibBaseURL   string   `env:"ROYALLIB_BASE_URL" envDefault:"https://royallib.com"`
-	FlibustaBaseURL   string   `env:"FLIBUSTA_BASE_URL" envDefault:"https://flibusta.site"`
+	FlibustaBaseURLs  []string `env:"FLIBUSTA_BASE_URL" envSeparator:","`
 	FlibustaEngine    string   `env:"FLIBUSTA_ENGINE" envDefault:"default"`
 	BookSizeThreshold int64    `env:"BOOK_SIZE_THRESHOLD" envDefault:"4096"`
 	RoyallibEnabled   bool     `env:"ROYALLIB_ENABLED" envDefault:"false"`

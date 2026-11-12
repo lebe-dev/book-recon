@@ -56,8 +56,8 @@ class LogViewModel(
 
     fun onClear() = appLog.clear()
 
-    /** The entries on screen as text, for the clipboard. */
-    fun shownText(): String = state.value.entries.joinToString("\n") { it.format(zone) }
+    /** Every entry in memory, DEBUG included whatever the switches show, for the clipboard. */
+    fun copyText(): String = appLog.entries.value.joinToString("\n") { it.format(zone) }
 
     /** The whole stored log with a [header], for a file. Reads the disk, so it is suspending. */
     suspend fun exportText(): String = withContext(Dispatchers.IO) { "${header()}\n\n${appLog.text()}" }

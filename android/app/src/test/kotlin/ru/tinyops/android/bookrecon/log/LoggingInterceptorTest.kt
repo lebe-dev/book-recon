@@ -34,7 +34,7 @@ class LoggingInterceptorTest {
     }
 
     @Test
-    fun successfulRequestIsDebugWithoutQueryString() {
+    fun successfulRequestIsInfoWithoutQueryString() {
         server.enqueue(MockResponse.Builder().body("ok").build())
         server.start()
         val (log, client) = logAndClient()
@@ -42,7 +42,7 @@ class LoggingInterceptorTest {
         client.newCall(Request.Builder().url(server.url("/viewtopic.php?t=1&passkey=SECRET")).build()).execute().close()
 
         val entry = log.entries.value.single()
-        assertEquals(LogLevel.DEBUG, entry.level)
+        assertEquals(LogLevel.INFO, entry.level)
         assertEquals("Http", entry.tag)
         assertTrue(entry.message.startsWith("GET ${server.hostName}/viewtopic.php -> 200 "), entry.message)
         assertFalse(log.text().contains("SECRET"))

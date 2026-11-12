@@ -90,6 +90,21 @@ class LogViewModelTest {
     }
 
     @Test
+    fun copiedTextHoldsEveryLevelWhateverTheSwitchesShow() = runTest(dispatcher) {
+        val log = appLog().also {
+            it.debug("Net") { "details" }
+            it.info("Queue", "hello")
+        }
+        val vm = LogViewModel(log, settings)
+        advanceUntilIdle()
+        assertEquals(listOf("hello"), vm.state.value.entries.map { it.message })
+
+        val text = vm.copyText()
+
+        assertTrue(text.contains("D/Net: details") && text.contains("I/Queue: hello"), text)
+    }
+
+    @Test
     fun clearEmptiesTheLog() = runTest(dispatcher) {
         val log = appLog().also { it.info("Queue", "hello") }
         val vm = LogViewModel(log, settings)

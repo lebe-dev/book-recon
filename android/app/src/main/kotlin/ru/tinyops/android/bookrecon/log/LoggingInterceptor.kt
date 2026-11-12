@@ -5,9 +5,10 @@ import okhttp3.Interceptor
 import okhttp3.Response
 
 /**
- * Logs every request of the client: DEBUG for answers below 400, a warning for HTTP errors
- * and failures. Only the method, host and path are written; the query string can carry
- * tokens and is never logged, nor are headers and cookies.
+ * Logs every request of the client: INFO for answers below 400 (shown by default, so a shared
+ * log tells which requests worked), a warning for HTTP errors and failures.
+ * Only the method, host and path are written; the query string can carry tokens and is never
+ * logged, nor are headers and cookies.
  */
 class LoggingInterceptor(private val log: AppLog) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -21,7 +22,7 @@ class LoggingInterceptor(private val log: AppLog) : Interceptor {
             throw e
         }
         val line = "$target -> ${response.code} (${elapsedMs(started)} ms)"
-        if (response.code >= HTTP_ERROR) log.warn(TAG, line) else log.debug(TAG) { line }
+        if (response.code >= HTTP_ERROR) log.warn(TAG, line) else log.info(TAG, line)
         return response
     }
 

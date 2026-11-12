@@ -19,7 +19,9 @@ import ru.tinyops.android.bookrecon.core.domain.FlibustaBookDetails
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Source
+import ru.tinyops.android.bookrecon.core.mirror.InMemoryMirrorMemory
 import ru.tinyops.android.bookrecon.core.mirror.MirrorFallback
+import ru.tinyops.android.bookrecon.core.mirror.MirrorMemory
 import ru.tinyops.android.bookrecon.core.port.DownloadedFile
 import ru.tinyops.android.bookrecon.core.port.FlibustaSource
 import ru.tinyops.android.bookrecon.core.port.HttpClient
@@ -42,19 +44,22 @@ import kotlin.time.Duration.Companion.seconds
  * @param fallbackUrls other mirrors to try, in order, when the one from [baseUrl] cannot be
  *   reached (network failure, timeout, server error). The mirror that answered last is tried
  *   first next time. Empty when the user pinned a mirror.
- * @param pageTimeout overall deadline of [search] and [details], including the book pages
- *   fetched for formats. [download] has none: a large file may take long, the caller limits it.
+ * @param pageTimeout overall deadline of [search] and [details] on one mirror, including the
+ *   book pages fetched for formats; read on every operation, so a changed timeout applies at
+ *   once. [download] has none: a large file may take long, the caller limits it.
  * @param io dispatcher for blocking reads and file work.
+ * @param mirrorMemory where the mirror that answered is kept, so it goes first after a restart.
  */
 class FlibustaSourceImpl(
     private val http: HttpClient,
     private val baseUrl: suspend () -> String,
     private val fallbackUrls: suspend () -> List<String> = { emptyList() },
-    private val pageTimeout: Duration = DEFAULT_PAGE_TIMEOUT,
+    private val pageTimeout: suspend () -> Duration = { DEFAULT_PAGE_TIMEOUT },
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    mirrorMemory: MirrorMemory = InMemoryMirrorMemory(),
 ) : FlibustaSource {
 
-    private val mirrors = MirrorFallback("Flibusta")
+    private val mirrors = MirrorFallback("Flibusta", mirrorMemory)
 
     override suspend fun search(query: String, limit: Int): List<BookResult> {
         if (limit <= 0 || query.isBlank()) return emptyList()
@@ -286,10 +291,13 @@ class FlibustaSourceImpl(
         return mirrors.run(all, block)
     }
 
-    private suspend fun <T> withDeadline(stage: String, block: suspend () -> T): T = try {
-        withTimeout(pageTimeout) { block() }
-    } catch (e: TimeoutCancellationException) {
-        throw AppError.Timeout("flibusta $stage did not finish within $pageTimeout", e)
+    private suspend fun <T> withDeadline(stage: String, block: suspend () -> T): T {
+        val deadline = pageTimeout()
+        return try {
+            withTimeout(deadline) { block() }
+        } catch (e: TimeoutCancellationException) {
+            throw AppError.Timeout("flibusta $stage did not finish within $deadline", e)
+        }
     }
 
     private companion object {

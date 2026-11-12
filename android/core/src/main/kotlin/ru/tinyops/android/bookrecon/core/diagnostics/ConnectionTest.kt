@@ -8,6 +8,7 @@ import kotlinx.coroutines.sync.withLock
 import ru.tinyops.android.bookrecon.core.domain.Settings
 import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.core.domain.SourceRoute
+import ru.tinyops.android.bookrecon.core.domain.hostOf
 
 /** One way to reach a source: a site and the route to it. */
 data class Probe(val source: Source, val baseUrl: String, val route: SourceRoute)
@@ -69,6 +70,22 @@ object ConnectionPlan {
     /** Known RuTracker addresses; the client tries them in this order, the connection test probes them all. */
     val RUTRACKER_MIRRORS = listOf(RUTRACKER_URL, "https://rutracker.net")
 
+    /** Letters of the made-up search word of a Flibusta probe. */
+    private const val NONCE_LENGTH = 8
+
+    /**
+     * The page a probe opens. Flibusta serves its front page from a cache even while its search
+     * hangs, so it is probed with a search for [nonce], a word nobody searched before; RuTracker
+     * with the forum index.
+     */
+    fun probeUrl(probe: Probe, nonce: String): String = when (probe.source) {
+        Source.FLIBUSTA -> "${probe.baseUrl}/booksearch?ask=$nonce"
+        Source.RUTRACKER -> "${probe.baseUrl}/forum/index.php"
+    }
+
+    /** A random lowercase word for [probeUrl]. */
+    fun newNonce(): String = String(CharArray(NONCE_LENGTH) { ('a'..'z').random() })
+
     /** Added to the time through the server: direct does not depend on the server. */
     private const val SERVER_PENALTY_MILLIS = 300L
 
@@ -109,8 +126,6 @@ object ConnectionPlan {
             .minByOrNull { it.second }
             ?.first
             ?.let { SourceAdvice(it.route, it.baseUrl) }
-
-    private fun hostOf(url: String): String = url.substringAfter("://").substringBefore('/').substringBefore(':').lowercase()
 
     private fun serves(hosts: Set<String>, host: String): Boolean = hosts.any { host == it || host.endsWith(".$it") }
 }

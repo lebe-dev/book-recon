@@ -17,6 +17,8 @@ import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.core.fake.FakeBehavior
 import ru.tinyops.android.bookrecon.core.fake.FakeHttpClient
+import ru.tinyops.android.bookrecon.core.mirror.InMemoryMirrorMemory
+import ru.tinyops.android.bookrecon.core.mirror.MirrorMemory
 import ru.tinyops.android.bookrecon.core.port.HttpClient
 import ru.tinyops.android.bookrecon.core.port.HttpResponse
 import java.io.ByteArrayOutputStream
@@ -59,7 +61,8 @@ class FlibustaSourceImplTest {
         baseUrl: suspend () -> String = { "$BASE/" },
         fallbackUrls: suspend () -> List<String> = { emptyList() },
         timeout: Duration = 30.seconds,
-    ) = FlibustaSourceImpl(client, baseUrl, fallbackUrls, timeout, StandardTestDispatcher(testScheduler))
+        memory: MirrorMemory = InMemoryMirrorMemory(),
+    ) = FlibustaSourceImpl(client, baseUrl, fallbackUrls, { timeout }, StandardTestDispatcher(testScheduler), memory)
 
     @TempDir
     lateinit var dir: File
@@ -166,7 +169,21 @@ class FlibustaSourceImplTest {
     }
 
     @Test
-    fun `the last failure is thrown when every mirror is down`() = runTest {
+    fun `a mirror that answered is tried first after a restart`() = runTest {
+        val other = "https://flibusta.other"
+        val memory = InMemoryMirrorMemory()
+        http.respond("$BASE/b/1", "oops", code = 503)
+        http.respond("$other/b/1", bookPage("1", "fb2"))
+        flibusta(fallbackUrls = { listOf(other) }, memory = memory).details("1")
+
+        flibusta(fallbackUrls = { listOf(other) }, memory = memory).details("1")
+
+        assertEquals("$other/b/1", http.requests.last().url)
+        assertEquals(3, http.requests.size)
+    }
+
+    @Test
+    fun `a failure is thrown when every mirror is down`() = runTest {
         http.respond("$BASE/b/1", "oops", code = 503)
         http.respond("https://flibusta.other/b/1", "oops", code = 502)
 
@@ -205,6 +222,18 @@ class FlibustaSourceImplTest {
         val slow = flibusta(timeout = 30.seconds)
 
         assertEquals(ErrorCode.TIMEOUT, assertThrows<AppError> { slow.search("q", 10) }.code)
+    }
+
+    @Test
+    fun `the page deadline is read on every call`() = runTest {
+        http.respond(searchUrl("q"), fixture("search-empty.html"))
+        http.behavior.delay = 45.seconds
+        var deadline = 30.seconds
+        val source = FlibustaSourceImpl(http, { BASE }, { emptyList() }, { deadline }, StandardTestDispatcher(testScheduler))
+
+        assertEquals(ErrorCode.TIMEOUT, assertThrows<AppError> { source.search("q", 10) }.code)
+        deadline = 60.seconds
+        assertEquals(emptyList<Any>(), source.search("q", 10))
     }
 
     @Test

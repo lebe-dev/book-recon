@@ -1,5 +1,8 @@
 package ru.tinyops.android.bookrecon.core.domain
 
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+
 /**
  * User settings. The RuTracker password is kept apart, encrypted, and is not part of this
  * class so it never ends up in logs or state dumps.
@@ -74,6 +77,30 @@ data class Settings(
     val flibustaFallbackUrls: List<String>
         get() = if (flibustaBaseUrl.isEmpty() || flibustaBaseUrl in FLIBUSTA_MIRRORS) FLIBUSTA_MIRRORS else emptyList()
 
+    /** Every Flibusta mirror a request may go to, in the order they are tried. */
+    val flibustaUrls: List<String>
+        get() = (listOf(flibustaEffectiveUrl) + flibustaFallbackUrls).distinct()
+
+    /**
+     * True when [host] is one of [flibustaUrls] or a subdomain of one: such requests wait
+     * [flibustaTimeoutSeconds] for an answer.
+     */
+    fun isFlibustaHost(host: String): Boolean = flibustaUrls.any { url ->
+        val mirror = hostOf(url)
+        mirror.isNotEmpty() && (host == mirror || host.endsWith(".$mirror"))
+    }
+
+    /**
+     * Deadline of one Flibusta page on one mirror, the book pages fetched for a search
+     * included: twice the timeout, at least [MIN_FLIBUSTA_PAGE_DEADLINE].
+     */
+    val flibustaPageDeadline: Duration
+        get() = maxOf(MIN_FLIBUSTA_PAGE_DEADLINE, (flibustaTimeoutSeconds * 2).seconds)
+
+    /** Deadline of a whole Flibusta search: a [flibustaPageDeadline] for every mirror tried. */
+    val flibustaSearchDeadline: Duration
+        get() = flibustaPageDeadline * flibustaUrls.size
+
     /** Route chosen for [source]. */
     fun routeFor(source: Source): SourceRoute = when (source) {
         Source.FLIBUSTA -> flibustaRoute
@@ -102,6 +129,7 @@ data class Settings(
         const val DEFAULT_FLIBUSTA_TIMEOUT_SECONDS = 20
         const val MIN_FLIBUSTA_TIMEOUT_SECONDS = 5
         const val MAX_FLIBUSTA_TIMEOUT_SECONDS = 120
+        val MIN_FLIBUSTA_PAGE_DEADLINE: Duration = 30.seconds
         const val DEFAULT_MAX_CONCURRENT = 2
         const val MAX_CONCURRENT_LIMIT = 4
         const val DEFAULT_NO_SEEDERS_RETRY_MINUTES = 15

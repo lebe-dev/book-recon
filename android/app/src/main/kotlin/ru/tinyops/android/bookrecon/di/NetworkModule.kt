@@ -3,11 +3,19 @@ package ru.tinyops.android.bookrecon.di
 import android.webkit.WebSettings
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import ru.tinyops.android.bookrecon.core.port.HttpClient
+import ru.tinyops.android.bookrecon.core.route.RouteMemory
+import ru.tinyops.android.bookrecon.core.route.RouteSnapshot
 import ru.tinyops.android.bookrecon.log.LoggingInterceptor
 import ru.tinyops.android.bookrecon.net.ChallengeSolver
 import ru.tinyops.android.bookrecon.net.CookieStore
@@ -16,7 +24,7 @@ import ru.tinyops.android.bookrecon.net.SharedCookieJar
 import ru.tinyops.android.bookrecon.net.WebViewChallengeSolver
 import ru.tinyops.android.bookrecon.net.WebkitCookieStore
 import ru.tinyops.android.bookrecon.net.buildOkHttpClient
-import ru.tinyops.android.bookrecon.net.isHostOrSubdomain
+import ru.tinyops.android.bookrecon.storage.settings.DataStoreRouteStore
 
 class NetworkModule(private val app: AppContainer) {
     /** The WebView cookie store; OkHttp reads and writes it too. */
@@ -36,17 +44,38 @@ class NetworkModule(private val app: AppContainer) {
             proxySelector = app.server.proxySelector,
             logging = LoggingInterceptor(app.log.appLog),
             readTimeoutFor = ::userReadTimeout,
+            routes = routeMemory,
         )
     }
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val routeStore by lazy { DataStoreRouteStore(app.settings.dataStore) }
+
+    /** Latest routes to store; conflated, so a burst of changes is written once. */
+    private val pendingRoutes = MutableStateFlow<RouteSnapshot?>(null)
+
     /**
-     * The read timeout the user chose for [host]: today only the Flibusta mirror from settings.
+     * The mirrors and addresses that worked, kept across restarts. The stored ones are read in
+     * the background (what is learnt meanwhile wins), and changes are written after that.
+     */
+    val routeMemory: RouteMemory by lazy {
+        RouteMemory(onChange = { pendingRoutes.value = it }).also { memory ->
+            scope.launch {
+                memory.restore(routeStore.load())
+                pendingRoutes.value = memory.snapshot()
+                pendingRoutes.filterNotNull().collectLatest { routeStore.save(it) }
+            }
+        }
+    }
+
+    /**
+     * The read timeout the user chose for [host]: every Flibusta mirror a search may reach.
      * Runs on an OkHttp worker thread, where waiting for the (cached) settings is fine.
      */
     private fun userReadTimeout(host: String): Duration? {
         val settings = runBlocking { app.settings.settingsRepository.settings.first() }
-        val flibustaHost = settings.flibustaEffectiveUrl.toHttpUrlOrNull()?.host ?: return null
-        if (!isHostOrSubdomain(host, flibustaHost)) return null
+        if (!settings.isFlibustaHost(host)) return null
         return settings.flibustaTimeoutSeconds.seconds
     }
 

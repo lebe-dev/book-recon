@@ -37,7 +37,8 @@ import kotlin.time.Duration.Companion.seconds
  * cache and replaces the entry.
  *
  * @param sourceTimeout deadline of one source; RuTracker may spend tens of seconds on a
- *   Cloudflare check, so it stays at a minute.
+ *   Cloudflare check, so it stays at a minute. Flibusta gets more when the timeout chosen in
+ *   the settings needs it ([Settings.flibustaSearchDeadline]).
  * @param now clock of the cache.
  */
 class SearchUseCase(
@@ -70,7 +71,8 @@ class SearchUseCase(
             for (source in sources) {
                 launch {
                     val result = cached(source, normalized, kind, ttl, refresh)
-                        ?: load(source, normalized, kind).also { store(source, normalized, kind, ttl, it) }
+                        ?: load(source, normalized, kind, deadlineOf(source, current))
+                            .also { store(source, normalized, kind, ttl, it) }
                     lock.withLock {
                         state = state.with(source, result)
                         send(state)
@@ -111,10 +113,15 @@ class SearchUseCase(
         }
     }
 
-    private suspend fun load(source: Source, query: String, kind: MediaKind): SourceState {
+    private fun deadlineOf(source: Source, current: Settings): Duration = when (source) {
+        Source.FLIBUSTA -> maxOf(sourceTimeout, current.flibustaSearchDeadline)
+        Source.RUTRACKER -> sourceTimeout
+    }
+
+    private suspend fun load(source: Source, query: String, kind: MediaKind, deadline: Duration): SourceState {
         val results = try {
-            withTimeoutOrNull(sourceTimeout) { fetch(source, query, kind) }
-                ?: return SourceState.Failed(AppError.Timeout("$source search took longer than $sourceTimeout"))
+            withTimeoutOrNull(deadline) { fetch(source, query, kind) }
+                ?: return SourceState.Failed(AppError.Timeout("$source search took longer than $deadline"))
         } catch (e: AppError) {
             return failure(e)
         } catch (e: CancellationException) {

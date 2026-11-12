@@ -79,7 +79,7 @@ class ConnectionCheckTest {
             // A Cloudflare check means RuTracker is reachable: WebView passes it later.
             assertTrue(probe.check(Probe(Source.RUTRACKER, base, SourceRoute.DIRECT)) is ProbeOutcome.Reachable)
             val paths = List(4) { server.takeRequest().url.encodedPath }
-            assertEquals(listOf("/", "/", "/", "/forum/index.php"), paths)
+            assertEquals(listOf("/booksearch", "/booksearch", "/booksearch", "/forum/index.php"), paths)
         }
         val closed = ServerSocket(0).use { it.localPort }
         val probe = OkHttpConnectivityProbe(direct = OkHttpClient(), throughServer = { null })

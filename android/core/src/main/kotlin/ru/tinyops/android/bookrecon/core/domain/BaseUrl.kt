@@ -15,4 +15,8 @@ fun normalizeBaseUrl(input: String): String {
     return withScheme.substring(0, hostEnd).lowercase() + withScheme.substring(hostEnd)
 }
 
+/** The lowercased host of [url] (`https://Example.org:8443/x` gives `example.org`), empty for a blank one. */
+fun hostOf(url: String): String =
+    url.substringAfter("://").substringBefore('/').substringBefore('?').substringBefore(':').lowercase()
+
 private val SCHEME = Regex("^[A-Za-z][A-Za-z0-9+.-]*://")

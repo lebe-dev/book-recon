@@ -14,6 +14,7 @@ class RuTrackerModule(private val app: AppContainer) {
             // The WebView cookie store is the one the HTTP client shares, so the session set
             // by a login, in code or by hand in a WebView, is visible here.
             cookies = { url -> CookieManager.getInstance().getCookie(url) },
+            mirrorMemory = app.network.routeMemory,
         )
     }
 

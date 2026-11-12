@@ -87,7 +87,7 @@ class ConnectionCheck(
 }
 
 /**
- * Opens the front page of a site and times it: Flibusta must answer with its own page,
+ * Opens a page of a site ([ConnectionPlan.probeUrl]) and times it: Flibusta must answer with its own page,
  * RuTracker with anything but a server error (a Cloudflare check counts, WebView passes it
  * later). [direct] must not use the tunnel; [throughServer] is a client that sends everything
  * through the local tunnel proxy, null when there is none.
@@ -101,10 +101,7 @@ class OkHttpConnectivityProbe(
             SourceRoute.DIRECT -> direct
             SourceRoute.SERVER -> throughServer() ?: return@withContext ProbeOutcome.Failed(ProbeProblem.NO_CONNECTION)
         }
-        val url = when (probe.source) {
-            Source.FLIBUSTA -> "${probe.baseUrl}/"
-            Source.RUTRACKER -> "${probe.baseUrl}/forum/index.php"
-        }
+        val url = ConnectionPlan.probeUrl(probe, ConnectionPlan.newNonce())
         val started = System.nanoTime()
         try {
             client.newCall(Request.Builder().url(url).build()).execute().use { response ->

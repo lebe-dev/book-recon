@@ -22,6 +22,7 @@ import ru.tinyops.android.bookrecon.core.domain.ColorTheme
 import ru.tinyops.android.bookrecon.core.domain.DarkMode
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.Settings
+import ru.tinyops.android.bookrecon.core.domain.SourceRoute
 import java.io.File
 import javax.crypto.KeyGenerator
 
@@ -181,6 +182,39 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(DarkMode.SYSTEM, settings.darkMode)
         assertEquals(Format.EPUB, settings.preferredFormat)
         assertEquals(Settings.MAX_CONCURRENT_LIMIT, settings.maxConcurrent)
+    }
+
+    @Test
+    fun sourceRoutesRoundTrip() = runBlocking {
+        val repository = repository()
+        repository.update { it.copy(flibustaRoute = SourceRoute.SERVER) }
+
+        val settings = repository.settings.first()
+        assertEquals(SourceRoute.SERVER, settings.flibustaRoute)
+        assertEquals(SourceRoute.DIRECT, settings.rutrackerRoute)
+    }
+
+    @Test
+    fun approvedServerOfOlderVersionsKeepsSendingSourcesThroughIt() = runBlocking {
+        val store = openStore()
+        store.edit { it[SettingsKeys.SERVER_APPROVED_HOSTS] = setOf("rutracker.org") }
+
+        val settings = repository(store).settings.first()
+        assertEquals(SourceRoute.SERVER, settings.flibustaRoute)
+        assertEquals(SourceRoute.SERVER, settings.rutrackerRoute)
+    }
+
+    @Test
+    fun storedRouteWinsOverTheOldServerApproval() = runBlocking {
+        val store = openStore()
+        store.edit {
+            it[SettingsKeys.SERVER_APPROVED_HOSTS] = setOf("rutracker.org")
+            it[SettingsKeys.RUTRACKER_ROUTE] = SourceRoute.DIRECT.name
+        }
+
+        val settings = repository(store).settings.first()
+        assertEquals(SourceRoute.DIRECT, settings.rutrackerRoute)
+        assertEquals(SourceRoute.SERVER, settings.flibustaRoute)
     }
 
     @Test

@@ -28,6 +28,15 @@ enum class Source {
     RUTRACKER,
 }
 
+/**
+ * How the app reaches a [Source]: straight from the phone, or through the tunnel of the
+ * Book Recon server. SERVER takes effect only while the server is approved.
+ */
+enum class SourceRoute {
+    DIRECT,
+    SERVER,
+}
+
 /** What a download contains: e-book files or an audiobook. */
 enum class MediaKind {
     BOOK,

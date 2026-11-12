@@ -65,6 +65,12 @@ internal fun ServerBlock(state: ServerUiState, actions: ServerActions) {
         supportingContent = { Text(stringResource(R.string.settings_server_text)) },
         trailingContent = { Switch(checked = state.enabled, onCheckedChange = actions.onEnabledChange, enabled = !busy) },
     )
+    Text(
+        text = stringResource(R.string.settings_server_next_step),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
     if (!state.enabled) return
 
     Column(

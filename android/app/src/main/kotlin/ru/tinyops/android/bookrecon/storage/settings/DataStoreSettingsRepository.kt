@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +20,7 @@ import ru.tinyops.android.bookrecon.core.domain.ColorTheme
 import ru.tinyops.android.bookrecon.core.domain.DarkMode
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.Settings
+import ru.tinyops.android.bookrecon.core.domain.SourceRoute
 import ru.tinyops.android.bookrecon.core.port.SettingsRepository
 import java.security.GeneralSecurityException
 import java.security.ProviderException
@@ -45,6 +47,15 @@ internal object SettingsKeys {
     val COLOR_THEME = stringPreferencesKey("color_theme")
     val DARK_MODE = stringPreferencesKey("dark_mode")
     val CYRILLIC_APP_NAME = booleanPreferencesKey("cyrillic_app_name")
+    val FLIBUSTA_ROUTE = stringPreferencesKey("flibusta_route")
+    val RUTRACKER_ROUTE = stringPreferencesKey("rutracker_route")
+
+    /**
+     * Hosts the approved server tunnels, written by the server store in the same file. Read
+     * here only for routes missing in the store: before routes existed, an approved server
+     * carried both sources, and an upgrade must not cut it off.
+     */
+    val SERVER_APPROVED_HOSTS = stringSetPreferencesKey("server_approved_hosts")
 
     /** Base64 of the password sealed by [SecretCipher]. */
     val RUTRACKER_PASSWORD = stringPreferencesKey("rutracker_password_sealed")
@@ -118,6 +129,7 @@ class DataStoreSettingsRepository(
 
 private fun Preferences.toSettings(): Settings {
     val defaults = Settings()
+    val legacyRoute = if (this[SettingsKeys.SERVER_APPROVED_HOSTS] != null) SourceRoute.SERVER else SourceRoute.DIRECT
     return Settings(
         audioRoot = this[SettingsKeys.AUDIO_ROOT],
         booksRoot = this[SettingsKeys.BOOKS_ROOT],
@@ -140,6 +152,8 @@ private fun Preferences.toSettings(): Settings {
         colorTheme = enumOrNull<ColorTheme>(this[SettingsKeys.COLOR_THEME]) ?: defaults.colorTheme,
         darkMode = enumOrNull<DarkMode>(this[SettingsKeys.DARK_MODE]) ?: defaults.darkMode,
         cyrillicAppName = this[SettingsKeys.CYRILLIC_APP_NAME] ?: defaults.cyrillicAppName,
+        flibustaRoute = enumOrNull<SourceRoute>(this[SettingsKeys.FLIBUSTA_ROUTE]) ?: legacyRoute,
+        rutrackerRoute = enumOrNull<SourceRoute>(this[SettingsKeys.RUTRACKER_ROUTE]) ?: legacyRoute,
     ).normalized()
 }
 
@@ -163,6 +177,8 @@ private fun MutablePreferences.write(settings: Settings) {
     this[SettingsKeys.COLOR_THEME] = settings.colorTheme.name
     this[SettingsKeys.DARK_MODE] = settings.darkMode.name
     this[SettingsKeys.CYRILLIC_APP_NAME] = settings.cyrillicAppName
+    this[SettingsKeys.FLIBUSTA_ROUTE] = settings.flibustaRoute.name
+    this[SettingsKeys.RUTRACKER_ROUTE] = settings.rutrackerRoute.name
 }
 
 /** The constant named [name], null for a missing or unknown name (written by another version). */

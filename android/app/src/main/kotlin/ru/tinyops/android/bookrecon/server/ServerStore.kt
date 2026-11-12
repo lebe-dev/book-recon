@@ -6,12 +6,12 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ru.tinyops.android.bookrecon.storage.settings.SecretCipher
+import ru.tinyops.android.bookrecon.storage.settings.SettingsKeys
 import java.security.GeneralSecurityException
 import java.security.ProviderException
 import java.util.Base64
@@ -106,7 +106,7 @@ class DataStoreServerStore(
     private object Keys {
         val URL = stringPreferencesKey("server_url")
         val TOKEN = stringPreferencesKey("server_token_sealed")
-        val APPROVED_HOSTS = stringSetPreferencesKey("server_approved_hosts")
+        val APPROVED_HOSTS = SettingsKeys.SERVER_APPROVED_HOSTS
         val TELEGRAM_USERNAME = stringPreferencesKey("server_telegram_username")
         val ENABLED = booleanPreferencesKey("server_enabled")
     }

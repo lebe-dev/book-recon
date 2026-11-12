@@ -4,12 +4,12 @@
     <string name="settings_back">Назад</string>
     <string name="settings_hub_appearance">Цветовая тема и тёмный режим</string>
     <string name="settings_hub_storage">Две папки для книг и аудиокниг</string>
-    <string name="settings_hub_server">Доступ к RuTracker и Flibusta через свой сервер</string>
+    <string name="settings_hub_server">Интеграция со своим сервером и проверка подключения</string>
     <string name="settings_hub_sources_title">Источники</string>
-    <string name="settings_hub_sources">Вход в RuTracker и адрес Flibusta</string>
+    <string name="settings_hub_sources">Вход в RuTracker, адрес Flibusta и путь трафика</string>
     <string name="settings_hub_downloads">Формат, сеть, очередь и раздача</string>
     <string name="settings_hub_diagnostics_title">Диагностика</string>
-    <string name="settings_hub_diagnostics">Отчёты об ошибках и журнал приложения</string>
+    <string name="settings_hub_diagnostics">Проверка подключения, отчёты об ошибках и журнал</string>
     <string name="settings_section_appearance">Оформление</string>
     <string name="settings_theme">Цветовая тема</string>
     <string name="settings_theme_blueberry">Черника</string>
@@ -44,8 +44,9 @@
     <string name="settings_root_picker_unavailable">Не удалось открыть выбор папки</string>
 
     <string name="settings_section_server">Сервер Book Recon</string>
-    <string name="settings_server_enable">Через сервер Book Recon</string>
-    <string name="settings_server_text">Открывать RuTracker и Flibusta через сервер, если их блокирует ваша сеть. Доступ одобряет администратор сервера в Telegram-боте</string>
+    <string name="settings_server_enable">Интеграция с сервером Book Recon</string>
+    <string name="settings_server_text">Подключение приложения к своему серверу Book Recon. Доступ одобряет администратор сервера в Telegram-боте</string>
+    <string name="settings_server_next_step">Сама интеграция трафик не меняет. Дальше в разделе «Источники» выберите для RuTracker и Flibusta, как передавать трафик: как есть или через сервер</string>
     <string name="settings_server_url">Адрес сервера</string>
     <string name="settings_server_url_hint">Пустое поле — без сервера</string>
     <string name="settings_server_url_error">Введите адрес вида https://books.example.com</string>
@@ -58,8 +59,8 @@
     <string name="settings_server_status_connecting">Подключение…</string>
     <string name="settings_server_status_awaiting">Откройте бота в Telegram и нажмите «Старт», чтобы подтвердить подключение</string>
     <string name="settings_server_status_pending">Ждите, пока администратор одобрит доступ</string>
-    <string name="settings_server_status_approved">Доступ одобрен: RuTracker, Flibusta и торренты идут через сервер Book Recon</string>
-    <string name="settings_server_status_approved_as">Доступ одобрен для @%1$s: RuTracker, Flibusta и торренты идут через сервер Book Recon</string>
+    <string name="settings_server_status_approved">Доступ одобрен</string>
+    <string name="settings_server_status_approved_as">Доступ одобрен для @%1$s</string>
     <string name="settings_server_status_denied">Администратор отказал в доступе к серверу Book Recon</string>
     <string name="settings_server_problem_unreachable">Сервер недоступен</string>
     <string name="settings_server_problem_not_book_recon">По этому адресу нет сервера Book Recon с доступом для приложения</string>
@@ -70,7 +71,7 @@
     <string name="settings_rutracker_login">Логин</string>
     <string name="settings_rutracker_password">Пароль</string>
     <string name="settings_rutracker_password_stored">Пароль сохранён. Оставьте поле пустым, чтобы не менять его</string>
-    <string name="settings_rutracker_server">Сервер Book Recon подключён: поиск и торренты RuTracker идут через его учётную запись, логин и пароль ниже не используются</string>
+    <string name="settings_rutracker_server">RuTracker идёт через сервер Book Recon: поиск и торренты идут через его учётную запись, логин и пароль ниже не используются</string>
     <string name="settings_rutracker_hint">Логин и пароль сохраняются при проверке входа</string>
     <string name="settings_rutracker_show_password">Показать пароль</string>
     <string name="settings_rutracker_hide_password">Скрыть пароль</string>
@@ -89,7 +90,7 @@
 
     <string name="settings_section_flibusta">Flibusta</string>
     <string name="settings_flibusta_url">Адрес сайта</string>
-    <string name="settings_flibusta_url_hint">Пустое поле — адрес по умолчанию</string>
+    <string name="settings_flibusta_url_hint">Пустое поле — адрес по умолчанию. Известные зеркала: flibusta.is, flibusta.site</string>
     <string name="settings_flibusta_timeout">Время ожидания ответа</string>
     <string name="settings_flibusta_timeout_text">Сколько ждать ответа сайта, прежде чем считать запрос неудавшимся. Если Flibusta часто не отвечает, увеличьте</string>
     <string name="settings_flibusta_timeout_seconds">%1$d с</string>
@@ -99,7 +100,7 @@
     <string name="settings_section_downloads">Загрузки</string>
     <string name="settings_preferred_format">Предпочтительный формат книги</string>
     <string name="settings_server_torrent_peers">Пиры через сервер</string>
-    <string name="settings_server_torrent_peers_text">Трекер RuTracker всегда идёт через сервер. Включите, если ваша сеть блокирует и раздающих; многие из них недоступны с сервера, и загрузка может не начаться</string>
+    <string name="settings_server_torrent_peers_text">Когда RuTracker идёт через сервер, его трекер всегда идёт через сервер. Включите, если ваша сеть блокирует и раздающих; многие из них недоступны с сервера, и загрузка может не начаться</string>
     <string name="settings_wifi_only">Только Wi-Fi</string>
     <string name="settings_wifi_only_text">Загружать только по Wi-Fi и другим безлимитным сетям</string>
     <string name="settings_max_concurrent">Одновременных загрузок</string>
@@ -123,4 +124,30 @@
     <string name="settings_section_reports">Отчёты об ошибках</string>
     <string name="settings_reports_send">Отправлять отчёты об ошибках</string>
     <string name="settings_reports_text">Сбои и непредвиденные ошибки отправляются разработчику без персональных данных и ключей, только с моделью телефона и версией Android. Логины и пароли не отправляются</string>
+
+    <string name="settings_route_title">Передавать трафик</string>
+    <string name="settings_route_direct">Как есть</string>
+    <string name="settings_route_server">Через сервер</string>
+    <string name="settings_route_locked">Через сервер можно, когда интеграция с сервером Book Recon включена и одобрена (Настройки → Сервер Book Recon)</string>
+    <string name="settings_route_not_served">Сервер не открывает этот адрес Flibusta, поэтому трафик идёт как есть. Выберите flibusta.is или flibusta.site или попросите администратора добавить адрес</string>
+
+    <string name="settings_section_connection_test">Проверка подключения</string>
+    <string name="settings_connection_test_text">Проверяет RuTracker и известные адреса Flibusta как есть и через сервер Book Recon, если он подключён, и предлагает лучший вариант. Проверка идёт в фоне, экран можно закрыть</string>
+    <string name="settings_connection_test_start">Проверить</string>
+    <string name="settings_connection_test_again">Проверить снова</string>
+    <string name="settings_connection_test_progress">Проверено %1$d из %2$d</string>
+    <string name="settings_connection_test_direct">как есть</string>
+    <string name="settings_connection_test_server">через сервер</string>
+    <string name="settings_connection_test_line">%1$s, %2$s, %3$s: %4$s</string>
+    <string name="settings_connection_test_millis">%1$d мс</string>
+    <string name="settings_connection_test_timeout">нет ответа вовремя</string>
+    <string name="settings_connection_test_no_connection">нет соединения</string>
+    <string name="settings_connection_test_bad_answer">отвечает не сайт</string>
+    <string name="settings_connection_test_advice">Лучший вариант</string>
+    <string name="settings_connection_test_advice_rutracker">RuTracker: %1$s</string>
+    <string name="settings_connection_test_advice_flibusta">Flibusta: %1$s, %2$s</string>
+    <string name="settings_connection_test_unreachable">%1$s: недоступен ни одним способом</string>
+    <string name="settings_connection_test_no_server">Сервер Book Recon не подключён, проверено только «как есть»</string>
+    <string name="settings_connection_test_apply">Применить</string>
+    <string name="settings_connection_test_applied">Настройки уже такие</string>
 </resources>

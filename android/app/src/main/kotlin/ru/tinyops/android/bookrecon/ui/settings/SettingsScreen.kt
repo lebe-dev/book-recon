@@ -49,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,6 +74,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import ru.tinyops.android.bookrecon.R
 import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.ColorTheme
@@ -81,9 +84,12 @@ import ru.tinyops.android.bookrecon.core.domain.ErrorCode
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Settings
+import ru.tinyops.android.bookrecon.core.domain.SourceRoute
+import ru.tinyops.android.bookrecon.diagnostics.ConnectionCheckState
 import ru.tinyops.android.bookrecon.di.appContainer
 import ru.tinyops.android.bookrecon.launcher.LauncherName
 import ru.tinyops.android.bookrecon.server.ServerState
+import ru.tinyops.android.bookrecon.server.hostMatches
 import ru.tinyops.android.bookrecon.storage.files.RootCheck
 import ru.tinyops.android.bookrecon.storage.files.TreeUris
 import ru.tinyops.android.bookrecon.ui.nav.VerificationPurpose
@@ -123,6 +129,9 @@ fun SettingsSectionScreen(
     }
     val serverViewModel: ServerViewModel = viewModel(factory = serverFactory)
     val serverState by serverViewModel.state.collectAsStateWithLifecycle()
+    val connectionCheck = remember(context) { context.appContainer.diagnostics.connectionCheck }
+    val connectionTest by connectionCheck.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
 
     // Access may have been granted in the system settings while the screen was hidden; the
     // admin may have decided on the server request while the user was in Telegram.
@@ -187,6 +196,13 @@ fun SettingsSectionScreen(
             onColorThemeChange = viewModel::onColorThemeChange,
             onDarkModeChange = viewModel::onDarkModeChange,
             onCyrillicAppNameChange = viewModel::onCyrillicAppNameChange,
+            onFlibustaRouteChange = viewModel::onFlibustaRouteChange,
+            onRuTrackerRouteChange = viewModel::onRuTrackerRouteChange,
+        ),
+        connectionTest = connectionTest,
+        connectionTestActions = ConnectionTestActions(
+            onStart = connectionCheck::start,
+            onApply = { scope.launch { connectionCheck.apply() } },
         ),
         server = serverState,
         serverActions = ServerActions(
@@ -232,6 +248,14 @@ data class SettingsActions(
     val onColorThemeChange: (ColorTheme) -> Unit = {},
     val onDarkModeChange: (DarkMode) -> Unit = {},
     val onCyrillicAppNameChange: (Boolean) -> Unit = {},
+    val onFlibustaRouteChange: (SourceRoute) -> Unit = {},
+    val onRuTrackerRouteChange: (SourceRoute) -> Unit = {},
+)
+
+/** What the user can do with the connection test. */
+data class ConnectionTestActions(
+    val onStart: () -> Unit = {},
+    val onApply: () -> Unit = {},
 )
 
 /** Stateless body of one settings subpage, also used by previews. */
@@ -245,7 +269,13 @@ fun SettingsSectionContent(
     modifier: Modifier = Modifier,
     server: ServerUiState = ServerUiState(),
     serverActions: ServerActions = ServerActions(),
+    connectionTest: ConnectionCheckState = ConnectionCheckState.Idle,
+    connectionTestActions: ConnectionTestActions = ConnectionTestActions(),
 ) {
+    val approved = server.connection as? ServerState.Approved
+    val testBlock: @Composable ColumnScope.() -> Unit = {
+        ConnectionTestBlock(connectionTest, state.settings, serverApproved = approved != null, connectionTestActions)
+    }
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -278,28 +308,37 @@ fun SettingsSectionContent(
                         ErrorLine(stringResource(problem.issue.message()))
                     }
                 }
-                SettingsSection.SERVER -> Section(null) {
-                    ServerBlock(server, serverActions)
-                    if (server.enabled) {
-                        ListItem(
-                            colors = cardListItemColors(),
-                            modifier = Modifier.clickable {
-                                actions.onTorrentPeersThroughServerChange(!state.settings.torrentPeersThroughServer)
-                            },
-                            headlineContent = { Text(stringResource(R.string.settings_server_torrent_peers)) },
-                            supportingContent = { Text(stringResource(R.string.settings_server_torrent_peers_text)) },
-                            trailingContent = {
-                                Switch(
-                                    checked = state.settings.torrentPeersThroughServer,
-                                    onCheckedChange = actions.onTorrentPeersThroughServerChange,
-                                )
-                            },
-                        )
+                SettingsSection.SERVER -> {
+                    Section(null) {
+                        ServerBlock(server, serverActions)
+                        if (server.enabled) {
+                            ListItem(
+                                colors = cardListItemColors(),
+                                modifier = Modifier.clickable {
+                                    actions.onTorrentPeersThroughServerChange(!state.settings.torrentPeersThroughServer)
+                                },
+                                headlineContent = { Text(stringResource(R.string.settings_server_torrent_peers)) },
+                                supportingContent = { Text(stringResource(R.string.settings_server_torrent_peers_text)) },
+                                trailingContent = {
+                                    Switch(
+                                        checked = state.settings.torrentPeersThroughServer,
+                                        onCheckedChange = actions.onTorrentPeersThroughServerChange,
+                                    )
+                                },
+                            )
+                        }
                     }
+                    Section(R.string.settings_section_connection_test, testBlock)
                 }
                 SettingsSection.SOURCES -> {
                     Section(R.string.settings_section_rutracker) {
-                        if (server.connection is ServerState.Approved) {
+                        RouteChoice(
+                            route = state.settings.rutrackerRoute,
+                            available = approved != null,
+                            notServed = false,
+                            onChange = actions.onRuTrackerRouteChange,
+                        )
+                        if (approved != null && state.settings.rutrackerRoute == SourceRoute.SERVER) {
                             Text(
                                 text = stringResource(R.string.settings_rutracker_server),
                                 style = MaterialTheme.typography.bodyMedium,
@@ -311,6 +350,9 @@ fun SettingsSectionContent(
                     }
                     Section(R.string.settings_section_flibusta) {
                         SourceSwitch(R.string.settings_source_enabled_flibusta, state.settings.flibustaEnabled, actions.onFlibustaEnabledChange)
+                        val mirror = state.settings.flibustaBaseUrl.toHttpUrlOrNull()?.host
+                        val notServed = approved != null && mirror != null && !hostMatches(mirror, approved.hosts)
+                        RouteChoice(state.settings.flibustaRoute, available = approved != null, notServed, actions.onFlibustaRouteChange)
                         FlibustaBlock(state, actions)
                     }
                 }
@@ -324,6 +366,7 @@ fun SettingsSectionContent(
                     }
                 }
                 SettingsSection.DIAGNOSTICS -> {
+                    Section(R.string.settings_section_connection_test, testBlock)
                     Section(R.string.settings_section_reports) {
                         ErrorReportsBlock(state.settings.sendErrorReports, actions.onSendErrorReportsChange)
                     }
@@ -508,6 +551,42 @@ private fun SourceSwitch(@StringRes label: Int, enabled: Boolean, onChange: (Boo
     )
 }
 
+/**
+ * "As is" or "Through the server" for one source. Without an approved server the choice is
+ * locked on "As is", whatever is stored; [notServed] warns that the server does not tunnel
+ * the address in settings.
+ */
+@Composable
+private fun RouteChoice(route: SourceRoute, available: Boolean, notServed: Boolean, onChange: (SourceRoute) -> Unit) {
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(R.string.settings_route_title), style = MaterialTheme.typography.bodyLarge)
+        val direct = stringResource(R.string.settings_route_direct)
+        val viaServer = stringResource(R.string.settings_route_server)
+        ChoiceRow(
+            options = SourceRoute.entries,
+            selected = if (available) route else SourceRoute.DIRECT,
+            label = { if (it == SourceRoute.SERVER) viaServer else direct },
+            onSelect = onChange,
+            enabled = available,
+        )
+        val note = when {
+            !available -> R.string.settings_route_locked
+            notServed && route == SourceRoute.SERVER -> R.string.settings_route_not_served
+            else -> null
+        }
+        if (note != null) {
+            Text(
+                stringResource(note),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (available) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @Composable
 private fun FlibustaBlock(state: SettingsUiState, actions: SettingsActions) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -669,12 +748,13 @@ private fun LogLinkBlock(onOpen: () -> Unit) {
 }
 
 @Composable
-private fun <T> ChoiceRow(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
+private fun <T> ChoiceRow(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit, enabled: Boolean = true) {
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         options.forEachIndexed { index, option ->
             SegmentedButton(
                 selected = option == selected,
                 onClick = { onSelect(option) },
+                enabled = enabled,
                 shape = SegmentedButtonDefaults.itemShape(index, options.size),
                 icon = {},
                 label = { Text(label(option), maxLines = 1) },

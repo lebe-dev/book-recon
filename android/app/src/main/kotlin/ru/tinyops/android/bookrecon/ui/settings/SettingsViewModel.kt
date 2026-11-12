@@ -15,6 +15,7 @@ import ru.tinyops.android.bookrecon.core.domain.DarkMode
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Settings
+import ru.tinyops.android.bookrecon.core.domain.SourceRoute
 import ru.tinyops.android.bookrecon.core.port.RuTrackerClient
 import ru.tinyops.android.bookrecon.core.port.SettingsRepository
 import ru.tinyops.android.bookrecon.storage.files.RootCheck
@@ -219,6 +220,10 @@ class SettingsViewModel(
     }
 
     fun onFlibustaEnabledChange(enabled: Boolean) = save { it.copy(flibustaEnabled = enabled) }
+
+    fun onFlibustaRouteChange(route: SourceRoute) = save { it.copy(flibustaRoute = route) }
+
+    fun onRuTrackerRouteChange(route: SourceRoute) = save { it.copy(rutrackerRoute = route) }
 
     fun onRuTrackerEnabledChange(enabled: Boolean) = save { it.copy(rutrackerEnabled = enabled) }
 

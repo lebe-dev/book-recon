@@ -25,6 +25,9 @@ package ru.tinyops.android.bookrecon.core.domain
  * @property colorTheme color theme of the app.
  * @property darkMode light or dark app, or following the system.
  * @property cyrillicAppName show "Бук Ракун" under the launcher icon instead of "Book Recon".
+ * @property flibustaRoute reach Flibusta directly or through the Book Recon server.
+ * @property rutrackerRoute reach RuTracker (search, `.torrent` and tracker announces) directly
+ *   or through the Book Recon server.
  */
 data class Settings(
     val audioRoot: String? = null,
@@ -46,7 +49,15 @@ data class Settings(
     val darkMode: DarkMode = DarkMode.SYSTEM,
     val torrentPeersThroughServer: Boolean = false,
     val cyrillicAppName: Boolean = false,
+    val flibustaRoute: SourceRoute = SourceRoute.DIRECT,
+    val rutrackerRoute: SourceRoute = SourceRoute.DIRECT,
 ) {
+    /** Route chosen for [source]. */
+    fun routeFor(source: Source): SourceRoute = when (source) {
+        Source.FLIBUSTA -> flibustaRoute
+        Source.RUTRACKER -> rutrackerRoute
+    }
+
     /** True when the root folder for [kind] is chosen. */
     fun hasRoot(kind: MediaKind): Boolean = rootFor(kind) != null
 
@@ -62,6 +73,9 @@ data class Settings(
 
     companion object {
         const val DEFAULT_FLIBUSTA_BASE_URL = "https://flibusta.is"
+
+        /** Known Flibusta mirrors, tried by the connection test besides the one in settings. */
+        val FLIBUSTA_MIRRORS = listOf(DEFAULT_FLIBUSTA_BASE_URL, "https://flibusta.site")
         const val DEFAULT_FLIBUSTA_TIMEOUT_SECONDS = 20
         const val MIN_FLIBUSTA_TIMEOUT_SECONDS = 5
         const val MAX_FLIBUSTA_TIMEOUT_SECONDS = 120

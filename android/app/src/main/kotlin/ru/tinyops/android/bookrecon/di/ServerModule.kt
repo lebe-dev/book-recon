@@ -6,9 +6,12 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import ru.tinyops.android.bookrecon.server.DataStoreServerStore
@@ -20,7 +23,10 @@ import ru.tinyops.android.bookrecon.server.ServerRuTrackerClient
 import ru.tinyops.android.bookrecon.server.ServerStore
 import ru.tinyops.android.bookrecon.server.TunnelProxy
 import ru.tinyops.android.bookrecon.server.TunnelProxySelector
+import ru.tinyops.android.bookrecon.server.TunnelRoute
 import ru.tinyops.android.bookrecon.server.WebViewTunnel
+import ru.tinyops.android.bookrecon.server.carriesRuTracker
+import ru.tinyops.android.bookrecon.server.forSources
 import ru.tinyops.android.bookrecon.storage.settings.AesGcmCipher
 import ru.tinyops.android.bookrecon.storage.settings.KeystoreKeys
 
@@ -65,26 +71,44 @@ class ServerModule(private val app: AppContainer) {
         ServerConnection(api, store, deviceName = "${Build.MANUFACTURER} ${Build.MODEL}", scope = scope, log = log)
     }
 
+    /**
+     * The approved route narrowed to the sources the user sends through the server: what
+     * OkHttp, WebView, RuTracker and torrents follow. The proxy itself serves the whole
+     * approved route, so the connection test can try the server for every source.
+     */
+    val sourceRoute: StateFlow<TunnelRoute?> by lazy {
+        combine(connection.route, app.settings.settingsRepository.settings) { route, settings -> route?.forSources(settings) }
+            .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, null)
+    }
+
+    /** RuTracker goes through the server: its search, `.torrent` and tracker announces. */
+    val ruTrackerThroughServer: Boolean
+        get() = sourceRoute.value?.carriesRuTracker == true
+
     private val proxy: TunnelProxy by lazy {
         TunnelProxy(tunnelClient, { connection.route.value }, log).also { it.start() }
     }
 
-    val proxySelector: ProxySelector by lazy { TunnelProxySelector({ connection.route.value }, { proxy.port }) }
+    /** Port of the local tunnel proxy on the loopback interface. */
+    val tunnelPort: Int get() = proxy.port
+
+    val proxySelector: ProxySelector by lazy { TunnelProxySelector({ sourceRoute.value }, { proxy.port }) }
 
     /** Called once from Application.onCreate: loads the server and keeps WebView in step. */
     fun start() {
         scope.launch { connection.start() }
         scope.launch(Dispatchers.Main) {
             val webView = WebViewTunnel(log)
-            connection.route.collect { route -> webView.apply(route) { proxy.port } }
+            sourceRoute.collect { route -> webView.apply(route) { proxy.port } }
         }
         scope.launch {
-            // Torrent trackers go through the tunnel too, peers only when the user asks for it;
-            // nothing to undo before the first route, so the torrent engine is not created for
-            // nothing at start.
+            // Torrent trackers go through the tunnel with RuTracker, peers only when the user asks
+            // for it; nothing to undo before the first route, so the torrent engine is not
+            // created for nothing at start.
             var proxied = false
             val peers = app.settings.settingsRepository.settings.map { it.torrentPeersThroughServer }
-            combine(connection.route.map { it != null }, peers) { on, viaServer -> on to viaServer }
+            combine(sourceRoute.map { it?.carriesRuTracker == true }, peers) { on, viaServer -> on to viaServer }
                 .distinctUntilChanged()
                 .collect { (on, viaServer) ->
                     if (!on && !proxied) return@collect

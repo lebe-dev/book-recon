@@ -63,6 +63,14 @@ data class Settings(
     val flibustaEffectiveUrl: String
         get() = flibustaBaseUrl.ifEmpty { FLIBUSTA_MIRRORS.first() }
 
+    /**
+     * Mirrors to try after [flibustaEffectiveUrl] fails. A known mirror counts as automatic too:
+     * older versions saved `flibusta.is` as the default, and the connection test saves the best one.
+     * Only an address that is not a known mirror is used alone.
+     */
+    val flibustaFallbackUrls: List<String>
+        get() = if (flibustaBaseUrl.isEmpty() || flibustaBaseUrl in FLIBUSTA_MIRRORS) FLIBUSTA_MIRRORS else emptyList()
+
     /** Route chosen for [source]. */
     fun routeFor(source: Source): SourceRoute = when (source) {
         Source.FLIBUSTA -> flibustaRoute

@@ -135,6 +135,72 @@ class RuTrackerClientImplTest {
         assertTrue(client().isLoggedIn())
     }
 
+    // --- mirrors ---
+
+    private val mirrorBase = "https://rutracker.net/forum"
+
+    private fun mirrorClient() = RuTrackerClientImpl(
+        http = http,
+        settings = settings,
+        cookies = { url -> cookieHeader.takeIf { url.startsWith("https://rutracker.org/") || url.startsWith("https://rutracker.net/") } },
+        baseUrls = listOf(base, mirrorBase),
+    )
+
+    @Test
+    fun `search moves to the next mirror when the first one is unreachable and logs in there`() = runTest {
+        http.route = { call ->
+            when {
+                call.url.startsWith(base) -> throw AppError.Network("no address for rutracker.org")
+                call.method == "POST" && call.url == "$mirrorBase/login.php" -> {
+                    cookieHeader = "bb_session=0-1-abc"
+                    Reply.page("search-empty.html", finalUrl = "$mirrorBase/index.php")
+                }
+                cookieHeader == null -> Reply.page("login-required.html", finalUrl = "$mirrorBase/login.php?redirect=tracker.php")
+                call.url.startsWith("$mirrorBase/tracker.php") -> Reply.page("search-audio.html")
+                else -> Reply.notFound(call.url)
+            }
+        }
+
+        val topics = mirrorClient().search("Дозор", MediaKind.AUDIO, 3)
+
+        assertEquals(3, topics.size)
+        assertTrue(http.calls.any { it.url.startsWith("$mirrorBase/tracker.php") })
+    }
+
+    @Test
+    fun `the mirror that worked is tried first next time`() = runTest {
+        http.route = { call ->
+            when {
+                call.url.startsWith(base) -> throw AppError.Network("no address for rutracker.org")
+                else -> Reply.page("search-audio.html")
+            }
+        }
+        cookieHeader = "bb_session=0-1-abc"
+        val client = mirrorClient()
+
+        client.search("Дозор", MediaKind.AUDIO, 3)
+        val before = http.calls.size
+        client.search("Дозор", MediaKind.AUDIO, 3)
+
+        assertTrue(http.calls.drop(before).all { it.url.startsWith(mirrorBase) })
+    }
+
+    @Test
+    fun `all mirrors down reports the failure`() = runTest {
+        http.route = { throw AppError.Network("offline") }
+
+        assertThrows<AppError.Network> { mirrorClient().search("Дозор", MediaKind.AUDIO, 3) }
+    }
+
+    @Test
+    fun `a missing torrent does not try the other mirror`() = runTest {
+        cookieHeader = "bb_session=0-1-abc"
+        http.route = { call -> Reply(body = "Error: attachment data not found".toByteArray(RuTrackerParser.CHARSET), finalUrl = call.url) }
+
+        assertThrows<AppError.NotFound> { mirrorClient().fetchTorrent("123") }
+        assertEquals(1, http.calls.size)
+    }
+
     // --- search ---
 
     @Test

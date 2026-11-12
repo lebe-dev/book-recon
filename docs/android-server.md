@@ -28,7 +28,7 @@ Android-приложение работает и без сервера. Серв
 
 - Бот запущен и доступен из интернета по HTTPS с сертификатом, которому доверяет телефон
   (Let's Encrypt подходит, самоподписанный — нет).
-- Сервер резолвит и достаёт `rutracker.org` и `flibusta.site` (или `flibusta.is`): сервер
+- Сервер резолвит и достаёт `rutracker.org` (или зеркало `rutracker.net`) и `flibusta.site` (или `flibusta.is`): сервер
   в сети, где они заблокированы, для этого бесполезен. Проверка из контейнера:
   `docker compose exec book-recon getent hosts rutracker.org`.
 - Администраторы хотя бы раз отправили боту `/start`, иначе им не придут уведомления о
@@ -46,7 +46,7 @@ APP_API_ENABLED=true
 |---|---|---|
 | `APP_API_ENABLED` | Включить API для Android-приложения | `false` |
 | `APP_API_LISTEN` | Адрес сервера API внутри контейнера | `:8081` |
-| `APP_TUNNEL_HOSTS` | Хосты, к которым ведёт туннель (с поддоменами), через запятую | `rutracker.org,rutracker.cc,t-ru.org,flibusta.is,flibusta.site,challenges.cloudflare.com` |
+| `APP_TUNNEL_HOSTS` | Хосты, к которым ведёт туннель (с поддоменами), через запятую | `rutracker.org,rutracker.net,rutracker.cc,t-ru.org,flibusta.is,flibusta.site,challenges.cloudflare.com` |
 | `APP_TUNNEL_PORTS` | Порты туннеля | `443,80` |
 
 Приложение берёт список хостов с сервера: через туннель идут только HTTPS-запросы к этим

@@ -71,7 +71,7 @@ type Config struct {
 	// Android app API: registration, Telegram linking and the tunnel to blocked sites.
 	AppAPIEnabled  bool     `env:"APP_API_ENABLED" envDefault:"false"`
 	AppAPIListen   string   `env:"APP_API_LISTEN" envDefault:":8081"`
-	AppTunnelHosts []string `env:"APP_TUNNEL_HOSTS" envSeparator:"," envDefault:"rutracker.org,rutracker.cc,t-ru.org,flibusta.is,flibusta.site,challenges.cloudflare.com"`
+	AppTunnelHosts []string `env:"APP_TUNNEL_HOSTS" envSeparator:"," envDefault:"rutracker.org,rutracker.net,rutracker.cc,t-ru.org,flibusta.is,flibusta.site,challenges.cloudflare.com"`
 	AppTunnelPorts []int    `env:"APP_TUNNEL_PORTS" envSeparator:"," envDefault:"443,80"`
 	// AppTunnelPeers lets the tunnel reach BitTorrent peers (public IPs, ports 1024+), so the
 	// app downloads torrents through the server too.

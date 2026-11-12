@@ -28,7 +28,7 @@
 | `TORRENT_DOWNLOAD_RATE_LIMIT` | Общий лимит скорости скачивания торрентов на весь сервер в секунду (книги и аудиокниги вместе; `B`, `KB`, `MB`, `GB` или байты; `0` — без лимита) | `1MB` |
 | `APP_API_ENABLED` | API для Android-приложения: регистрация и туннель | `false` |
 | `APP_API_LISTEN` | Адрес HTTP-сервера API | `:8081` |
-| `APP_TUNNEL_HOSTS` | Хосты, к которым ведёт туннель (с поддоменами), через запятую | `rutracker.org,rutracker.cc,t-ru.org,flibusta.is,flibusta.site,challenges.cloudflare.com` |
+| `APP_TUNNEL_HOSTS` | Хосты, к которым ведёт туннель (с поддоменами), через запятую | `rutracker.org,rutracker.net,rutracker.cc,t-ru.org,flibusta.is,flibusta.site,challenges.cloudflare.com` |
 | `APP_TUNNEL_PORTS` | Порты туннеля через запятую | `443,80` |
 | `AUDIOBOOKS_ENABLED` | Включить аудиокниги (главный выключатель) | `false` |
 | `AUDIOBOOKS_PUBLIC_URL` | Публичный URL страниц скачивания (обязательно при включении) | — |

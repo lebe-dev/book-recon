@@ -33,9 +33,9 @@ fun TunnelRoute.forSources(settings: Settings): TunnelRoute? {
 
 /** True when the route carries RuTracker: its search and `.torrent` then come from the server too. */
 val TunnelRoute.carriesRuTracker: Boolean
-    get() = serves(RUTRACKER_HOST)
+    get() = RUTRACKER_HOSTS.any { serves(it) }
 
-private const val RUTRACKER_HOST = "rutracker.org"
+private val RUTRACKER_HOSTS = listOf("rutracker.org", "rutracker.net")
 
 /**
  * Sends HTTPS requests to hosts of the current [route] through the local [TunnelProxy] on

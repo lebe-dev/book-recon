@@ -66,6 +66,9 @@ data class ConnectionReport(
 object ConnectionPlan {
     const val RUTRACKER_URL = "https://rutracker.org"
 
+    /** Known RuTracker addresses; the client tries them in this order, the connection test probes them all. */
+    val RUTRACKER_MIRRORS = listOf(RUTRACKER_URL, "https://rutracker.net")
+
     /** Added to the time through the server: direct does not depend on the server. */
     private const val SERVER_PENALTY_MILLIS = 300L
 
@@ -79,7 +82,7 @@ object ConnectionPlan {
      */
     fun probes(settings: Settings, serverHosts: Set<String>?): List<Probe> {
         val mirrors = (listOf(settings.flibustaEffectiveUrl) + Settings.FLIBUSTA_MIRRORS).distinct()
-        val sites = mirrors.map { Source.FLIBUSTA to it } + (Source.RUTRACKER to RUTRACKER_URL)
+        val sites = mirrors.map { Source.FLIBUSTA to it } + RUTRACKER_MIRRORS.map { Source.RUTRACKER to it }
         return sites.flatMap { (source, url) ->
             buildList {
                 add(Probe(source, url, SourceRoute.DIRECT))

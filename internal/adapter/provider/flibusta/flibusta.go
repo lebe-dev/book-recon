@@ -92,9 +92,9 @@ var defaultFormats = []domain.Format{domain.FormatFB2, domain.FormatEPUB, domain
 // knownMirrors are used when no mirror is configured, the most stable one first.
 var knownMirrors = []string{"https://flibusta.site", "https://flibusta.is"}
 
-// mirrorList returns the mirrors to try, in order: the configured addresses without
+// MirrorList returns the mirrors to try, in order: the configured addresses without
 // blanks, trailing slashes and duplicates, or the known mirrors when none is configured.
-func mirrorList(configured []string) []string {
+func MirrorList(configured []string) []string {
 	var mirrors []string
 	for _, raw := range configured {
 		base := strings.TrimRight(strings.TrimSpace(raw), "/")
@@ -177,7 +177,7 @@ func onMirrors[T any](ctx context.Context, p *Provider, block func(base string) 
 func New(baseURLs []string, userAgent string, logger *log.Logger) *Provider {
 	return &Provider{
 		client:    newHTTPClient(),
-		mirrors:   mirrorList(baseURLs),
+		mirrors:   MirrorList(baseURLs),
 		userAgent: userAgent,
 		logger:    logger,
 	}

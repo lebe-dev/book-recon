@@ -127,8 +127,8 @@ func TestMirrorList(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := mirrorList(tt.in); !slices.Equal(got, tt.want) {
-				t.Errorf("mirrorList(%v) = %v, want %v", tt.in, got, tt.want)
+			if got := MirrorList(tt.in); !slices.Equal(got, tt.want) {
+				t.Errorf("MirrorList(%v) = %v, want %v", tt.in, got, tt.want)
 			}
 		})
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -85,7 +84,7 @@ func main() {
 		var flibustaProvider domain.BookProvider
 		if cfg.FlibustaEngine == "v2" {
 			logger.Info("using flibusta engine v2 (OPDS)")
-			flibustaProvider = flibustav2.NewDomainProvider(firstOrEmpty(cfg.FlibustaBaseURLs), logger)
+			flibustaProvider = flibustav2.NewDomainProvider(flibusta.MirrorList(cfg.FlibustaBaseURLs), logger)
 		} else {
 			flibustaProvider = flibusta.New(cfg.FlibustaBaseURLs, cfg.UserAgent, logger)
 		}
@@ -275,14 +274,4 @@ func main() {
 		rutrackerProvider.Close()
 	}
 	logger.Info("bye")
-}
-
-// firstOrEmpty returns the first non-blank value, or "" when there is none.
-func firstOrEmpty(values []string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return strings.TrimSpace(v)
-		}
-	}
-	return ""
 }

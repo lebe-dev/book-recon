@@ -198,14 +198,14 @@ class SettingsViewModel(
         mutableState.update { it.copy(flibustaUrl = url, flibustaUrlError = false) }
     }
 
-    /** Saves the Flibusta URL; an empty field restores the default mirror. */
+    /** Saves the Flibusta URL; an empty field means automatic: the known mirrors. */
     fun onSaveFlibustaUrl() {
         val url = mutableState.value.flibustaUrl.trim().trimEnd('/')
         if (url.isNotEmpty() && !isValidBaseUrl(url)) {
             mutableState.update { it.copy(flibustaUrlError = true) }
             return
         }
-        val saved = url.ifEmpty { Settings.DEFAULT_FLIBUSTA_BASE_URL }
+        val saved = url
         mutableState.update { it.copy(flibustaUrl = saved, flibustaUrlError = false) }
         viewModelScope.launch { settings.update { it.copy(flibustaBaseUrl = saved) } }
     }

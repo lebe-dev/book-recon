@@ -78,7 +78,7 @@ object ConnectionPlan {
      * server tunnels; null when the server is not approved.
      */
     fun probes(settings: Settings, serverHosts: Set<String>?): List<Probe> {
-        val mirrors = (listOf(settings.flibustaBaseUrl) + Settings.FLIBUSTA_MIRRORS).distinct()
+        val mirrors = (listOf(settings.flibustaEffectiveUrl) + Settings.FLIBUSTA_MIRRORS).distinct()
         val sites = mirrors.map { Source.FLIBUSTA to it } + (Source.RUTRACKER to RUTRACKER_URL)
         return sites.flatMap { (source, url) ->
             buildList {
@@ -100,7 +100,7 @@ object ConnectionPlan {
                 val probe = result.probe
                 var score = millis
                 if (probe.route == SourceRoute.SERVER) score += SERVER_PENALTY_MILLIS
-                if (source == Source.FLIBUSTA && probe.baseUrl != current.flibustaBaseUrl) score += OTHER_MIRROR_PENALTY_MILLIS
+                if (source == Source.FLIBUSTA && probe.baseUrl != current.flibustaEffectiveUrl) score += OTHER_MIRROR_PENALTY_MILLIS
                 probe to score
             }
             .minByOrNull { it.second }

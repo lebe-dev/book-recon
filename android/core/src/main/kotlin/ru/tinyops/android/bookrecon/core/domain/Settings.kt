@@ -7,7 +7,8 @@ package ru.tinyops.android.bookrecon.core.domain
  * @property audioRoot document tree URI of the audiobooks root picked by the user, null until chosen.
  * @property booksRoot document tree URI of the e-books root picked by the user, null until chosen.
  * @property rutrackerLogin RuTracker username, empty when not set.
- * @property flibustaBaseUrl Flibusta mirror without a trailing slash.
+ * @property flibustaBaseUrl Flibusta mirror without a trailing slash; empty means automatic:
+ *   the known mirrors ([FLIBUSTA_MIRRORS]) are used under the hood, see [flibustaEffectiveUrl].
  * @property flibustaTimeoutSeconds how long to wait for a Flibusta response (headers, and then
  *   each chunk of a body) before a request fails, [MIN_FLIBUSTA_TIMEOUT_SECONDS]..[MAX_FLIBUSTA_TIMEOUT_SECONDS].
  * @property flibustaEnabled search Flibusta.
@@ -58,6 +59,10 @@ data class Settings(
     val autoCheckUpdates: Boolean = false,
     val skippedUpdateVersion: String = "",
 ) {
+    /** The Flibusta mirror requests go to: the one set by the user, or the first known one when automatic. */
+    val flibustaEffectiveUrl: String
+        get() = flibustaBaseUrl.ifEmpty { FLIBUSTA_MIRRORS.first() }
+
     /** Route chosen for [source]. */
     fun routeFor(source: Source): SourceRoute = when (source) {
         Source.FLIBUSTA -> flibustaRoute
@@ -78,10 +83,11 @@ data class Settings(
     }
 
     companion object {
-        const val DEFAULT_FLIBUSTA_BASE_URL = "https://flibusta.is"
+        /** No mirror chosen: the known ones are used. */
+        const val DEFAULT_FLIBUSTA_BASE_URL = ""
 
-        /** Known Flibusta mirrors, tried by the connection test besides the one in settings. */
-        val FLIBUSTA_MIRRORS = listOf(DEFAULT_FLIBUSTA_BASE_URL, "https://flibusta.site")
+        /** Known Flibusta mirrors, the first one is used when none is set; the connection test tries them all. */
+        val FLIBUSTA_MIRRORS = listOf("https://flibusta.site", "https://flibusta.is")
         const val DEFAULT_FLIBUSTA_TIMEOUT_SECONDS = 20
         const val MIN_FLIBUSTA_TIMEOUT_SECONDS = 5
         const val MAX_FLIBUSTA_TIMEOUT_SECONDS = 120

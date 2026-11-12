@@ -19,7 +19,7 @@ class ConnectionTestTest {
 
         assertTrue(probes.all { it.route == SourceRoute.DIRECT })
         assertEquals(
-            listOf("https://flibusta.is", "https://flibusta.site"),
+            listOf("https://flibusta.site", "https://flibusta.is"),
             probes.filter { it.source == Source.FLIBUSTA }.map { it.baseUrl },
         )
         assertEquals(1, probes.count { it.source == Source.RUTRACKER })

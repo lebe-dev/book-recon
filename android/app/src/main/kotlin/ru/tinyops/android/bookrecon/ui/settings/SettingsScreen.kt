@@ -103,6 +103,7 @@ fun SettingsSectionScreen(
     onBack: () -> Unit,
     onOpenVerification: (url: String, purpose: VerificationPurpose) -> Unit,
     onOpenLog: () -> Unit,
+    onOpenServerSettings: () -> Unit,
     verificationResults: Flow<Boolean>,
 ) {
     val context = LocalContext.current
@@ -198,6 +199,7 @@ fun SettingsSectionScreen(
             onNoSeedersRetryChange = viewModel::onNoSeedersRetryChange,
             onSendErrorReportsChange = viewModel::onSendErrorReportsChange,
             onOpenLog = onOpenLog,
+            onOpenServerSettings = onOpenServerSettings,
             onColorThemeChange = viewModel::onColorThemeChange,
             onDarkModeChange = viewModel::onDarkModeChange,
             onCyrillicAppNameChange = viewModel::onCyrillicAppNameChange,
@@ -273,6 +275,7 @@ data class SettingsActions(
     val onNoSeedersRetryChange: (Int) -> Unit = {},
     val onSendErrorReportsChange: (Boolean) -> Unit = {},
     val onOpenLog: () -> Unit = {},
+    val onOpenServerSettings: () -> Unit = {},
     val onColorThemeChange: (ColorTheme) -> Unit = {},
     val onDarkModeChange: (DarkMode) -> Unit = {},
     val onCyrillicAppNameChange: (Boolean) -> Unit = {},
@@ -362,21 +365,19 @@ fun SettingsSectionContent(
                 }
                 SettingsSection.SOURCES -> {
                     Section(R.string.settings_section_rutracker) {
+                        SourceSwitch(R.string.settings_source_enabled_rutracker, state.settings.rutrackerEnabled, actions.onRuTrackerEnabledChange)
                         RouteChoice(
                             route = state.settings.rutrackerRoute,
                             available = approved != null,
                             notServed = false,
                             onChange = actions.onRuTrackerRouteChange,
                         )
+                        // Credentials stay stored while the server is used; the form only hides.
                         if (approved != null && state.settings.rutrackerRoute == SourceRoute.SERVER) {
-                            Text(
-                                text = stringResource(R.string.settings_rutracker_server),
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                            )
+                            RuTrackerServerNote(actions.onOpenServerSettings)
+                        } else {
+                            RuTrackerBlock(state, actions)
                         }
-                        SourceSwitch(R.string.settings_source_enabled_rutracker, state.settings.rutrackerEnabled, actions.onRuTrackerEnabledChange)
-                        RuTrackerBlock(state, actions)
                     }
                     Section(R.string.settings_section_flibusta) {
                         SourceSwitch(R.string.settings_source_enabled_flibusta, state.settings.flibustaEnabled, actions.onFlibustaEnabledChange)
@@ -555,6 +556,20 @@ private fun RuTrackerBlock(state: SettingsUiState, actions: SettingsActions) {
             }
         }
         LoginStatus(state.loginCheck)
+    }
+}
+
+/** Replaces the credentials form while RuTracker goes through the server. */
+@Composable
+private fun RuTrackerServerNote(onOpenServerSettings: () -> Unit) {
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(R.string.settings_rutracker_server), style = MaterialTheme.typography.bodyMedium)
+        Button(onClick = onOpenServerSettings) {
+            Text(stringResource(R.string.settings_rutracker_server_open))
+        }
     }
 }
 

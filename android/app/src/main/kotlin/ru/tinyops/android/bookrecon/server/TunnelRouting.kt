@@ -21,7 +21,7 @@ import ru.tinyops.android.bookrecon.core.domain.SourceRoute
  * when nothing is left.
  */
 fun TunnelRoute.forSources(settings: Settings): TunnelRoute? {
-    val mirror = settings.flibustaBaseUrl.toHttpUrlOrNull()?.host?.lowercase()
+    val mirror = settings.flibustaEffectiveUrl.toHttpUrlOrNull()?.host?.lowercase()
     val kept = hosts.filterTo(mutableSetOf()) { host ->
         val flibusta = "flibusta" in host || (mirror != null && hostMatches(mirror, setOf(host)))
         val route = if (flibusta) settings.flibustaRoute else settings.rutrackerRoute

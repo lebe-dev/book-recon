@@ -59,7 +59,7 @@ class DataStoreSettingsRepositoryTest {
         val settings = repository().settings.first()
 
         assertEquals(Settings(), settings)
-        assertEquals("https://flibusta.is", settings.flibustaBaseUrl)
+        assertEquals("", settings.flibustaBaseUrl)
         assertEquals(Format.EPUB, settings.preferredFormat)
         assertTrue(settings.wifiOnly)
         assertEquals(2, settings.maxConcurrent)

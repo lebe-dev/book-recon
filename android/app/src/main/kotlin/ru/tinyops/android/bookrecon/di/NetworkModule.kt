@@ -45,7 +45,7 @@ class NetworkModule(private val app: AppContainer) {
      */
     private fun userReadTimeout(host: String): Duration? {
         val settings = runBlocking { app.settings.settingsRepository.settings.first() }
-        val flibustaHost = settings.flibustaBaseUrl.toHttpUrlOrNull()?.host ?: return null
+        val flibustaHost = settings.flibustaEffectiveUrl.toHttpUrlOrNull()?.host ?: return null
         if (!isHostOrSubdomain(host, flibustaHost)) return null
         return settings.flibustaTimeoutSeconds.seconds
     }

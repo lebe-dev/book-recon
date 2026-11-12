@@ -71,7 +71,8 @@
     <string name="settings_rutracker_login">Логин</string>
     <string name="settings_rutracker_password">Пароль</string>
     <string name="settings_rutracker_password_stored">Пароль сохранён. Оставьте поле пустым, чтобы не менять его</string>
-    <string name="settings_rutracker_server">RuTracker идёт через сервер Book Recon: поиск и торренты идут через его учётную запись, логин и пароль ниже не используются</string>
+    <string name="settings_rutracker_server">RuTracker идёт через сервер Book Recon: поиск и торренты идут через его учётную запись, логин и пароль не нужны. Введённые ранее данные сохранены и вернутся, если выбрать «Как есть»</string>
+    <string name="settings_rutracker_server_open">Настройки сервера</string>
     <string name="settings_rutracker_hint">Логин и пароль сохраняются при проверке входа</string>
     <string name="settings_rutracker_show_password">Показать пароль</string>
     <string name="settings_rutracker_hide_password">Скрыть пароль</string>
@@ -90,7 +91,7 @@
 
     <string name="settings_section_flibusta">Flibusta</string>
     <string name="settings_flibusta_url">Адрес сайта</string>
-    <string name="settings_flibusta_url_hint">Пустое поле — адрес по умолчанию. Известные зеркала: flibusta.is, flibusta.site</string>
+    <string name="settings_flibusta_url_hint">Оставьте пустым: приложение само выберет из известных зеркал (flibusta.site, flibusta.is)</string>
     <string name="settings_flibusta_timeout">Время ожидания ответа</string>
     <string name="settings_flibusta_timeout_text">Сколько ждать ответа сайта, прежде чем считать запрос неудавшимся. Если Flibusta часто не отвечает, увеличьте</string>
     <string name="settings_flibusta_timeout_seconds">%1$d с</string>

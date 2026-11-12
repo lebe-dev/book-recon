@@ -154,6 +154,7 @@ fun BookReconNavHost(navController: NavHostController = rememberNavController())
                     onBack = { navController.popBackStack() },
                     onOpenVerification = { url, purpose -> navController.navigate(WebVerificationRoute(url, purpose)) },
                     onOpenLog = { navController.navigate(LogRoute) },
+                    onOpenServerSettings = { navController.navigate(SettingsSectionRoute(SettingsSection.SERVER)) },
                     verificationResults = verificationResults,
                 )
             }

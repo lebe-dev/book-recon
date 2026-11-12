@@ -6,16 +6,11 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import ru.tinyops.android.bookrecon.core.port.HttpClient
 import ru.tinyops.android.bookrecon.core.route.RouteMemory
-import ru.tinyops.android.bookrecon.core.route.RouteSnapshot
 import ru.tinyops.android.bookrecon.log.LoggingInterceptor
 import ru.tinyops.android.bookrecon.net.ChallengeSolver
 import ru.tinyops.android.bookrecon.net.CookieStore
@@ -25,6 +20,7 @@ import ru.tinyops.android.bookrecon.net.WebViewChallengeSolver
 import ru.tinyops.android.bookrecon.net.WebkitCookieStore
 import ru.tinyops.android.bookrecon.net.buildOkHttpClient
 import ru.tinyops.android.bookrecon.storage.settings.DataStoreRouteStore
+import ru.tinyops.android.bookrecon.storage.settings.StoredRoutes
 
 class NetworkModule(private val app: AppContainer) {
     /** The WebView cookie store; OkHttp reads and writes it too. */
@@ -50,24 +46,13 @@ class NetworkModule(private val app: AppContainer) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val routeStore by lazy { DataStoreRouteStore(app.settings.dataStore) }
+    private val storedRoutes by lazy { StoredRoutes(DataStoreRouteStore(app.settings.dataStore), scope) }
 
-    /** Latest routes to store; conflated, so a burst of changes is written once. */
-    private val pendingRoutes = MutableStateFlow<RouteSnapshot?>(null)
+    /** The mirrors and addresses that worked, kept across restarts. */
+    val routeMemory: RouteMemory get() = storedRoutes.memory
 
-    /**
-     * The mirrors and addresses that worked, kept across restarts. The stored ones are read in
-     * the background (what is learnt meanwhile wins), and changes are written after that.
-     */
-    val routeMemory: RouteMemory by lazy {
-        RouteMemory(onChange = { pendingRoutes.value = it }).also { memory ->
-            scope.launch {
-                memory.restore(routeStore.load())
-                pendingRoutes.value = memory.snapshot()
-                pendingRoutes.filterNotNull().collectLatest { routeStore.save(it) }
-            }
-        }
-    }
+    /** Returns once the stored routes are read. */
+    suspend fun awaitRoutes() = storedRoutes.awaitRestored()
 
     /**
      * The read timeout the user chose for [host]: every Flibusta mirror a search may reach.

@@ -22,6 +22,7 @@ import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.core.mirror.InMemoryMirrorMemory
 import ru.tinyops.android.bookrecon.core.mirror.MirrorFallback
 import ru.tinyops.android.bookrecon.core.mirror.MirrorMemory
+import ru.tinyops.android.bookrecon.core.mirror.MirrorSites
 import ru.tinyops.android.bookrecon.core.port.DownloadedFile
 import ru.tinyops.android.bookrecon.core.port.FlibustaSource
 import ru.tinyops.android.bookrecon.core.port.HttpClient
@@ -49,6 +50,8 @@ import kotlin.time.Duration.Companion.seconds
  *   once. [download] has none: a large file may take long, the caller limits it.
  * @param io dispatcher for blocking reads and file work.
  * @param mirrorMemory where the mirror that answered is kept, so it goes first after a restart.
+ * @param onTrouble called when a mirror or a book page could not be reached (network failure,
+ *   timeout, server error), so the routes can be checked again.
  */
 class FlibustaSourceImpl(
     private val http: HttpClient,
@@ -57,9 +60,10 @@ class FlibustaSourceImpl(
     private val pageTimeout: suspend () -> Duration = { DEFAULT_PAGE_TIMEOUT },
     private val io: CoroutineDispatcher = Dispatchers.IO,
     mirrorMemory: MirrorMemory = InMemoryMirrorMemory(),
+    private val onTrouble: () -> Unit = {},
 ) : FlibustaSource {
 
-    private val mirrors = MirrorFallback("Flibusta", mirrorMemory)
+    private val mirrors = MirrorFallback(MirrorSites.FLIBUSTA, mirrorMemory) { _, _ -> onTrouble() }
 
     override suspend fun search(query: String, limit: Int): List<BookResult> {
         if (limit <= 0 || query.isBlank()) return emptyList()
@@ -167,7 +171,8 @@ class FlibustaSourceImpl(
     private suspend fun bookFormats(base: String, bookId: String): List<Format> {
         val doc = try {
             fetchPage("$base/b/$bookId", "book page")
-        } catch (_: AppError) {
+        } catch (e: AppError) {
+            if (MirrorFallback.isUnreachable(e)) onTrouble()
             return DEFAULT_FORMATS
         }
         return collectBookFormats(doc)[bookId].orEmpty()

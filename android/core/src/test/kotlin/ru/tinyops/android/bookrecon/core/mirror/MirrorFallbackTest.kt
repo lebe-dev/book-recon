@@ -76,4 +76,24 @@ class MirrorFallbackTest {
         }
         assertEquals("no https://a", error.message)
     }
+
+    @Test
+    fun `every mirror that cannot be reached is reported as trouble, other errors are not`() = runTest {
+        val trouble = mutableListOf<Pair<String, String?>>()
+        val fallback = MirrorFallback("Site", memory) { base, error -> trouble += base to error.message }
+
+        fallback.run(listOf("https://a", "https://b", "https://c")) { base ->
+            if (base != "https://c") throw if (base == "https://a") AppError.Timeout("slow") else AppError.ServiceDown("down")
+            base
+        }
+        assertThrows<AppError.NotFound> { fallback.run(listOf("https://c")) { throw AppError.NotFound("no book") } }
+
+        assertEquals(listOf("https://a" to "slow", "https://b" to "down"), trouble)
+    }
+
+    @Test
+    fun `the key names the site and the first mirror`() {
+        assertEquals("Flibusta https://flibusta.site", MirrorFallback.keyOf(MirrorSites.FLIBUSTA, listOf("https://flibusta.site", "https://flibusta.is")))
+        assertEquals(null, MirrorFallback.keyOf(MirrorSites.FLIBUSTA, emptyList()))
+    }
 }

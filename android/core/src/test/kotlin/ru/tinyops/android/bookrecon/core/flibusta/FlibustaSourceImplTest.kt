@@ -62,7 +62,8 @@ class FlibustaSourceImplTest {
         fallbackUrls: suspend () -> List<String> = { emptyList() },
         timeout: Duration = 30.seconds,
         memory: MirrorMemory = InMemoryMirrorMemory(),
-    ) = FlibustaSourceImpl(client, baseUrl, fallbackUrls, { timeout }, StandardTestDispatcher(testScheduler), memory)
+        onTrouble: () -> Unit = {},
+    ) = FlibustaSourceImpl(client, baseUrl, fallbackUrls, { timeout }, StandardTestDispatcher(testScheduler), memory, onTrouble)
 
     @TempDir
     lateinit var dir: File
@@ -180,6 +181,40 @@ class FlibustaSourceImplTest {
 
         assertEquals("$other/b/1", http.requests.last().url)
         assertEquals(3, http.requests.size)
+    }
+
+    @Test
+    fun `an unreachable mirror is reported as trouble`() = runTest {
+        var trouble = 0
+        http.respond("$BASE/b/1", "oops", code = 503)
+        http.respond("https://flibusta.other/b/1", bookPage("1", "fb2"))
+
+        flibusta(fallbackUrls = { listOf("https://flibusta.other") }, onTrouble = { trouble++ }).details("1")
+
+        assertEquals(1, trouble)
+    }
+
+    @Test
+    fun `a slow search and a book page that cannot be fetched are trouble too`() = runTest {
+        var trouble = 0
+        http.respond(searchUrl("q"), "<html><body><h3>Найденные книги</h3><ul><li><a href=\"/b/7\">Книга</a> - <a href=\"/a/1\">Автор</a></li></ul></body></html>")
+        http.respond("$BASE/b/7", "oops", code = 502)
+
+        assertEquals(1, flibusta(onTrouble = { trouble++ }).search("q", 10).size)
+        assertEquals(1, trouble)
+
+        http.behavior.delay = 1.minutes
+        assertThrows<AppError.Timeout> { flibusta(onTrouble = { trouble++ }).search("q", 10) }
+        assertEquals(2, trouble)
+    }
+
+    @Test
+    fun `a missing book is no trouble`() = runTest {
+        var trouble = 0
+        http.respond("$BASE/b/1", fixture("book-missing.html"))
+
+        assertThrows<AppError.NotFound> { flibusta(onTrouble = { trouble++ }).details("1") }
+        assertEquals(0, trouble)
     }
 
     @Test

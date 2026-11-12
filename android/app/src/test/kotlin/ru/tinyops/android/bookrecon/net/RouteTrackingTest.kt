@@ -71,6 +71,38 @@ class RouteTrackingTest {
         assertEquals(false, routes.snapshot().addresses.getValue("flibusta.test").getValue(loopback()).works)
     }
 
+    @Test
+    fun `an address that refuses the connection is marked as failed`() = runBlocking {
+        val closed = java.net.ServerSocket(0).use { it.localPort }
+
+        runCatching { client().get("http://flibusta.test:$closed/").close() }
+
+        assertEquals(false, routes.snapshot().addresses.getValue("flibusta.test").getValue(loopback()).works)
+    }
+
+    @Test
+    fun `calls through a proxy say nothing about the addresses of the site`() = runBlocking {
+        server.enqueue(MockResponse.Builder().body("ok").build())
+        val proxied = OkHttpHttpClient(
+            buildOkHttpClient(
+                SharedCookieJar(InMemoryCookieStore()),
+                solver = { false },
+                userAgent = { "TestAgent/1.0" },
+                proxySelector = object : java.net.ProxySelector() {
+                    override fun select(uri: java.net.URI?) =
+                        listOf(java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress(server.hostName, server.port)))
+
+                    override fun connectFailed(uri: java.net.URI?, sa: java.net.SocketAddress?, ioe: java.io.IOException?) = Unit
+                },
+                routes = routes,
+            ),
+        )
+
+        proxied.get("http://flibusta.test/").use { assertEquals(200, it.code) }
+
+        assertEquals(emptyMap<String, Any>(), routes.snapshot().addresses)
+    }
+
     private fun loopback(): String = InetAddress.getByName(server.hostName).hostAddress!!
 
     private fun url(): String = "http://flibusta.test:${server.port}/"

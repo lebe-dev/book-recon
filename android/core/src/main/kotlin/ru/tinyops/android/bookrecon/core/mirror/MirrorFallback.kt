@@ -23,15 +23,22 @@ class InMemoryMirrorMemory : MirrorMemory {
     }
 }
 
+/** Names of the sites in [MirrorFallback] keys. */
+object MirrorSites {
+    const val FLIBUSTA = "Flibusta"
+    const val RUTRACKER = "RuTracker"
+}
+
 /**
  * Runs a request against the mirrors of a site in turn until one answers, and remembers the one
  * that did so it goes first next time. [site] names the site in messages and in [memory]; what
- * is remembered belongs to the first mirror of the list, so a mirror the user picks anew is
- * tried first again.
+ * is remembered belongs to the first mirror of the list ([keyOf]), so a mirror the user picks
+ * anew is tried first again. [onTrouble] hears about every mirror that could not be reached.
  */
 class MirrorFallback(
     private val site: String,
     private val memory: MirrorMemory = InMemoryMirrorMemory(),
+    private val onTrouble: (base: String, error: AppError) -> Unit = { _, _ -> },
 ) {
     /**
      * Runs [block] against [bases] (the remembered mirror first). Only failures to reach a
@@ -40,13 +47,14 @@ class MirrorFallback(
      * a server error over a timeout over no connection, the earlier mirror on a tie.
      */
     suspend fun <T> run(bases: List<String>, block: suspend (base: String) -> T): T {
-        val key = bases.firstOrNull()?.let { "$site $it" }
+        val key = keyOf(site, bases)
         var failure: AppError? = null
         for (base in ordered(key, bases)) {
             try {
                 return block(base).also { if (key != null && memory.preferred(key) != base) memory.remember(key, base) }
             } catch (e: AppError) {
-                if (e !is AppError.Network && e !is AppError.ServiceDown && e !is AppError.Timeout) throw e
+                if (!isUnreachable(e)) throw e
+                onTrouble(base, e)
                 if (failure == null || reach(e) > reach(failure)) failure = e
             }
         }
@@ -56,6 +64,15 @@ class MirrorFallback(
     private fun ordered(key: String?, bases: List<String>): List<String> {
         val preferred = key?.let(memory::preferred)?.takeIf { it in bases } ?: return bases
         return listOf(preferred) + (bases - preferred)
+    }
+
+    companion object {
+        /** The [MirrorMemory] key of [site] with the mirror list [bases]; null for no mirrors. */
+        fun keyOf(site: String, bases: List<String>): String? = bases.firstOrNull()?.let { "$site $it" }
+
+        /** True for an error that says the mirror could not be reached, not what it answered. */
+        fun isUnreachable(error: AppError): Boolean =
+            error is AppError.Network || error is AppError.ServiceDown || error is AppError.Timeout
     }
 
     /** How far a request got before failing with [error]: the higher, the more telling. */

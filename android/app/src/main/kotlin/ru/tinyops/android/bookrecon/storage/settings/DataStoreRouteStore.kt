@@ -9,9 +9,9 @@ import kotlinx.serialization.json.Json
 import ru.tinyops.android.bookrecon.core.route.RouteSnapshot
 
 /** Keeps the routes that worked ([RouteSnapshot]) in the settings store as JSON. */
-class DataStoreRouteStore(private val store: DataStore<Preferences>) {
+class DataStoreRouteStore(private val store: DataStore<Preferences>) : RouteStore {
     /** The stored routes; empty when none are stored or they cannot be read. */
-    suspend fun load(): RouteSnapshot {
+    override suspend fun load(): RouteSnapshot {
         val text = store.data.first()[KEY] ?: return RouteSnapshot()
         return try {
             json.decodeFromString<RouteSnapshot>(text)
@@ -21,7 +21,7 @@ class DataStoreRouteStore(private val store: DataStore<Preferences>) {
         }
     }
 
-    suspend fun save(snapshot: RouteSnapshot) {
+    override suspend fun save(snapshot: RouteSnapshot) {
         val text = json.encodeToString(snapshot)
         store.edit { it[KEY] = text }
     }

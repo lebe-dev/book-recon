@@ -80,6 +80,30 @@ class RouteMemory(
         if (changed) changed()
     }
 
+    /**
+     * Results of a check of [host]: [fastestFirst] answered, in this order of speed, and go
+     * first in that order; [failed] did not answer and go last. Saved once.
+     */
+    fun addressesChecked(host: String, fastestFirst: List<String>, failed: List<String>) {
+        if (fastestFirst.isEmpty() && failed.isEmpty()) return
+        synchronized(lock) {
+            val records = recordsOf(host)
+            val at = now()
+            fastestFirst.forEachIndexed { index, address ->
+                // The fastest gets the latest time, so it is the one tried first.
+                records[address] = (records[address] ?: AddressRecord()).copy(okAt = at - index, failedAt = 0)
+            }
+            failed.forEach { address -> records[address] = (records[address] ?: AddressRecord()).copy(failedAt = at) }
+            trim()
+        }
+        changed()
+    }
+
+    /** True when an address of one of [hosts] is known to work. */
+    fun knowsWorkingAddress(hosts: Collection<String>): Boolean = synchronized(lock) {
+        hosts.any { host -> addresses[host]?.values?.any { it.works } == true }
+    }
+
     /** Takes in a stored [snapshot]; what was learnt since the start wins over it. */
     fun restore(snapshot: RouteSnapshot) {
         synchronized(lock) {

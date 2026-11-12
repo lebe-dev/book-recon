@@ -109,4 +109,25 @@ class RouteMemoryTest {
         assertEquals(false, "host0.test" in hosts)
         assertEquals(true, "host${RouteMemory.MAX_HOSTS + 4}.test" in hosts)
     }
+
+    @Test
+    fun `checked addresses are ordered as measured and saved once`() {
+        memory.addressWorked("flibusta.site", "10.0.0.1")
+        saved.clear()
+
+        memory.addressesChecked("flibusta.site", fastestFirst = listOf("10.0.0.3", "10.0.0.2"), failed = listOf("10.0.0.1"))
+
+        assertEquals(listOf("10.0.0.3", "10.0.0.2", "10.0.0.1"), memory.order("flibusta.site", dns))
+        assertEquals(1, saved.size)
+    }
+
+    @Test
+    fun `a working address of any of the hosts counts as known`() {
+        memory.addressFailed("flibusta.site", "10.0.0.1")
+        assertEquals(false, memory.knowsWorkingAddress(listOf("flibusta.site", "flibusta.is")))
+
+        memory.addressWorked("flibusta.is", "10.0.0.2")
+        assertEquals(true, memory.knowsWorkingAddress(listOf("flibusta.site", "flibusta.is")))
+        assertEquals(false, memory.knowsWorkingAddress(listOf("rutracker.org")))
+    }
 }

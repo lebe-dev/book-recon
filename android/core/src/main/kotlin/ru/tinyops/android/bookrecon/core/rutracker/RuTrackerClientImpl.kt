@@ -15,6 +15,7 @@ import ru.tinyops.android.bookrecon.core.domain.TorrentTopic
 import ru.tinyops.android.bookrecon.core.mirror.InMemoryMirrorMemory
 import ru.tinyops.android.bookrecon.core.mirror.MirrorFallback
 import ru.tinyops.android.bookrecon.core.mirror.MirrorMemory
+import ru.tinyops.android.bookrecon.core.mirror.MirrorSites
 import ru.tinyops.android.bookrecon.core.port.HttpClient
 import ru.tinyops.android.bookrecon.core.port.HttpResponse
 import ru.tinyops.android.bookrecon.core.port.RuTrackerClient
@@ -63,7 +64,7 @@ class RuTrackerClientImpl(
 
     private val bases = baseUrls.map { it.trimEnd('/') }.filter { it.isNotEmpty() }.distinct()
 
-    private val mirrors = MirrorFallback("RuTracker", mirrorMemory)
+    private val mirrors = MirrorFallback(MirrorSites.RUTRACKER, mirrorMemory)
 
     private val loginMutex = Mutex()
 

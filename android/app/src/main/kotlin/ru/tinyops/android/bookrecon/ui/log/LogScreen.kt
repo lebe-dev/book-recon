@@ -33,6 +33,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -99,7 +101,7 @@ fun LogScreen(onBack: () -> Unit) {
         onInfoChange = viewModel::onInfoChange,
         onDebugChange = viewModel::onDebugChange,
         onCopy = {
-            copyToClipboard(context, viewModel.shownText())
+            copyToClipboard(context, viewModel.copyText())
             toast(context, R.string.log_copied)
         },
         onSave = { saveLauncher.launch(fileName) },
@@ -161,8 +163,8 @@ fun LogContent(
                     Text(stringResource(R.string.log_copy))
                 }
                 OutlinedButton(onClick = onSave) { Text(stringResource(R.string.log_save)) }
-                OutlinedButton(onClick = onShare, enabled = state.entries.isNotEmpty()) {
-                    Text(stringResource(R.string.log_share))
+                OutlinedIconButton(onClick = onShare, enabled = state.entries.isNotEmpty()) {
+                    Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.log_share))
                 }
                 OutlinedButton(onClick = onClear, enabled = state.entries.isNotEmpty()) {
                     Text(stringResource(R.string.log_clear))

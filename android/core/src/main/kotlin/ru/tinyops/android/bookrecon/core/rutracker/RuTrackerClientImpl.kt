@@ -12,6 +12,7 @@ import org.jsoup.nodes.Document
 import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.TorrentTopic
+import ru.tinyops.android.bookrecon.core.mirror.MirrorFallback
 import ru.tinyops.android.bookrecon.core.port.HttpClient
 import ru.tinyops.android.bookrecon.core.port.HttpResponse
 import ru.tinyops.android.bookrecon.core.port.RuTrackerClient
@@ -22,7 +23,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * [RuTrackerClient] that talks to rutracker.org directly.
+ * [RuTrackerClient] that talks to rutracker.org (or its mirror rutracker.net) directly.
  *
  * How the site behaves (checked in November 2026):
  * - Login is a POST of `login_username`, `login_password`, `login=вход` and `redirect` to
@@ -39,6 +40,9 @@ import kotlin.time.Duration.Companion.seconds
  * - `dl.php?t=<id>` answers `application/x-bittorrent` with `Content-Disposition`; a missing
  *   topic answers 200 `text/html` with "Error: attachment data not found".
  *
+ * @param baseUrls forum addresses in order of preference. A mirror that cannot be reached
+ *   (no DNS name, timeout, 5xx) hands the request to the next one, and the last one that
+ *   worked goes first. The session cookie belongs to a mirror, so each has its own login.
  * @param cookies returns the `Cookie` header the shared store holds for a URL, or null. The
  *   session itself is kept by the store; the client only checks for `bb_session`.
  * @param requestTimeout deadline of one request, including a Cloudflare check run by the
@@ -48,13 +52,14 @@ class RuTrackerClientImpl(
     private val http: HttpClient,
     private val settings: SettingsRepository,
     private val cookies: (url: String) -> String?,
-    private val baseUrl: String = DEFAULT_BASE_URL,
+    private val baseUrls: List<String> = DEFAULT_BASE_URLS,
     private val requestTimeout: Duration = DEFAULT_REQUEST_TIMEOUT,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : RuTrackerClient {
 
-    private val base = baseUrl.trimEnd('/')
-    private val loginUrl = "$base/login.php"
+    private val bases = baseUrls.map { it.trimEnd('/') }.filter { it.isNotEmpty() }.distinct()
+
+    private val mirrors = MirrorFallback("RuTracker")
 
     private val loginMutex = Mutex()
 
@@ -63,19 +68,23 @@ class RuTrackerClientImpl(
     private var sessionGeneration = 0
 
     override suspend fun login() {
-        loginMutex.withLock { loginLocked() }
+        onMirrors { base -> loginMutex.withLock { loginLocked(base) } }
     }
 
-    override suspend fun isLoggedIn(): Boolean =
+    override suspend fun isLoggedIn(): Boolean = bases.any { hasSession(it) }
+
+    private fun hasSession(base: String): Boolean =
         cookies("$base/").orEmpty().split(';').any { it.trim().startsWith("$SESSION_COOKIE=") }
 
     override suspend fun search(query: String, kind: MediaKind, limit: Int): List<TorrentTopic> {
         val text = query.trim().take(MAX_QUERY_LENGTH)
         if (limit <= 0 || text.isEmpty()) return emptyList()
 
-        val url = "$base/tracker.php?f=" + RuTrackerForums.forKind(kind).joinToString(",") +
-            "&o=$ORDER_BY_SEEDERS&s=$SORT_DESCENDING&nm=" + URLEncoder.encode(text, RuTrackerParser.CHARSET)
-        val doc = withSession { fetchPage(url, "search") }
+        val doc = onMirrors { base ->
+            val url = "$base/tracker.php?f=" + RuTrackerForums.forKind(kind).joinToString(",") +
+                "&o=$ORDER_BY_SEEDERS&s=$SORT_DESCENDING&nm=" + URLEncoder.encode(text, RuTrackerParser.CHARSET)
+            withSession(base) { fetchPage(url, "search") }
+        }
         return RuTrackerParser.parseSearchResults(doc, kind).take(limit)
     }
 
@@ -83,41 +92,45 @@ class RuTrackerClientImpl(
         if (topicId.isEmpty() || !topicId.all(Char::isDigit)) {
             throw AppError.NotFound("rutracker topic id '$topicId' is not numeric")
         }
-        val url = "$base/dl.php?t=$topicId"
-        val headers = mapOf("Referer" to "$base/viewtopic.php?t=$topicId")
-
-        return withSession {
-            request("torrent download") { http.get(url, headers) }.use { response ->
-                checkStatus(response, "torrent download")
-                val bytes = readBody(response) { it.bytes(MAX_TORRENT_SIZE) }
-                torrentOrPage(response, bytes, topicId)
+        return onMirrors { base ->
+            val url = "$base/dl.php?t=$topicId"
+            val headers = mapOf("Referer" to "$base/viewtopic.php?t=$topicId")
+            withSession(base) {
+                request("torrent download") { http.get(url, headers) }.use { response ->
+                    checkStatus(response, "torrent download")
+                    val bytes = readBody(response) { it.bytes(MAX_TORRENT_SIZE) }
+                    torrentOrPage(response, bytes, topicId)
+                }
             }
         }
     }
+
+    private suspend fun <T> onMirrors(block: suspend (base: String) -> T): T = mirrors.run(bases, block)
 
     /**
      * Runs [block], which returns [Page.LoginRequired] when the session is gone. Then logs in
      * once, unless another caller already did, and runs [block] again.
      */
-    private suspend fun <T> withSession(block: suspend () -> Page<T>): T {
+    private suspend fun <T> withSession(base: String, block: suspend () -> Page<T>): T {
         val generation = sessionGeneration
         val first = block()
         if (first is Page.Content) return first.value
 
-        relogin(generation)
+        relogin(base, generation)
         val second = block()
         if (second is Page.Content) return second.value
         throw AppError.RuTrackerLoginFailed()
     }
 
-    private suspend fun relogin(staleGeneration: Int) {
+    private suspend fun relogin(base: String, staleGeneration: Int) {
         loginMutex.withLock {
             if (sessionGeneration != staleGeneration) return
-            loginLocked()
+            loginLocked(base)
         }
     }
 
-    private suspend fun loginLocked() {
+    private suspend fun loginLocked(base: String) {
+        val loginUrl = "$base/login.php"
         val username = settings.settings.first().rutrackerLogin.trim()
         val password = settings.rutrackerPassword()
         if (username.isEmpty() || password.isNullOrEmpty()) throw AppError.RuTrackerAuthRequired()
@@ -136,7 +149,7 @@ class RuTrackerClientImpl(
 
         if (RuTrackerParser.hasCaptcha(doc)) throw AppError.RuTrackerCaptcha(loginUrl)
         if (RuTrackerParser.isLoginPage(doc)) throw AppError.RuTrackerLoginFailed()
-        if (!RuTrackerParser.isLoggedIn(doc) && !isLoggedIn()) {
+        if (!RuTrackerParser.isLoggedIn(doc) && !hasSession(base)) {
             throw AppError.ParseError("rutracker login answered with an unexpected page")
         }
         sessionGeneration++
@@ -201,7 +214,7 @@ class RuTrackerClientImpl(
     }
 
     companion object {
-        const val DEFAULT_BASE_URL = "https://rutracker.org/forum"
+        val DEFAULT_BASE_URLS = listOf("https://rutracker.org/forum", "https://rutracker.net/forum")
 
         /** One request may wait for a Cloudflare check, which alone takes up to half a minute. */
         val DEFAULT_REQUEST_TIMEOUT = 60.seconds

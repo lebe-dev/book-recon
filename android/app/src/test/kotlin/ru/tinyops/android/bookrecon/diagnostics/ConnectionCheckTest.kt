@@ -47,7 +47,7 @@ class ConnectionCheckTest {
         scope.advanceUntilIdle()
         val running = check.state.value as ConnectionCheckState.Running
         assertEquals(0, running.results.size)
-        assertEquals(6, running.total)
+        assertEquals(7, running.total)
         check.start()
         gate.complete(Unit)
         scope.advanceUntilIdle()

@@ -19,6 +19,7 @@ import ru.tinyops.android.bookrecon.core.domain.FlibustaBookDetails
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Source
+import ru.tinyops.android.bookrecon.core.mirror.MirrorFallback
 import ru.tinyops.android.bookrecon.core.port.DownloadedFile
 import ru.tinyops.android.bookrecon.core.port.FlibustaSource
 import ru.tinyops.android.bookrecon.core.port.HttpClient
@@ -53,8 +54,7 @@ class FlibustaSourceImpl(
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : FlibustaSource {
 
-    @Volatile
-    private var lastWorking: String? = null
+    private val mirrors = MirrorFallback("Flibusta")
 
     override suspend fun search(query: String, limit: Int): List<BookResult> {
         if (limit <= 0 || query.isBlank()) return emptyList()
@@ -281,27 +281,9 @@ class FlibustaSourceImpl(
         }
     }
 
-    private suspend fun candidates(): List<String> {
-        val all = (listOf(baseUrl()) + fallbackUrls()).map { it.trim().trimEnd('/') }.filter { it.isNotEmpty() }.distinct()
-        val preferred = lastWorking?.takeIf { it in all } ?: return all
-        return listOf(preferred) + (all - preferred)
-    }
-
-    /**
-     * Runs [block] against the mirrors in turn until one answers. Only failures to reach a
-     * mirror move on to the next one; a missing book or bad markup would be the same everywhere.
-     */
     private suspend fun <T> onMirrors(block: suspend (base: String) -> T): T {
-        var failure: AppError? = null
-        for (base in candidates()) {
-            try {
-                return block(base).also { lastWorking = base }
-            } catch (e: AppError) {
-                if (e !is AppError.Network && e !is AppError.ServiceDown && e !is AppError.Timeout) throw e
-                failure = e
-            }
-        }
-        throw failure ?: AppError.Network("no Flibusta mirror is configured")
+        val all = (listOf(baseUrl()) + fallbackUrls()).map { it.trim().trimEnd('/') }.filter { it.isNotEmpty() }.distinct()
+        return mirrors.run(all, block)
     }
 
     private suspend fun <T> withDeadline(stage: String, block: suspend () -> T): T = try {

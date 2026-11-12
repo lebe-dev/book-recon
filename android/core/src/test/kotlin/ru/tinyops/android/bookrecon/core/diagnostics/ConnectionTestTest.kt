@@ -11,7 +11,7 @@ import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.core.domain.SourceRoute
 
 class ConnectionTestTest {
-    private val serverHosts = setOf("rutracker.org", "flibusta.is", "flibusta.site")
+    private val serverHosts = setOf("rutracker.org", "rutracker.net", "flibusta.is", "flibusta.site")
 
     @Test
     fun `without a server only direct probes are planned, for every known mirror`() {
@@ -22,7 +22,10 @@ class ConnectionTestTest {
             listOf("https://flibusta.site", "https://flibusta.is"),
             probes.filter { it.source == Source.FLIBUSTA }.map { it.baseUrl },
         )
-        assertEquals(1, probes.count { it.source == Source.RUTRACKER })
+        assertEquals(
+            listOf("https://rutracker.org", "https://rutracker.net"),
+            probes.filter { it.source == Source.RUTRACKER }.map { it.baseUrl },
+        )
     }
 
     @Test

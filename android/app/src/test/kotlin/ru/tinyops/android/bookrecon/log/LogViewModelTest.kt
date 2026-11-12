@@ -72,6 +72,24 @@ class LogViewModelTest {
     }
 
     @Test
+    fun levelSwitchesOnlyFilterTheShownEntries() = runTest(dispatcher) {
+        val log = appLog().also {
+            it.debug("Net") { "details" }
+            it.info("Queue", "hello")
+        }
+        val vm = LogViewModel(log, settings)
+        advanceUntilIdle()
+        assertEquals(listOf("hello"), vm.state.value.entries.map { it.message })
+
+        vm.onDebugChange(true)
+        vm.onInfoChange(false)
+        advanceUntilIdle()
+
+        assertEquals(listOf("details"), vm.state.value.entries.map { it.message })
+        assertTrue(vm.exportText().let { it.contains("D/Net: details") && it.contains("I/Queue: hello") })
+    }
+
+    @Test
     fun clearEmptiesTheLog() = runTest(dispatcher) {
         val log = appLog().also { it.info("Queue", "hello") }
         val vm = LogViewModel(log, settings)

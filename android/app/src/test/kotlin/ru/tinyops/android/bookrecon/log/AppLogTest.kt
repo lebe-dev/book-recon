@@ -37,7 +37,7 @@ class AppLogTest {
     )
 
     @Test
-    fun infoAndWarningsAreRecordedByDefaultButDebugIsNot() {
+    fun everyLevelIsRecordedIncludingDebug() {
         val log = appLog()
 
         log.debug("Net") { "request started" }
@@ -46,47 +46,14 @@ class AppLogTest {
         log.error("Net", "request failed")
 
         assertEquals(
-            listOf(LogLevel.INFO to "request done", LogLevel.WARN to "slow answer", LogLevel.ERROR to "request failed"),
+            listOf(
+                LogLevel.DEBUG to "request started",
+                LogLevel.INFO to "request done",
+                LogLevel.WARN to "slow answer",
+                LogLevel.ERROR to "request failed",
+            ),
             log.entries.value.map { it.level to it.message },
         )
-    }
-
-    @Test
-    fun debugLevelCanBeSwitchedOnAndOff() {
-        val log = appLog()
-
-        log.setLevels(info = true, debug = true)
-        log.debug("Net") { "details" }
-        log.setLevels(info = true, debug = false)
-        log.debug("Net") { "dropped" }
-
-        assertEquals(listOf("details"), log.entries.value.map { it.message })
-    }
-
-    @Test
-    fun infoLevelOffSilencesInfoWarningsAndErrors() {
-        val log = appLog()
-
-        log.setLevels(info = false, debug = true)
-        log.info("Net", "a")
-        log.warn("Net", "b")
-        log.error("Net", "c")
-        log.debug("Net") { "d" }
-
-        assertEquals(listOf("d"), log.entries.value.map { it.message })
-    }
-
-    @Test
-    fun skippedMessagesAreNotBuilt() {
-        val log = appLog()
-        var built = false
-
-        log.debug("Net") {
-            built = true
-            "expensive"
-        }
-
-        assertFalse(built)
     }
 
     @Test
@@ -175,9 +142,9 @@ class AppLogTest {
         val log = appLog()
 
         log.info("T", "shown")
-        log.debug("T") { "not recorded" }
+        log.debug("T") { "details" }
 
-        assertEquals(listOf("shown"), mirrored.map { it.message })
+        assertEquals(listOf("shown", "details"), mirrored.map { it.message })
     }
 
     @Test

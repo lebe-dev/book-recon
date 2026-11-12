@@ -13,14 +13,15 @@ import kotlinx.coroutines.withContext
 import ru.tinyops.android.bookrecon.core.port.SettingsRepository
 import ru.tinyops.android.bookrecon.log.AppLog
 import ru.tinyops.android.bookrecon.log.LogEntry
+import ru.tinyops.android.bookrecon.log.LogLevel
 import ru.tinyops.android.bookrecon.log.format
 
 /**
  * State of the app log screen.
  *
- * @property infoEnabled INFO level is recorded (info, warnings, errors).
- * @property debugEnabled DEBUG level is recorded.
- * @property entries the newest entries, oldest first.
+ * @property infoEnabled INFO entries (info, warnings, errors) are shown.
+ * @property debugEnabled DEBUG entries are shown.
+ * @property entries the newest entries that pass the filter, oldest first.
  */
 data class LogUiState(
     val infoEnabled: Boolean = true,
@@ -29,8 +30,9 @@ data class LogUiState(
 )
 
 /**
- * Logic of the app log screen: the two level switches live in the settings, entries come
- * from [appLog]. [header] describes the app and the device and starts every exported text.
+ * Logic of the app log screen: the two level switches only filter what is shown and live in
+ * the settings, the log itself records every level. Entries come from [appLog].
+ * [header] describes the app and the device and starts every exported text.
  */
 class LogViewModel(
     private val appLog: AppLog,
@@ -40,7 +42,8 @@ class LogViewModel(
 ) : ViewModel() {
 
     val state: StateFlow<LogUiState> = combine(settings.settings, appLog.entries) { stored, entries ->
-        LogUiState(stored.logInfo, stored.logDebug, entries)
+        val shown = entries.filter { if (it.level == LogLevel.DEBUG) stored.logDebug else stored.logInfo }
+        LogUiState(stored.logInfo, stored.logDebug, shown)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, LogUiState())
 
     fun onInfoChange(enabled: Boolean) {

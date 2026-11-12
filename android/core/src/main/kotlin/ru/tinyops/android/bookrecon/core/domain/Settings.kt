@@ -21,8 +21,8 @@ package ru.tinyops.android.bookrecon.core.domain
  *   seeders (or stalled) is retried this many minutes later; 0 turns retries off.
  * @property sendErrorReports send crashes and unexpected errors to Sentry; off until the user
  *   turns it on.
- * @property logInfo record INFO, warning and error lines in the app log.
- * @property logDebug record DEBUG lines (requests, queue steps, torrent progress) in the app log.
+ * @property logInfo show INFO, warning and error lines on the app log screen.
+ * @property logDebug show DEBUG lines (requests, queue steps, torrent progress) on the app log screen.
  * @property colorTheme color theme of the app.
  * @property darkMode light or dark app, or following the system.
  * @property cyrillicAppName show "Бук Ракун" under the launcher icon instead of "Book Recon".

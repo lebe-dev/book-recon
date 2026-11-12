@@ -13,10 +13,10 @@ import ru.tinyops.android.bookrecon.core.port.Clock
  * `app.log.1` at [maxFileBytes], so the log never grows beyond about twice that) and the
  * newest [maxEntries] stay in memory in [entries].
  *
- * Two switches decide what is recorded, see [setLevels]: INFO (info, warnings, errors) and
- * DEBUG. Messages of a switched-off level are never built. Files are written on [executor],
- * one write at a time and in order, so callers on any thread, the main one included, never
- * wait for the disk.
+ * Every level is always recorded, DEBUG included, so a log shared after a problem has the
+ * details. The screen only filters what it shows. Files are written on [executor], one write
+ * at a time and in order, so callers on any thread, the main one included, never wait for
+ * the disk.
  *
  * Messages must not contain secrets: no passwords, tokens, cookies, announce URLs or query
  * strings.
@@ -39,37 +39,18 @@ class AppLog(
     private val lock = Any()
     private val state = MutableStateFlow(loadEntries())
 
-    @Volatile
-    private var infoOn = true
-
-    @Volatile
-    private var debugOn = false
-
     /** The newest entries, oldest first. */
     val entries: StateFlow<List<LogEntry>> get() = state
 
-    fun setLevels(info: Boolean, debug: Boolean) {
-        infoOn = info
-        debugOn = debug
-    }
+    fun debug(tag: String, message: () -> String) = record(LogLevel.DEBUG, tag, message())
 
-    fun isEnabled(level: LogLevel): Boolean = if (level == LogLevel.DEBUG) debugOn else infoOn
+    fun info(tag: String, message: String) = record(LogLevel.INFO, tag, message)
 
-    fun debug(tag: String, message: () -> String) {
-        if (debugOn) record(LogLevel.DEBUG, tag, message())
-    }
+    fun warn(tag: String, message: String, error: Throwable? = null) =
+        record(LogLevel.WARN, tag, message.withError(error))
 
-    fun info(tag: String, message: String) {
-        if (infoOn) record(LogLevel.INFO, tag, message)
-    }
-
-    fun warn(tag: String, message: String, error: Throwable? = null) {
-        if (infoOn) record(LogLevel.WARN, tag, message.withError(error))
-    }
-
-    fun error(tag: String, message: String, error: Throwable? = null) {
-        if (infoOn) record(LogLevel.ERROR, tag, message.withError(error))
-    }
+    fun error(tag: String, message: String, error: Throwable? = null) =
+        record(LogLevel.ERROR, tag, message.withError(error))
 
     /** The whole stored log, oldest line first, one entry per line. Waits for pending writes. */
     fun text(): String = executor.submit<String> {

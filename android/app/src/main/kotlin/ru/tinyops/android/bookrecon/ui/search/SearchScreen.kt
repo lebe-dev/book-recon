@@ -7,6 +7,8 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.layout.Arrangement
@@ -266,11 +268,12 @@ private fun SearchField(
     enabled: Boolean = true,
     onFocusChange: (Boolean) -> Unit = {},
 ) {
+    val focusRequester = remember { FocusRequester() }
     TextField(
         value = query,
         enabled = enabled,
         onValueChange = onQueryChange,
-        modifier = Modifier.fillMaxWidth().onFocusChanged { onFocusChange(it.isFocused) },
+        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).onFocusChanged { onFocusChange(it.isFocused) },
         placeholder = { Text(stringResource(R.string.search_field_label)) },
         singleLine = true,
         isError = tooShort,
@@ -288,7 +291,10 @@ private fun SearchField(
         },
         trailingIcon = if (query.isNotEmpty()) {
             {
-                IconButton(onClick = { onQueryChange("") }) {
+                IconButton(onClick = {
+                    onQueryChange("")
+                    focusRequester.requestFocus()
+                }) {
                     Icon(Icons.Filled.Clear, contentDescription = stringResource(R.string.search_clear))
                 }
             }

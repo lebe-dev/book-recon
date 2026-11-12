@@ -56,6 +56,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -222,6 +224,7 @@ fun LibraryContent(
 @Composable
 private fun SearchBar(state: LibraryUiState, actions: LibraryActions) {
     val focusManager = LocalFocusManager.current
+    val focusRequester = remember { FocusRequester() }
     Column(
         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -229,12 +232,15 @@ private fun SearchBar(state: LibraryUiState, actions: LibraryActions) {
         TextField(
             value = state.query,
             onValueChange = actions.onQueryChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
             placeholder = { Text(stringResource(R.string.library_search_hint)) },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             trailingIcon = {
                 if (state.query.isEmpty()) return@TextField
-                IconButton(onClick = { actions.onQueryChange("") }) {
+                IconButton(onClick = {
+                    actions.onQueryChange("")
+                    focusRequester.requestFocus()
+                }) {
                     Icon(Icons.Filled.Clear, contentDescription = stringResource(R.string.library_search_clear))
                 }
             },

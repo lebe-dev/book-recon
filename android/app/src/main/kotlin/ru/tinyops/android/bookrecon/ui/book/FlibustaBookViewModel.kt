@@ -54,6 +54,14 @@ sealed interface BookMessage {
     }
 }
 
+/** Puts [request] into the queue and tells the screen how it went. */
+suspend fun DownloadQueue.enqueueWithMessage(request: DownloadRequest): BookMessage = try {
+    enqueue(request)
+    BookMessage.Added
+} catch (e: AppError) {
+    BookMessage.EnqueueFailed(e)
+}
+
 /**
  * State of the Flibusta book screen.
  *
@@ -118,12 +126,7 @@ class FlibustaBookViewModel(
         val format = current.selectedFormat ?: return
         mutableState.update { it.copy(enqueuing = true, message = null) }
         viewModelScope.launch {
-            val message = try {
-                queue.enqueue(book.toRequest(format))
-                BookMessage.Added
-            } catch (e: AppError) {
-                BookMessage.EnqueueFailed(e)
-            }
+            val message = queue.enqueueWithMessage(book.toRequest(format))
             mutableState.update { it.copy(enqueuing = false, message = message) }
         }
     }

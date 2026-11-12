@@ -25,6 +25,7 @@ import ru.tinyops.android.bookrecon.core.port.TorrentEngine
 import ru.tinyops.android.bookrecon.core.selection.FileSelection
 import ru.tinyops.android.bookrecon.core.selection.TreeNode
 import ru.tinyops.android.bookrecon.ui.book.BookMessage
+import ru.tinyops.android.bookrecon.ui.book.enqueueWithMessage
 import ru.tinyops.android.bookrecon.ui.search.VerificationRequest
 import ru.tinyops.android.bookrecon.ui.search.verificationPurpose
 
@@ -155,12 +156,7 @@ class RuTrackerTopicViewModel(
         )
         mutableState.update { it.copy(enqueuing = true, message = null) }
         viewModelScope.launch {
-            val message = try {
-                queue.enqueue(request)
-                BookMessage.Added
-            } catch (e: AppError) {
-                BookMessage.EnqueueFailed(e)
-            }
+            val message = queue.enqueueWithMessage(request)
             mutableState.update { it.copy(enqueuing = false, message = message) }
         }
     }

@@ -17,6 +17,8 @@ import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Source
 import ru.tinyops.android.bookrecon.core.fake.FakeBehavior
 import ru.tinyops.android.bookrecon.core.fake.FakeHttpClient
+import ru.tinyops.android.bookrecon.core.mirror.InMemoryMirrorMemory
+import ru.tinyops.android.bookrecon.core.mirror.MirrorMemory
 import ru.tinyops.android.bookrecon.core.port.HttpClient
 import ru.tinyops.android.bookrecon.core.port.HttpResponse
 import java.io.ByteArrayOutputStream
@@ -59,7 +61,9 @@ class FlibustaSourceImplTest {
         baseUrl: suspend () -> String = { "$BASE/" },
         fallbackUrls: suspend () -> List<String> = { emptyList() },
         timeout: Duration = 30.seconds,
-    ) = FlibustaSourceImpl(client, baseUrl, fallbackUrls, timeout, StandardTestDispatcher(testScheduler))
+        memory: MirrorMemory = InMemoryMirrorMemory(),
+        onTrouble: () -> Unit = {},
+    ) = FlibustaSourceImpl(client, baseUrl, fallbackUrls, { timeout }, StandardTestDispatcher(testScheduler), memory, onTrouble)
 
     @TempDir
     lateinit var dir: File
@@ -166,7 +170,55 @@ class FlibustaSourceImplTest {
     }
 
     @Test
-    fun `the last failure is thrown when every mirror is down`() = runTest {
+    fun `a mirror that answered is tried first after a restart`() = runTest {
+        val other = "https://flibusta.other"
+        val memory = InMemoryMirrorMemory()
+        http.respond("$BASE/b/1", "oops", code = 503)
+        http.respond("$other/b/1", bookPage("1", "fb2"))
+        flibusta(fallbackUrls = { listOf(other) }, memory = memory).details("1")
+
+        flibusta(fallbackUrls = { listOf(other) }, memory = memory).details("1")
+
+        assertEquals("$other/b/1", http.requests.last().url)
+        assertEquals(3, http.requests.size)
+    }
+
+    @Test
+    fun `an unreachable mirror is reported as trouble`() = runTest {
+        var trouble = 0
+        http.respond("$BASE/b/1", "oops", code = 503)
+        http.respond("https://flibusta.other/b/1", bookPage("1", "fb2"))
+
+        flibusta(fallbackUrls = { listOf("https://flibusta.other") }, onTrouble = { trouble++ }).details("1")
+
+        assertEquals(1, trouble)
+    }
+
+    @Test
+    fun `a slow search and a book page that cannot be fetched are trouble too`() = runTest {
+        var trouble = 0
+        http.respond(searchUrl("q"), "<html><body><h3>Найденные книги</h3><ul><li><a href=\"/b/7\">Книга</a> - <a href=\"/a/1\">Автор</a></li></ul></body></html>")
+        http.respond("$BASE/b/7", "oops", code = 502)
+
+        assertEquals(1, flibusta(onTrouble = { trouble++ }).search("q", 10).size)
+        assertEquals(1, trouble)
+
+        http.behavior.delay = 1.minutes
+        assertThrows<AppError.Timeout> { flibusta(onTrouble = { trouble++ }).search("q", 10) }
+        assertEquals(2, trouble)
+    }
+
+    @Test
+    fun `a missing book is no trouble`() = runTest {
+        var trouble = 0
+        http.respond("$BASE/b/1", fixture("book-missing.html"))
+
+        assertThrows<AppError.NotFound> { flibusta(onTrouble = { trouble++ }).details("1") }
+        assertEquals(0, trouble)
+    }
+
+    @Test
+    fun `a failure is thrown when every mirror is down`() = runTest {
         http.respond("$BASE/b/1", "oops", code = 503)
         http.respond("https://flibusta.other/b/1", "oops", code = 502)
 
@@ -205,6 +257,18 @@ class FlibustaSourceImplTest {
         val slow = flibusta(timeout = 30.seconds)
 
         assertEquals(ErrorCode.TIMEOUT, assertThrows<AppError> { slow.search("q", 10) }.code)
+    }
+
+    @Test
+    fun `the page deadline is read on every call`() = runTest {
+        http.respond(searchUrl("q"), fixture("search-empty.html"))
+        http.behavior.delay = 45.seconds
+        var deadline = 30.seconds
+        val source = FlibustaSourceImpl(http, { BASE }, { emptyList() }, { deadline }, StandardTestDispatcher(testScheduler))
+
+        assertEquals(ErrorCode.TIMEOUT, assertThrows<AppError> { source.search("q", 10) }.code)
+        deadline = 60.seconds
+        assertEquals(emptyList<Any>(), source.search("q", 10))
     }
 
     @Test

@@ -12,12 +12,14 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import okhttp3.Call
 import okhttp3.CookieJar
+import okhttp3.Dns
 import okhttp3.EventListener
 import okhttp3.Handshake
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
+import ru.tinyops.android.bookrecon.core.route.RouteMemory
 
 /**
  * Timeouts of one phase of a request. The overall deadline is the caller's: a large book must
@@ -48,7 +50,8 @@ fun isHostOrSubdomain(host: String, domain: String): Boolean =
  * hosts through the Book Recon server; null means the system default. [logging] sees every
  * request first, before the User-Agent is set and challenges are solved. [readTimeoutFor] is
  * asked for every request and may give its host a read timeout of the user's choice; null keeps
- * the default (hosts in [NetworkConfig.slowHosts] always keep theirs).
+ * the default (hosts in [NetworkConfig.slowHosts] always keep theirs). With [routes] the client
+ * resolves hosts through [RememberingDns] over [dns] and tells [routes] which addresses answered.
  */
 fun buildOkHttpClient(
     cookieJar: CookieJar,
@@ -58,8 +61,11 @@ fun buildOkHttpClient(
     proxySelector: ProxySelector? = null,
     logging: Interceptor? = null,
     readTimeoutFor: (host: String) -> Duration? = { null },
+    routes: RouteMemory? = null,
+    dns: Dns = Dns.SYSTEM,
 ): OkHttpClient = OkHttpClient.Builder()
     .apply { if (proxySelector != null) proxySelector(proxySelector) }
+    .dns(if (routes != null) RememberingDns(routes, dns) else dns)
     .apply { if (logging != null) addInterceptor(logging) }
     .cookieJar(cookieJar)
     .connectTimeout(config.connectTimeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)
@@ -69,7 +75,7 @@ fun buildOkHttpClient(
     .addInterceptor(UserAgentInterceptor(userAgent))
     .addInterceptor(HostTimeoutInterceptor(config, readTimeoutFor))
     .addInterceptor(CloudflareInterceptor(solver))
-    .eventListenerFactory { HandshakeTimeout(config.tlsTimeout) }
+    .eventListenerFactory { withRouteTracking(HandshakeTimeout(config.tlsTimeout), routes) }
     .build()
 
 /** Sets the WebView User-Agent unless the caller passed its own. */

@@ -29,6 +29,17 @@ class ConnectionTestTest {
     }
 
     @Test
+    fun `Flibusta is probed with a search nobody made before, RuTracker with the forum index`() {
+        val flibusta = Probe(Source.FLIBUSTA, "https://flibusta.site", SourceRoute.DIRECT)
+        val rutracker = Probe(Source.RUTRACKER, "https://rutracker.org", SourceRoute.DIRECT)
+
+        assertEquals("https://flibusta.site/booksearch?ask=zqxw", ConnectionPlan.probeUrl(flibusta, nonce = "zqxw"))
+        assertEquals("https://rutracker.org/forum/index.php", ConnectionPlan.probeUrl(rutracker, nonce = "zqxw"))
+        assertTrue(ConnectionPlan.newNonce() != ConnectionPlan.newNonce())
+        assertTrue(ConnectionPlan.newNonce().all { it in 'a'..'z' })
+    }
+
+    @Test
     fun `a custom mirror is probed first, and through the server only when the server serves it`() {
         val probes = ConnectionPlan.probes(Settings(flibustaBaseUrl = "https://flibusta.example"), serverHosts)
 

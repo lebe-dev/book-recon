@@ -144,6 +144,27 @@ class SearchUseCaseTest {
     }
 
     @Test
+    fun `a long Flibusta timeout lets a slow Flibusta search finish`() = runTest {
+        settings.update { it.copy(flibustaTimeoutSeconds = 60) }
+        flibusta.behavior.delay = 90.seconds
+
+        val final = useCase().search("Достоевский", MediaKind.BOOK).toList().last()
+
+        assertEquals(listOf("22222"), final.resultsOf(Source.FLIBUSTA).map { it.sourceId })
+    }
+
+    @Test
+    fun `Flibusta gives up once every mirror had its page deadline`() = runTest {
+        settings.update { it.copy(flibustaTimeoutSeconds = 60) }
+        flibusta.behavior.delay = 10.minutes
+
+        val final = useCase().search("Достоевский", MediaKind.BOOK).toList().last()
+
+        assertTrue(final.sourceState(Source.FLIBUSTA) is SourceState.Failed)
+        assertEquals(Settings(flibustaTimeoutSeconds = 60).flibustaSearchDeadline.inWholeMilliseconds, testScheduler.currentTime)
+    }
+
+    @Test
     fun `missing RuTracker login skips RuTracker without calling it`() = runTest {
         settings.update { it.copy(rutrackerLogin = "") }
         ruTracker.loggedIn = false

@@ -12,7 +12,10 @@ import org.jsoup.nodes.Document
 import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.TorrentTopic
+import ru.tinyops.android.bookrecon.core.mirror.InMemoryMirrorMemory
 import ru.tinyops.android.bookrecon.core.mirror.MirrorFallback
+import ru.tinyops.android.bookrecon.core.mirror.MirrorMemory
+import ru.tinyops.android.bookrecon.core.mirror.MirrorSites
 import ru.tinyops.android.bookrecon.core.port.HttpClient
 import ru.tinyops.android.bookrecon.core.port.HttpResponse
 import ru.tinyops.android.bookrecon.core.port.RuTrackerClient
@@ -47,6 +50,7 @@ import kotlin.time.Duration.Companion.seconds
  *   session itself is kept by the store; the client only checks for `bb_session`.
  * @param requestTimeout deadline of one request, including a Cloudflare check run by the
  *   transport, which alone can take half a minute.
+ * @param mirrorMemory where the mirror that answered is kept, so it goes first after a restart.
  */
 class RuTrackerClientImpl(
     private val http: HttpClient,
@@ -55,11 +59,12 @@ class RuTrackerClientImpl(
     private val baseUrls: List<String> = DEFAULT_BASE_URLS,
     private val requestTimeout: Duration = DEFAULT_REQUEST_TIMEOUT,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    mirrorMemory: MirrorMemory = InMemoryMirrorMemory(),
 ) : RuTrackerClient {
 
     private val bases = baseUrls.map { it.trimEnd('/') }.filter { it.isNotEmpty() }.distinct()
 
-    private val mirrors = MirrorFallback("RuTracker")
+    private val mirrors = MirrorFallback(MirrorSites.RUTRACKER, mirrorMemory)
 
     private val loginMutex = Mutex()
 

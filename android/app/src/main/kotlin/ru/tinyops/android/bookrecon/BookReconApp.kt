@@ -14,5 +14,6 @@ class BookReconApp : Application() {
         container.reports.start()
         container.server.start()
         container.updates.start()
+        container.routes.start()
     }
 }

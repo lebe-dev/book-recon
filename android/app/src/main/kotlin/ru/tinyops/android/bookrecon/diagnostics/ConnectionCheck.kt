@@ -87,7 +87,7 @@ class ConnectionCheck(
 }
 
 /**
- * Opens the front page of a site and times it: Flibusta must answer with its own page,
+ * Opens a page of a site ([ConnectionPlan.probeUrl]) and times it: Flibusta must answer with its own page,
  * RuTracker with anything but a server error (a Cloudflare check counts, WebView passes it
  * later). [direct] must not use the tunnel; [throughServer] is a client that sends everything
  * through the local tunnel proxy, null when there is none.
@@ -101,35 +101,39 @@ class OkHttpConnectivityProbe(
             SourceRoute.DIRECT -> direct
             SourceRoute.SERVER -> throughServer() ?: return@withContext ProbeOutcome.Failed(ProbeProblem.NO_CONNECTION)
         }
-        val url = when (probe.source) {
-            Source.FLIBUSTA -> "${probe.baseUrl}/"
-            Source.RUTRACKER -> "${probe.baseUrl}/forum/index.php"
-        }
-        val started = System.nanoTime()
-        try {
-            client.newCall(Request.Builder().url(url).build()).execute().use { response ->
-                val body = response.body.source().let { source ->
-                    source.request(BODY_LIMIT)
-                    source.buffer.snapshot().utf8()
-                }
-                val millis = (System.nanoTime() - started) / NANOS_PER_MILLI
-                val fine = when (probe.source) {
-                    Source.FLIBUSTA -> response.isSuccessful && FLIBUSTA_MARKERS.any { body.contains(it, ignoreCase = true) }
-                    Source.RUTRACKER -> response.code < SERVER_ERROR
-                }
-                if (fine) ProbeOutcome.Reachable(millis) else ProbeOutcome.Failed(ProbeProblem.BAD_ANSWER)
-            }
-        } catch (_: InterruptedIOException) {
-            ProbeOutcome.Failed(ProbeProblem.TIMEOUT)
-        } catch (_: IOException) {
-            ProbeOutcome.Failed(ProbeProblem.NO_CONNECTION)
-        }
+        timedProbe(client, probe.source, ConnectionPlan.probeUrl(probe, ConnectionPlan.newNonce()))
     }
+}
 
-    private companion object {
-        const val BODY_LIMIT = 64L * 1024
-        const val SERVER_ERROR = 500
-        const val NANOS_PER_MILLI = 1_000_000L
-        val FLIBUSTA_MARKERS = listOf("flibusta", "флибуста")
+/**
+ * Opens [url] with [client] and times the answer, blocking: Flibusta must answer with its own
+ * page, RuTracker with anything but a server error.
+ */
+internal fun timedProbe(client: OkHttpClient, source: Source, url: String): ProbeOutcome {
+    val started = System.nanoTime()
+    return try {
+        client.newCall(Request.Builder().url(url).build()).execute().use { response ->
+            val body = response.body.source().let { source ->
+                source.request(ProbeLimits.BODY_LIMIT)
+                source.buffer.snapshot().utf8()
+            }
+            val millis = (System.nanoTime() - started) / ProbeLimits.NANOS_PER_MILLI
+            val fine = when (source) {
+                Source.FLIBUSTA -> response.isSuccessful && ProbeLimits.FLIBUSTA_MARKERS.any { body.contains(it, ignoreCase = true) }
+                Source.RUTRACKER -> response.code < ProbeLimits.SERVER_ERROR
+            }
+            if (fine) ProbeOutcome.Reachable(millis) else ProbeOutcome.Failed(ProbeProblem.BAD_ANSWER)
+        }
+    } catch (_: InterruptedIOException) {
+        ProbeOutcome.Failed(ProbeProblem.TIMEOUT)
+    } catch (_: IOException) {
+        ProbeOutcome.Failed(ProbeProblem.NO_CONNECTION)
     }
+}
+
+private object ProbeLimits {
+    const val BODY_LIMIT = 64L * 1024
+    const val SERVER_ERROR = 500
+    const val NANOS_PER_MILLI = 1_000_000L
+    val FLIBUSTA_MARKERS = listOf("flibusta", "флибуста")
 }

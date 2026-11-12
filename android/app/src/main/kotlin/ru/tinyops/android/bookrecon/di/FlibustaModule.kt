@@ -10,6 +10,9 @@ class FlibustaModule(private val app: AppContainer) {
             http = app.network.httpClient,
             baseUrl = { app.settings.settingsRepository.settings.first().flibustaEffectiveUrl },
             fallbackUrls = { app.settings.settingsRepository.settings.first().flibustaFallbackUrls },
+            pageTimeout = { app.settings.settingsRepository.settings.first().flibustaPageDeadline },
+            mirrorMemory = app.network.routeMemory,
+            onTrouble = { app.routes.reportTrouble() },
         )
     }
 }

@@ -41,6 +41,7 @@ internal object SettingsKeys {
     val MAX_CONCURRENT = intPreferencesKey("max_concurrent")
     val SEED_HOURS = intPreferencesKey("seed_hours")
     val NO_SEEDERS_RETRY_MINUTES = intPreferencesKey("no_seeders_retry_minutes")
+    val SEARCH_CACHE_MINUTES = intPreferencesKey("search_cache_minutes")
     val SEND_ERROR_REPORTS = booleanPreferencesKey("send_error_reports")
     val TORRENT_PEERS_THROUGH_SERVER = booleanPreferencesKey("torrent_peers_through_server")
     val LOG_INFO = booleanPreferencesKey("log_info")
@@ -148,6 +149,7 @@ private fun Preferences.toSettings(): Settings {
         maxConcurrent = this[SettingsKeys.MAX_CONCURRENT] ?: defaults.maxConcurrent,
         seedHours = this[SettingsKeys.SEED_HOURS] ?: defaults.seedHours,
         noSeedersRetryMinutes = this[SettingsKeys.NO_SEEDERS_RETRY_MINUTES] ?: defaults.noSeedersRetryMinutes,
+        searchCacheMinutes = this[SettingsKeys.SEARCH_CACHE_MINUTES] ?: defaults.searchCacheMinutes,
         sendErrorReports = this[SettingsKeys.SEND_ERROR_REPORTS] ?: defaults.sendErrorReports,
         torrentPeersThroughServer = this[SettingsKeys.TORRENT_PEERS_THROUGH_SERVER] ?: defaults.torrentPeersThroughServer,
         logInfo = this[SettingsKeys.LOG_INFO] ?: defaults.logInfo,
@@ -175,6 +177,7 @@ private fun MutablePreferences.write(settings: Settings) {
     this[SettingsKeys.MAX_CONCURRENT] = settings.maxConcurrent
     this[SettingsKeys.SEED_HOURS] = settings.seedHours
     this[SettingsKeys.NO_SEEDERS_RETRY_MINUTES] = settings.noSeedersRetryMinutes
+    this[SettingsKeys.SEARCH_CACHE_MINUTES] = settings.searchCacheMinutes
     this[SettingsKeys.SEND_ERROR_REPORTS] = settings.sendErrorReports
     this[SettingsKeys.TORRENT_PEERS_THROUGH_SERVER] = settings.torrentPeersThroughServer
     this[SettingsKeys.LOG_INFO] = settings.logInfo
@@ -201,7 +204,7 @@ private fun MutablePreferences.setOrRemove(key: Preferences.Key<String>, value: 
  * URIs (blank means not chosen, and so does a plain path left by version 0.9.0 and older,
  * which the user has to pick again), a Flibusta URL without a trailing slash (blank
  * means the default), [Settings.maxConcurrent] in 1..[Settings.MAX_CONCURRENT_LIMIT] and
- * [Settings.seedHours] and [Settings.noSeedersRetryMinutes] not negative and
+ * [Settings.seedHours], [Settings.noSeedersRetryMinutes] and [Settings.searchCacheMinutes] not negative and
  * [Settings.flibustaTimeoutSeconds] within its limits.
  */
 internal fun Settings.normalized(): Settings = copy(
@@ -216,6 +219,7 @@ internal fun Settings.normalized(): Settings = copy(
     maxConcurrent = maxConcurrent.coerceIn(1, Settings.MAX_CONCURRENT_LIMIT),
     seedHours = seedHours.coerceAtLeast(0),
     noSeedersRetryMinutes = noSeedersRetryMinutes.coerceAtLeast(0),
+    searchCacheMinutes = searchCacheMinutes.coerceAtLeast(0),
 )
 
 private fun normalizeRoot(root: String?): String? {

@@ -197,6 +197,7 @@ fun SettingsSectionScreen(
             onMaxConcurrentChange = viewModel::onMaxConcurrentChange,
             onSeedHoursChange = viewModel::onSeedHoursChange,
             onNoSeedersRetryChange = viewModel::onNoSeedersRetryChange,
+            onSearchCacheChange = viewModel::onSearchCacheChange,
             onSendErrorReportsChange = viewModel::onSendErrorReportsChange,
             onOpenLog = onOpenLog,
             onOpenServerSettings = onOpenServerSettings,
@@ -273,6 +274,7 @@ data class SettingsActions(
     val onMaxConcurrentChange: (Int) -> Unit = {},
     val onSeedHoursChange: (Int) -> Unit = {},
     val onNoSeedersRetryChange: (Int) -> Unit = {},
+    val onSearchCacheChange: (Int) -> Unit = {},
     val onSendErrorReportsChange: (Boolean) -> Unit = {},
     val onOpenLog: () -> Unit = {},
     val onOpenServerSettings: () -> Unit = {},
@@ -385,6 +387,9 @@ fun SettingsSectionContent(
                         val notServed = approved != null && mirror != null && !hostMatches(mirror, approved.hosts)
                         RouteChoice(state.settings.flibustaRoute, available = approved != null, notServed, actions.onFlibustaRouteChange)
                         FlibustaBlock(state, actions)
+                    }
+                    Section(R.string.settings_section_search_cache) {
+                        SearchCacheBlock(state.settings.searchCacheMinutes, actions.onSearchCacheChange)
                     }
                 }
                 SettingsSection.DOWNLOADS -> {
@@ -731,6 +736,30 @@ private fun DownloadsBlock(settings: Settings, actions: SettingsActions) {
             selected = settings.maxConcurrent,
             label = { it.toString() },
             onSelect = actions.onMaxConcurrentChange,
+        )
+    }
+}
+
+@Composable
+private fun SearchCacheBlock(minutes: Int, onChange: (Int) -> Unit) {
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(R.string.settings_search_cache), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            stringResource(R.string.settings_search_cache_text),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val options = SettingsViewModel.SEARCH_CACHE_OPTIONS.let { if (minutes in it) it else (it + minutes).sorted() }
+        val off = stringResource(R.string.settings_search_cache_off)
+        val labels = options.associateWith { stringResource(R.string.settings_search_cache_minutes, it) }
+        ChoiceRow(
+            options = options,
+            selected = minutes,
+            label = { if (it == 0) off else labels.getValue(it) },
+            onSelect = onChange,
         )
     }
 }

@@ -4,14 +4,18 @@ import ru.tinyops.android.bookrecon.core.domain.AppError
 import ru.tinyops.android.bookrecon.core.domain.BookResult
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Source
+import java.time.Instant
 
 /** Progress of one source within a search. */
 sealed interface SourceState {
     /** The source has not answered yet. */
     data object Loading : SourceState
 
-    /** The source answered; [results] may be empty. */
-    data class Loaded(val results: List<BookResult>) : SourceState
+    /**
+     * The source answered; [results] may be empty. [cachedAt] is set when the results come
+     * from the search cache and tells when the source was actually asked.
+     */
+    data class Loaded(val results: List<BookResult>, val cachedAt: Instant? = null) : SourceState
 
     /** The source failed; the other sources are not affected. */
     data class Failed(val error: AppError) : SourceState
@@ -51,6 +55,10 @@ data class SearchState(
         get() = sources.firstNotNullOfOrNull { (source, state) ->
             (state as? SourceState.VerificationRequired)?.let { Verification(source, it.error, it.url) }
         }
+
+    /** When the oldest cached answer was fetched, or null when every answer is fresh. */
+    val cachedAt: Instant?
+        get() = sources.values.mapNotNull { (it as? SourceState.Loaded)?.cachedAt }.minOrNull()
 
     /** True while at least one source has not answered. */
     val isLoading: Boolean

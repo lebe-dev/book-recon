@@ -19,6 +19,8 @@ package ru.tinyops.android.bookrecon.core.domain
  *   completes; 0 turns seeding after download off.
  * @property noSeedersRetryMinutes while the app is open, a torrent that failed for lack of
  *   seeders (or stalled) is retried this many minutes later; 0 turns retries off.
+ * @property searchCacheMinutes how long the results of a search are reused when the same query
+ *   is repeated; 0 turns the cache off.
  * @property sendErrorReports send crashes and unexpected errors to Sentry; off until the user
  *   turns it on.
  * @property logInfo show INFO, warning and error lines on the app log screen.
@@ -47,6 +49,7 @@ data class Settings(
     val maxConcurrent: Int = DEFAULT_MAX_CONCURRENT,
     val seedHours: Int = 0,
     val noSeedersRetryMinutes: Int = DEFAULT_NO_SEEDERS_RETRY_MINUTES,
+    val searchCacheMinutes: Int = DEFAULT_SEARCH_CACHE_MINUTES,
     val sendErrorReports: Boolean = false,
     val logInfo: Boolean = true,
     val logDebug: Boolean = false,
@@ -102,5 +105,6 @@ data class Settings(
         const val DEFAULT_MAX_CONCURRENT = 2
         const val MAX_CONCURRENT_LIMIT = 4
         const val DEFAULT_NO_SEEDERS_RETRY_MINUTES = 15
+        const val DEFAULT_SEARCH_CACHE_MINUTES = 30
     }
 }

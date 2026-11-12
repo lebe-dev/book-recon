@@ -119,10 +119,10 @@ class SearchViewModel(
         viewModelScope.launch { history.remove(query) }
     }
 
-    /** Repeats the last submitted search, for example after a source failed. */
+    /** Repeats the last submitted search past the cache, for example after a source failed. */
     fun onRetry() {
         val submitted = mutableState.value.submittedQuery ?: return
-        start(submitted, mutableState.value.kind)
+        start(submitted, mutableState.value.kind, refresh = true)
     }
 
     /** The screen has navigated to [SearchUiState.pendingVerification]. */
@@ -157,7 +157,7 @@ class SearchViewModel(
         if (submitted != null) start(submitted, replacement)
     }
 
-    private fun start(query: String, kind: MediaKind) {
+    private fun start(query: String, kind: MediaKind, refresh: Boolean = false) {
         if (kind !in mutableState.value.chosenKinds) {
             searchJob?.cancel()
             mutableState.update { it.copy(search = null) }
@@ -167,7 +167,7 @@ class SearchViewModel(
         verificationRequested = false
         mutableState.update { it.copy(search = null, pendingVerification = null) }
         searchJob = viewModelScope.launch {
-            searchUseCase.search(query, kind).collect(::onSnapshot)
+            searchUseCase.search(query, kind, refresh).collect(::onSnapshot)
         }
     }
 

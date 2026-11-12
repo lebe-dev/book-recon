@@ -106,6 +106,12 @@
     <string name="settings_wifi_only_text">Загружать только по Wi-Fi и другим безлимитным сетям</string>
     <string name="settings_max_concurrent">Одновременных загрузок</string>
 
+    <string name="settings_section_search_cache">Кэш поиска</string>
+    <string name="settings_search_cache">Хранить результаты</string>
+    <string name="settings_search_cache_text">Повторный запрос за это время открывается сразу, без обращения к сайту. На экране поиска можно обновить результаты вручную</string>
+    <string name="settings_search_cache_off">Выкл</string>
+    <string name="settings_search_cache_minutes">%1$d мин</string>
+
     <string name="settings_no_seeders_retry">Повтор, если нет сидов</string>
     <string name="settings_no_seeders_retry_text">Пока приложение открыто, торрент без сидов или зависшая загрузка запускаются снова через выбранное время</string>
     <string name="settings_no_seeders_retry_off">Выкл</string>

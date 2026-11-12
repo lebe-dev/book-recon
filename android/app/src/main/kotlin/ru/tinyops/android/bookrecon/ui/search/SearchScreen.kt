@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.CircularProgressIndicator
@@ -82,6 +83,8 @@ import ru.tinyops.android.bookrecon.ui.common.pillFieldColors
 import ru.tinyops.android.bookrecon.ui.nav.TopicKind
 import ru.tinyops.android.bookrecon.ui.nav.VerificationPurpose
 import ru.tinyops.android.bookrecon.ui.theme.BookReconTheme
+import java.time.Duration
+import java.time.Instant
 
 @Composable
 fun SearchScreen(
@@ -212,6 +215,9 @@ fun SearchContent(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            search.cachedAt?.let { cachedAt ->
+                item(key = "cache-note") { CacheNote(cachedAt, onRefresh = onRetry) }
+            }
             items(search.sources.entries.toList(), key = { "status-${it.key}" }) { (source, sourceState) ->
                 SourceStatusRow(source, sourceState, onRetry, onOpenVerification, onOpenSettings)
             }
@@ -320,6 +326,17 @@ private fun KindSelector(kind: MediaKind, chosen: Set<MediaKind>, onKindChange: 
                 Text(stringResource(label))
             }
         }
+    }
+}
+
+@Composable
+private fun CacheNote(cachedAt: Instant, onRefresh: () -> Unit) {
+    val minutes = Duration.between(cachedAt, Instant.now()).toMinutes().coerceAtLeast(0)
+    StatusRow(
+        text = if (minutes < 1) stringResource(R.string.search_cached_now) else stringResource(R.string.search_cached, minutes),
+        action = { TextButton(onClick = onRefresh) { Text(stringResource(R.string.search_refresh)) } },
+    ) {
+        Icon(Icons.Filled.Refresh, contentDescription = null)
     }
 }
 

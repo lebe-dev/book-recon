@@ -240,6 +240,8 @@ class SettingsViewModel(
 
     fun onNoSeedersRetryChange(minutes: Int) = save { it.copy(noSeedersRetryMinutes = minutes.coerceAtLeast(0)) }
 
+    fun onSearchCacheChange(minutes: Int) = save { it.copy(searchCacheMinutes = minutes.coerceAtLeast(0)) }
+
     fun onSendErrorReportsChange(enabled: Boolean) = save { it.copy(sendErrorReports = enabled) }
 
     fun onColorThemeChange(theme: ColorTheme) = save { it.copy(colorTheme = theme) }
@@ -340,6 +342,8 @@ class SettingsViewModel(
 
         /** Retry intervals for torrents without seeders, in minutes; 0 turns retries off. */
         val NO_SEEDERS_RETRY_OPTIONS = listOf(0, 5, 15, 30, 60)
+        /** Search cache lifetimes in minutes; 0 turns the cache off. */
+        val SEARCH_CACHE_OPTIONS = listOf(0, 10, 30, 60, 180)
         val FLIBUSTA_TIMEOUT_OPTIONS = listOf(10, 20, 30, 45, 60)
 
         private fun isValidBaseUrl(url: String): Boolean {

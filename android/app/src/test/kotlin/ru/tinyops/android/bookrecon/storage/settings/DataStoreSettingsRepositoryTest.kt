@@ -65,6 +65,7 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(2, settings.maxConcurrent)
         assertEquals(0, settings.seedHours)
         assertEquals(15, settings.noSeedersRetryMinutes)
+        assertEquals(30, settings.searchCacheMinutes)
         assertEquals(20, settings.flibustaTimeoutSeconds)
         assertFalse(settings.sendErrorReports)
         assertTrue(settings.logInfo)
@@ -91,6 +92,7 @@ class DataStoreSettingsRepositoryTest {
             maxConcurrent = 3,
             seedHours = 6,
             noSeedersRetryMinutes = 60,
+            searchCacheMinutes = 180,
             flibustaTimeoutSeconds = 45,
             sendErrorReports = true,
             logInfo = false,

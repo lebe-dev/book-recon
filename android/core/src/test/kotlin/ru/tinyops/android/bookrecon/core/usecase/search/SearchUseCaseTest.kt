@@ -275,4 +275,64 @@ class SearchUseCaseTest {
 
         assertEquals(SearchUseCase.SEARCH_LIMIT, final.results.size)
     }
+
+    @Test
+    fun `repeated query is served from the cache until it expires`() = runTest {
+        var time = Instant.parse("2026-01-01T10:00:00Z")
+        val cached = SearchUseCase(flibusta, ruTracker, settings, downloads, now = { time })
+
+        val first = cached.search("Достоевский", MediaKind.BOOK).toList().last()
+        time = time.plusSeconds(10 * 60)
+        val second = cached.search("  достоевский ", MediaKind.BOOK).toList().last()
+
+        assertNull(first.cachedAt)
+        assertEquals(Instant.parse("2026-01-01T10:00:00Z"), second.cachedAt)
+        assertEquals(first.results, second.results)
+        assertEquals(1, flibusta.searchCalls)
+
+        time = time.plusSeconds(21 * 60)
+        val third = cached.search("Достоевский", MediaKind.BOOK).toList().last()
+
+        assertNull(third.cachedAt)
+        assertEquals(2, flibusta.searchCalls)
+    }
+
+    @Test
+    fun `refresh skips the cache and renews it`() = runTest {
+        val cached = SearchUseCase(flibusta, ruTracker, settings, downloads)
+
+        cached.search("Достоевский", MediaKind.BOOK).toList()
+        val refreshed = cached.search("Достоевский", MediaKind.BOOK, refresh = true).toList().last()
+        val again = cached.search("Достоевский", MediaKind.BOOK).toList().last()
+
+        assertNull(refreshed.cachedAt)
+        assertEquals(2, flibusta.searchCalls)
+        assertTrue(again.cachedAt != null)
+        assertEquals(2, flibusta.searchCalls)
+    }
+
+    @Test
+    fun `cache off in the settings always asks the sources`() = runTest {
+        settings.update { it.copy(searchCacheMinutes = 0) }
+        val cached = SearchUseCase(flibusta, ruTracker, settings, downloads)
+
+        cached.search("Достоевский", MediaKind.BOOK).toList()
+        val second = cached.search("Достоевский", MediaKind.BOOK).toList().last()
+
+        assertNull(second.cachedAt)
+        assertEquals(2, flibusta.searchCalls)
+    }
+
+    @Test
+    fun `failed answers are not cached`() = runTest {
+        val cached = SearchUseCase(flibusta, ruTracker, settings, downloads)
+        flibusta.behavior.error = AppError.Timeout("slow")
+        cached.search("Достоевский", MediaKind.BOOK).toList()
+        flibusta.behavior.error = null
+
+        val second = cached.search("Достоевский", MediaKind.BOOK).toList().last()
+
+        assertTrue(second.errors.isEmpty())
+        assertEquals(listOf("22222"), second.resultsOf(Source.FLIBUSTA).map { it.sourceId })
+    }
 }

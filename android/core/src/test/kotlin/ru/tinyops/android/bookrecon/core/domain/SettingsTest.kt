@@ -23,4 +23,22 @@ class SettingsTest {
             Settings(audioRoot = "content://tree/audio", booksRoot = "content://tree/books").chosenKinds,
         )
     }
+
+    @Test
+    fun `an empty address falls back to all known mirrors`() {
+        assertEquals(Settings.FLIBUSTA_MIRRORS, Settings().flibustaFallbackUrls)
+    }
+
+    @Test
+    fun `a known mirror saved as the address still falls back to the others`() {
+        val settings = Settings(flibustaBaseUrl = "https://flibusta.is")
+
+        assertEquals(Settings.FLIBUSTA_MIRRORS, settings.flibustaFallbackUrls)
+        assertEquals("https://flibusta.is", settings.flibustaEffectiveUrl)
+    }
+
+    @Test
+    fun `an address of the user's own is the only one used`() {
+        assertEquals(emptyList<String>(), Settings(flibustaBaseUrl = "https://example.org").flibustaFallbackUrls)
+    }
 }

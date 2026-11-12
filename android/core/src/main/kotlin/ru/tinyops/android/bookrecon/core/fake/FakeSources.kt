@@ -83,7 +83,13 @@ class FakeFlibustaSource(
     val behavior: FakeBehavior = FakeBehavior(),
 ) : FlibustaSource {
 
+    /** How many times [search] was called. */
+    @Volatile
+    var searchCalls: Int = 0
+        private set
+
     override suspend fun search(query: String, limit: Int): List<BookResult> {
+        searchCalls++
         behavior.step()
         val needle = query.trim().lowercase()
         return books

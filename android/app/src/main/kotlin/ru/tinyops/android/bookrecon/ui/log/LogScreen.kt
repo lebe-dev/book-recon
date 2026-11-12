@@ -3,11 +3,16 @@ package ru.tinyops.android.bookrecon.ui.log
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
+import java.io.File
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -98,6 +103,13 @@ fun LogScreen(onBack: () -> Unit) {
             toast(context, R.string.log_copied)
         },
         onSave = { saveLauncher.launch(fileName) },
+        onShare = {
+            scope.launch {
+                val text = viewModel.exportText()
+                val intent = withContext(Dispatchers.IO) { shareIntent(context, text, fileName) }
+                if (intent == null) toast(context, R.string.log_share_failed) else context.startActivity(intent)
+            }
+        },
         onClear = viewModel::onClear,
     )
 }
@@ -112,6 +124,7 @@ fun LogContent(
     onDebugChange: (Boolean) -> Unit,
     onCopy: () -> Unit,
     onSave: () -> Unit,
+    onShare: () -> Unit,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -140,13 +153,17 @@ fun LogContent(
                 )
             }
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedButton(onClick = onCopy, enabled = state.entries.isNotEmpty()) {
                     Text(stringResource(R.string.log_copy))
                 }
                 OutlinedButton(onClick = onSave) { Text(stringResource(R.string.log_save)) }
+                OutlinedButton(onClick = onShare, enabled = state.entries.isNotEmpty()) {
+                    Text(stringResource(R.string.log_share))
+                }
                 OutlinedButton(onClick = onClear, enabled = state.entries.isNotEmpty()) {
                     Text(stringResource(R.string.log_clear))
                 }
@@ -235,4 +252,25 @@ private fun writeText(context: Context, uri: android.net.Uri, text: String): Boo
 
 private fun toast(context: Context, message: Int) {
     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+}
+
+/** Share title: app version and commit, e.g. `Book Recon v0.10.0 #4a551a3, логи:`. */
+private fun shareTitle(): String = "Book Recon v${BuildConfig.VERSION_NAME} #${BuildConfig.GIT_HASH}, логи:"
+
+/** Writes [text] to a file in the cache and wraps it into a chooser intent, null if the file cannot be written. */
+private fun shareIntent(context: Context, text: String, fileName: String): Intent? = try {
+    val dir = File(context.cacheDir, "shared-logs").apply { mkdirs() }
+    val file = File(dir, fileName).apply { writeText(text) }
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.logfiles", file)
+    val title = shareTitle()
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        putExtra(Intent.EXTRA_SUBJECT, title)
+        putExtra(Intent.EXTRA_TEXT, title)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    Intent.createChooser(send, title)
+} catch (_: IOException) {
+    null
 }

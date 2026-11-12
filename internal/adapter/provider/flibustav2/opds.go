@@ -105,6 +105,13 @@ var mimeToFormat = map[string]Format{
 // bookIDRe extracts the numeric book ID from paths like /b/66372 or /b/66372/fb2.
 var bookIDRe = regexp.MustCompile(`/b/(\d+)`)
 
+// unreachableError marks a failure to get an answer from a mirror (network error or server
+// error): the next mirror may do better. A client error such as 404 is not one.
+type unreachableError struct{ err error }
+
+func (e *unreachableError) Error() string { return e.err.Error() }
+func (e *unreachableError) Unwrap() error { return e.err }
+
 // Provider implements BookProvider for Flibusta via OPDS.
 type Provider struct {
 	baseURL    string
@@ -214,13 +221,17 @@ func (p *Provider) Download(ctx context.Context, result SearchResult, format For
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
 		p.logger.Error("download request failed", "book_id", result.ID, "format", format, "error", err)
-		return nil, "", fmt.Errorf("flibusta: download: %w", err)
+		return nil, "", &unreachableError{fmt.Errorf("flibusta: download: %w", err)}
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
 		p.logger.Error("download bad status", "book_id", result.ID, "format", format, "status", resp.StatusCode)
-		return nil, "", fmt.Errorf("flibusta: download returned status %d", resp.StatusCode)
+		err := fmt.Errorf("flibusta: download returned status %d", resp.StatusCode)
+		if resp.StatusCode >= http.StatusInternalServerError {
+			return nil, "", &unreachableError{err}
+		}
+		return nil, "", err
 	}
 
 	filename := buildFilename(result, format, resp)
@@ -255,12 +266,16 @@ func (p *Provider) fetchSearchPage(ctx context.Context, query string, page int) 
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, &unreachableError{err}
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+		err := fmt.Errorf("HTTP %d", resp.StatusCode)
+		if resp.StatusCode >= http.StatusInternalServerError {
+			return nil, &unreachableError{err}
+		}
+		return nil, err
 	}
 
 	var feed opdsFeed

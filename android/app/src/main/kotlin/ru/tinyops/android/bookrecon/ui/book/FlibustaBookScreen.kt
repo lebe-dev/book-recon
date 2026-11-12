@@ -40,6 +40,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -55,6 +57,7 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import ru.tinyops.android.bookrecon.R
 import ru.tinyops.android.bookrecon.core.domain.AppError
@@ -217,6 +220,11 @@ fun FlibustaBookContent(
 
 @Composable
 private fun LoadingBody(modifier: Modifier) {
+    var slow by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(SLOW_LOADING_MILLIS)
+        slow = true
+    }
     Column(
         modifier = modifier.padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
@@ -224,8 +232,18 @@ private fun LoadingBody(modifier: Modifier) {
     ) {
         CircularProgressIndicator()
         Text(stringResource(R.string.book_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (slow) {
+            Text(
+                stringResource(R.string.book_loading_slow),
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
+
+private const val SLOW_LOADING_MILLIS = 5_000L
 
 @Composable
 private fun FailedBody(error: AppError, onRetry: () -> Unit, onOpenVerification: (String) -> Unit, modifier: Modifier) {

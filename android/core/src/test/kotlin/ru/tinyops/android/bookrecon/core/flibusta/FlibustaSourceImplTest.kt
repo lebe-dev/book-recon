@@ -57,8 +57,9 @@ class FlibustaSourceImplTest {
     private fun TestScope.flibusta(
         client: HttpClient = http,
         baseUrl: suspend () -> String = { "$BASE/" },
+        fallbackUrls: suspend () -> List<String> = { emptyList() },
         timeout: Duration = 30.seconds,
-    ) = FlibustaSourceImpl(client, baseUrl, timeout, StandardTestDispatcher(testScheduler))
+    ) = FlibustaSourceImpl(client, baseUrl, fallbackUrls, timeout, StandardTestDispatcher(testScheduler))
 
     @TempDir
     lateinit var dir: File
@@ -137,6 +138,40 @@ class FlibustaSourceImplTest {
         assertTrue(flibusta().search("   ", 10).isEmpty())
         assertTrue(flibusta().search("Пушкин", 0).isEmpty())
         assertEquals(1, http.requests.size)
+    }
+
+    @Test
+    fun `an unreachable mirror gives way to the next one, which is then tried first`() = runTest {
+        val other = "https://flibusta.other"
+        http.respond("$BASE/b/1", "oops", code = 503)
+        http.respond("$other/b/1", bookPage("1", "fb2"))
+        val source = flibusta(fallbackUrls = { listOf(other) })
+
+        assertEquals(1, source.details("1").id.toInt())
+        assertEquals(listOf("$BASE/b/1", "$other/b/1"), http.requests.map { it.url })
+
+        source.details("1")
+        assertEquals("$other/b/1", http.requests.last().url)
+        assertEquals(3, http.requests.size)
+    }
+
+    @Test
+    fun `a missing book does not move on to another mirror`() = runTest {
+        val other = "https://flibusta.other"
+        http.respond("$BASE/b/1", fixture("book-missing.html"))
+        http.respond("$other/b/1", bookPage("1", "fb2"))
+
+        assertThrows<AppError.NotFound> { flibusta(fallbackUrls = { listOf(other) }).details("1") }
+        assertEquals(1, http.requests.size)
+    }
+
+    @Test
+    fun `the last failure is thrown when every mirror is down`() = runTest {
+        http.respond("$BASE/b/1", "oops", code = 503)
+        http.respond("https://flibusta.other/b/1", "oops", code = 502)
+
+        assertThrows<AppError.ServiceDown> { flibusta(fallbackUrls = { listOf("https://flibusta.other") }).details("1") }
+        assertEquals(2, http.requests.size)
     }
 
     @Test

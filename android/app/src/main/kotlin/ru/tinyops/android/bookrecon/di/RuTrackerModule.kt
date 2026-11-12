@@ -17,8 +17,8 @@ class RuTrackerModule(private val app: AppContainer) {
         )
     }
 
-    /** The server's RuTracker account while the server is connected, settings otherwise. */
+    /** The server's RuTracker account while RuTracker goes through the server, settings otherwise. */
     val ruTrackerClient: RuTrackerClient by lazy {
-        RoutingRuTrackerClient(directClient, app.server.ruTrackerClient) { app.server.connection.route.value }
+        RoutingRuTrackerClient(directClient, app.server.ruTrackerClient) { app.server.ruTrackerThroughServer }
     }
 }

@@ -1,5 +1,6 @@
 package ru.tinyops.android.bookrecon.ui.settings
 
+import ru.tinyops.android.bookrecon.core.domain.normalizeBaseUrl
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.channels.Channel
@@ -27,7 +28,7 @@ data class ServerUiState(
     val connection: ServerState = ServerState.Off,
 ) {
     val urlChanged: Boolean
-        get() = url.trim().trimEnd('/') != storedUrl
+        get() = normalizeBaseUrl(url) != storedUrl
 
     /** The user turned the server on. */
     val enabled: Boolean
@@ -81,7 +82,7 @@ class ServerViewModel(private val connection: ServerConnection) : ViewModel() {
 
     /** Saves the URL; an empty field removes the server. */
     fun onSaveUrl() {
-        val url = mutableState.value.url.trim().trimEnd('/')
+        val url = normalizeBaseUrl(mutableState.value.url)
         if (url.isNotEmpty() && !isValidBaseUrl(url)) {
             mutableState.update { it.copy(urlError = true) }
             return

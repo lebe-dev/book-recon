@@ -1,5 +1,6 @@
 package ru.tinyops.android.bookrecon.ui.settings
 
+import ru.tinyops.android.bookrecon.core.domain.normalizeBaseUrl
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,7 @@ import ru.tinyops.android.bookrecon.core.domain.DarkMode
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.MediaKind
 import ru.tinyops.android.bookrecon.core.domain.Settings
+import ru.tinyops.android.bookrecon.core.domain.SourceRoute
 import ru.tinyops.android.bookrecon.core.port.RuTrackerClient
 import ru.tinyops.android.bookrecon.core.port.SettingsRepository
 import ru.tinyops.android.bookrecon.storage.files.RootCheck
@@ -79,7 +81,7 @@ data class SettingsUiState(
 
     /** The URL field differs from the stored URL. */
     val flibustaUrlChanged: Boolean
-        get() = flibustaUrl.trim().trimEnd('/') != settings.flibustaBaseUrl
+        get() = normalizeBaseUrl(flibustaUrl) != settings.flibustaBaseUrl
 }
 
 /**
@@ -197,14 +199,14 @@ class SettingsViewModel(
         mutableState.update { it.copy(flibustaUrl = url, flibustaUrlError = false) }
     }
 
-    /** Saves the Flibusta URL; an empty field restores the default mirror. */
+    /** Saves the Flibusta URL; an empty field means automatic: the known mirrors. */
     fun onSaveFlibustaUrl() {
-        val url = mutableState.value.flibustaUrl.trim().trimEnd('/')
+        val url = normalizeBaseUrl(mutableState.value.flibustaUrl)
         if (url.isNotEmpty() && !isValidBaseUrl(url)) {
             mutableState.update { it.copy(flibustaUrlError = true) }
             return
         }
-        val saved = url.ifEmpty { Settings.DEFAULT_FLIBUSTA_BASE_URL }
+        val saved = url
         mutableState.update { it.copy(flibustaUrl = saved, flibustaUrlError = false) }
         viewModelScope.launch { settings.update { it.copy(flibustaBaseUrl = saved) } }
     }
@@ -220,6 +222,10 @@ class SettingsViewModel(
 
     fun onFlibustaEnabledChange(enabled: Boolean) = save { it.copy(flibustaEnabled = enabled) }
 
+    fun onFlibustaRouteChange(route: SourceRoute) = save { it.copy(flibustaRoute = route) }
+
+    fun onRuTrackerRouteChange(route: SourceRoute) = save { it.copy(rutrackerRoute = route) }
+
     fun onRuTrackerEnabledChange(enabled: Boolean) = save { it.copy(rutrackerEnabled = enabled) }
 
     fun onPreferredFormatChange(format: Format) = save { it.copy(preferredFormat = format) }
@@ -234,11 +240,15 @@ class SettingsViewModel(
 
     fun onNoSeedersRetryChange(minutes: Int) = save { it.copy(noSeedersRetryMinutes = minutes.coerceAtLeast(0)) }
 
+    fun onSearchCacheChange(minutes: Int) = save { it.copy(searchCacheMinutes = minutes.coerceAtLeast(0)) }
+
     fun onSendErrorReportsChange(enabled: Boolean) = save { it.copy(sendErrorReports = enabled) }
 
     fun onColorThemeChange(theme: ColorTheme) = save { it.copy(colorTheme = theme) }
 
     fun onDarkModeChange(mode: DarkMode) = save { it.copy(darkMode = mode) }
+
+    fun onAutoCheckUpdatesChange(enabled: Boolean) = save { it.copy(autoCheckUpdates = enabled) }
 
     fun onCyrillicAppNameChange(enabled: Boolean) {
         applyLauncherName(enabled)
@@ -332,6 +342,8 @@ class SettingsViewModel(
 
         /** Retry intervals for torrents without seeders, in minutes; 0 turns retries off. */
         val NO_SEEDERS_RETRY_OPTIONS = listOf(0, 5, 15, 30, 60)
+        /** Search cache lifetimes in minutes; 0 turns the cache off. */
+        val SEARCH_CACHE_OPTIONS = listOf(0, 10, 30, 60, 180)
         val FLIBUSTA_TIMEOUT_OPTIONS = listOf(10, 20, 30, 45, 60)
 
         private fun isValidBaseUrl(url: String): Boolean {

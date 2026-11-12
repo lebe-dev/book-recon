@@ -222,6 +222,11 @@ class SettingsViewModelTest {
         assertEquals("http://flibusta.lib", settings.settings.first().flibustaBaseUrl)
         assertEquals("http://flibusta.lib", vm.state.value.flibustaUrl)
 
+        vm.onFlibustaUrlChange("flibusta.site")
+        vm.onSaveFlibustaUrl()
+        advanceUntilIdle()
+        assertEquals("https://flibusta.site", settings.settings.first().flibustaBaseUrl)
+
         vm.onFlibustaUrlChange("")
         vm.onSaveFlibustaUrl()
         advanceUntilIdle()
@@ -305,6 +310,16 @@ class SettingsViewModelTest {
         assertEquals(4, stored.maxConcurrent)
         assertEquals(6, stored.seedHours)
         assertEquals(stored, vm.state.value.settings)
+    }
+
+    @Test
+    fun autoCheckUpdatesIsOffByDefaultAndSaved() = runVmTest { vm ->
+        assertFalse(vm.state.value.settings.autoCheckUpdates)
+
+        vm.onAutoCheckUpdatesChange(true)
+        advanceUntilIdle()
+
+        assertTrue(settings.settings.first().autoCheckUpdates)
     }
 
     @Test

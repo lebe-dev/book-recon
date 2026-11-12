@@ -3,6 +3,7 @@
     <string name="book_title">Книга</string>
     <string name="book_back">Назад</string>
     <string name="book_loading">Загружаем страницу книги…</string>
+    <string name="book_loading_slow">Сайт Флибусты отвечает долго. Подождите ещё немного или попробуйте другое зеркало в настройках.</string>
     <string name="book_formats">Формат</string>
     <string name="book_download">Скачать</string>
     <string name="book_download_again">Скачать ещё раз</string>

@@ -17,6 +17,9 @@
     <string name="search_source_loading">%1$s: ищем…</string>
     <string name="search_source_error">%1$s: %2$s</string>
     <string name="search_open_settings">Настройки</string>
+    <string name="search_cached">Из кэша, %1$d мин назад</string>
+    <string name="search_cached_now">Из кэша, меньше минуты назад</string>
+    <string name="search_refresh">Обновить</string>
     <string name="search_retry">Повторить</string>
     <string name="search_pass_verification">Пройти</string>
 

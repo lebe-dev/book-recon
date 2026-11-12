@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
     alias(libs.plugins.sentry)
+    alias(libs.plugins.kover)
 }
 
 val repoRoot = rootProject.layout.projectDirectory.dir("..")
@@ -234,4 +235,11 @@ dependencies {
     testImplementation(libs.libtorrent4j.macos)
     testImplementation(libs.libtorrent4j.linux)
     testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+// Coverage of debug unit tests only: release has no unit tests and would count every class twice.
+kover {
+    currentProject {
+        createVariant("unit") { add("debug") }
+    }
 }

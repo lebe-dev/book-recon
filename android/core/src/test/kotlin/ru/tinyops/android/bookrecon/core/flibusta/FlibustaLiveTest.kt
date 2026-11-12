@@ -30,7 +30,7 @@ import java.net.http.HttpResponse as JdkHttpResponse
 @EnabledIfEnvironmentVariable(named = "FLIBUSTA_LIVE", matches = "1|true")
 @Timeout(value = 3, unit = TimeUnit.MINUTES)
 class FlibustaLiveTest {
-    private val base = System.getenv("FLIBUSTA_BASE_URL")?.takeIf { it.isNotBlank() } ?: Settings.DEFAULT_FLIBUSTA_BASE_URL
+    private val base = System.getenv("FLIBUSTA_BASE_URL")?.takeIf { it.isNotBlank() } ?: Settings.FLIBUSTA_MIRRORS.first()
     private val source = FlibustaSourceImpl(JdkClient(), baseUrl = { base })
 
     @TempDir

@@ -48,6 +48,7 @@ import ru.tinyops.android.bookrecon.ui.search.SearchScreen
 import ru.tinyops.android.bookrecon.ui.settings.SettingsScreen
 import ru.tinyops.android.bookrecon.ui.settings.SettingsSection
 import ru.tinyops.android.bookrecon.ui.settings.SettingsSectionScreen
+import ru.tinyops.android.bookrecon.ui.settings.UpdatePrompt
 import ru.tinyops.android.bookrecon.ui.topic.RuTrackerTopicScreen
 import ru.tinyops.android.bookrecon.ui.web.WebVerificationScreen
 
@@ -69,6 +70,10 @@ fun BookReconNavHost(navController: NavHostController = rememberNavController())
     val destination = backStackEntry?.destination
     val selected = TopLevelDestination.entries.firstOrNull { destination.isOn(it) }
     OpenSettingsOnFirstRun(navController)
+    UpdatePrompt(onOpenUpdates = {
+        navController.navigateToTopLevel(SettingsRoute)
+        navController.navigate(SettingsSectionRoute(SettingsSection.UPDATES))
+    })
 
     Scaffold(
         bottomBar = {
@@ -149,6 +154,7 @@ fun BookReconNavHost(navController: NavHostController = rememberNavController())
                     onBack = { navController.popBackStack() },
                     onOpenVerification = { url, purpose -> navController.navigate(WebVerificationRoute(url, purpose)) },
                     onOpenLog = { navController.navigate(LogRoute) },
+                    onOpenServerSettings = { navController.navigate(SettingsSectionRoute(SettingsSection.SERVER)) },
                     verificationResults = verificationResults,
                 )
             }

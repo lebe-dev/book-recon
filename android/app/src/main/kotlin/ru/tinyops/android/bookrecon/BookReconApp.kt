@@ -13,5 +13,6 @@ class BookReconApp : Application() {
         container.log.start()
         container.reports.start()
         container.server.start()
+        container.updates.start()
     }
 }

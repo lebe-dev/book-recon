@@ -1,5 +1,6 @@
 package ru.tinyops.android.bookrecon.storage.settings
 
+import ru.tinyops.android.bookrecon.core.domain.normalizeBaseUrl
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
@@ -7,6 +8,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +21,7 @@ import ru.tinyops.android.bookrecon.core.domain.ColorTheme
 import ru.tinyops.android.bookrecon.core.domain.DarkMode
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.Settings
+import ru.tinyops.android.bookrecon.core.domain.SourceRoute
 import ru.tinyops.android.bookrecon.core.port.SettingsRepository
 import java.security.GeneralSecurityException
 import java.security.ProviderException
@@ -38,6 +41,7 @@ internal object SettingsKeys {
     val MAX_CONCURRENT = intPreferencesKey("max_concurrent")
     val SEED_HOURS = intPreferencesKey("seed_hours")
     val NO_SEEDERS_RETRY_MINUTES = intPreferencesKey("no_seeders_retry_minutes")
+    val SEARCH_CACHE_MINUTES = intPreferencesKey("search_cache_minutes")
     val SEND_ERROR_REPORTS = booleanPreferencesKey("send_error_reports")
     val TORRENT_PEERS_THROUGH_SERVER = booleanPreferencesKey("torrent_peers_through_server")
     val LOG_INFO = booleanPreferencesKey("log_info")
@@ -45,6 +49,17 @@ internal object SettingsKeys {
     val COLOR_THEME = stringPreferencesKey("color_theme")
     val DARK_MODE = stringPreferencesKey("dark_mode")
     val CYRILLIC_APP_NAME = booleanPreferencesKey("cyrillic_app_name")
+    val FLIBUSTA_ROUTE = stringPreferencesKey("flibusta_route")
+    val RUTRACKER_ROUTE = stringPreferencesKey("rutracker_route")
+
+    /**
+     * Hosts the approved server tunnels, written by the server store in the same file. Read
+     * here only for routes missing in the store: before routes existed, an approved server
+     * carried both sources, and an upgrade must not cut it off.
+     */
+    val SERVER_APPROVED_HOSTS = stringSetPreferencesKey("server_approved_hosts")
+    val AUTO_CHECK_UPDATES = booleanPreferencesKey("auto_check_updates")
+    val SKIPPED_UPDATE_VERSION = stringPreferencesKey("skipped_update_version")
 
     /** Base64 of the password sealed by [SecretCipher]. */
     val RUTRACKER_PASSWORD = stringPreferencesKey("rutracker_password_sealed")
@@ -118,6 +133,7 @@ class DataStoreSettingsRepository(
 
 private fun Preferences.toSettings(): Settings {
     val defaults = Settings()
+    val legacyRoute = if (this[SettingsKeys.SERVER_APPROVED_HOSTS] != null) SourceRoute.SERVER else SourceRoute.DIRECT
     return Settings(
         audioRoot = this[SettingsKeys.AUDIO_ROOT],
         booksRoot = this[SettingsKeys.BOOKS_ROOT],
@@ -133,6 +149,7 @@ private fun Preferences.toSettings(): Settings {
         maxConcurrent = this[SettingsKeys.MAX_CONCURRENT] ?: defaults.maxConcurrent,
         seedHours = this[SettingsKeys.SEED_HOURS] ?: defaults.seedHours,
         noSeedersRetryMinutes = this[SettingsKeys.NO_SEEDERS_RETRY_MINUTES] ?: defaults.noSeedersRetryMinutes,
+        searchCacheMinutes = this[SettingsKeys.SEARCH_CACHE_MINUTES] ?: defaults.searchCacheMinutes,
         sendErrorReports = this[SettingsKeys.SEND_ERROR_REPORTS] ?: defaults.sendErrorReports,
         torrentPeersThroughServer = this[SettingsKeys.TORRENT_PEERS_THROUGH_SERVER] ?: defaults.torrentPeersThroughServer,
         logInfo = this[SettingsKeys.LOG_INFO] ?: defaults.logInfo,
@@ -140,6 +157,10 @@ private fun Preferences.toSettings(): Settings {
         colorTheme = enumOrNull<ColorTheme>(this[SettingsKeys.COLOR_THEME]) ?: defaults.colorTheme,
         darkMode = enumOrNull<DarkMode>(this[SettingsKeys.DARK_MODE]) ?: defaults.darkMode,
         cyrillicAppName = this[SettingsKeys.CYRILLIC_APP_NAME] ?: defaults.cyrillicAppName,
+        flibustaRoute = enumOrNull<SourceRoute>(this[SettingsKeys.FLIBUSTA_ROUTE]) ?: legacyRoute,
+        rutrackerRoute = enumOrNull<SourceRoute>(this[SettingsKeys.RUTRACKER_ROUTE]) ?: legacyRoute,
+        autoCheckUpdates = this[SettingsKeys.AUTO_CHECK_UPDATES] ?: defaults.autoCheckUpdates,
+        skippedUpdateVersion = this[SettingsKeys.SKIPPED_UPDATE_VERSION] ?: defaults.skippedUpdateVersion,
     ).normalized()
 }
 
@@ -156,6 +177,7 @@ private fun MutablePreferences.write(settings: Settings) {
     this[SettingsKeys.MAX_CONCURRENT] = settings.maxConcurrent
     this[SettingsKeys.SEED_HOURS] = settings.seedHours
     this[SettingsKeys.NO_SEEDERS_RETRY_MINUTES] = settings.noSeedersRetryMinutes
+    this[SettingsKeys.SEARCH_CACHE_MINUTES] = settings.searchCacheMinutes
     this[SettingsKeys.SEND_ERROR_REPORTS] = settings.sendErrorReports
     this[SettingsKeys.TORRENT_PEERS_THROUGH_SERVER] = settings.torrentPeersThroughServer
     this[SettingsKeys.LOG_INFO] = settings.logInfo
@@ -163,6 +185,10 @@ private fun MutablePreferences.write(settings: Settings) {
     this[SettingsKeys.COLOR_THEME] = settings.colorTheme.name
     this[SettingsKeys.DARK_MODE] = settings.darkMode.name
     this[SettingsKeys.CYRILLIC_APP_NAME] = settings.cyrillicAppName
+    this[SettingsKeys.FLIBUSTA_ROUTE] = settings.flibustaRoute.name
+    this[SettingsKeys.RUTRACKER_ROUTE] = settings.rutrackerRoute.name
+    this[SettingsKeys.AUTO_CHECK_UPDATES] = settings.autoCheckUpdates
+    this[SettingsKeys.SKIPPED_UPDATE_VERSION] = settings.skippedUpdateVersion
 }
 
 /** The constant named [name], null for a missing or unknown name (written by another version). */
@@ -178,14 +204,14 @@ private fun MutablePreferences.setOrRemove(key: Preferences.Key<String>, value: 
  * URIs (blank means not chosen, and so does a plain path left by version 0.9.0 and older,
  * which the user has to pick again), a Flibusta URL without a trailing slash (blank
  * means the default), [Settings.maxConcurrent] in 1..[Settings.MAX_CONCURRENT_LIMIT] and
- * [Settings.seedHours] and [Settings.noSeedersRetryMinutes] not negative and
+ * [Settings.seedHours], [Settings.noSeedersRetryMinutes] and [Settings.searchCacheMinutes] not negative and
  * [Settings.flibustaTimeoutSeconds] within its limits.
  */
 internal fun Settings.normalized(): Settings = copy(
     audioRoot = normalizeRoot(audioRoot),
     booksRoot = normalizeRoot(booksRoot),
     rutrackerLogin = rutrackerLogin.trim(),
-    flibustaBaseUrl = flibustaBaseUrl.trim().trimEnd('/').ifEmpty { Settings.DEFAULT_FLIBUSTA_BASE_URL },
+    flibustaBaseUrl = normalizeBaseUrl(flibustaBaseUrl).ifEmpty { Settings.DEFAULT_FLIBUSTA_BASE_URL },
     flibustaTimeoutSeconds = flibustaTimeoutSeconds.coerceIn(
         Settings.MIN_FLIBUSTA_TIMEOUT_SECONDS,
         Settings.MAX_FLIBUSTA_TIMEOUT_SECONDS,
@@ -193,6 +219,7 @@ internal fun Settings.normalized(): Settings = copy(
     maxConcurrent = maxConcurrent.coerceIn(1, Settings.MAX_CONCURRENT_LIMIT),
     seedHours = seedHours.coerceAtLeast(0),
     noSeedersRetryMinutes = noSeedersRetryMinutes.coerceAtLeast(0),
+    searchCacheMinutes = searchCacheMinutes.coerceAtLeast(0),
 )
 
 private fun normalizeRoot(root: String?): String? {

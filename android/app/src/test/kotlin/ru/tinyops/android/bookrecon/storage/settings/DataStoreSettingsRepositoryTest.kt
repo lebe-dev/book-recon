@@ -22,6 +22,7 @@ import ru.tinyops.android.bookrecon.core.domain.ColorTheme
 import ru.tinyops.android.bookrecon.core.domain.DarkMode
 import ru.tinyops.android.bookrecon.core.domain.Format
 import ru.tinyops.android.bookrecon.core.domain.Settings
+import ru.tinyops.android.bookrecon.core.domain.SourceRoute
 import java.io.File
 import javax.crypto.KeyGenerator
 
@@ -58,12 +59,13 @@ class DataStoreSettingsRepositoryTest {
         val settings = repository().settings.first()
 
         assertEquals(Settings(), settings)
-        assertEquals("https://flibusta.is", settings.flibustaBaseUrl)
+        assertEquals("", settings.flibustaBaseUrl)
         assertEquals(Format.EPUB, settings.preferredFormat)
         assertTrue(settings.wifiOnly)
         assertEquals(2, settings.maxConcurrent)
         assertEquals(0, settings.seedHours)
         assertEquals(15, settings.noSeedersRetryMinutes)
+        assertEquals(30, settings.searchCacheMinutes)
         assertEquals(20, settings.flibustaTimeoutSeconds)
         assertFalse(settings.sendErrorReports)
         assertTrue(settings.logInfo)
@@ -71,6 +73,8 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(ColorTheme.BLUEBERRY, settings.colorTheme)
         assertEquals(DarkMode.SYSTEM, settings.darkMode)
         assertFalse(settings.cyrillicAppName)
+        assertFalse(settings.autoCheckUpdates)
+        assertEquals("", settings.skippedUpdateVersion)
         assertNull(settings.audioRoot)
         assertNull(settings.booksRoot)
         assertEquals("", settings.rutrackerLogin)
@@ -88,6 +92,7 @@ class DataStoreSettingsRepositoryTest {
             maxConcurrent = 3,
             seedHours = 6,
             noSeedersRetryMinutes = 60,
+            searchCacheMinutes = 180,
             flibustaTimeoutSeconds = 45,
             sendErrorReports = true,
             logInfo = false,
@@ -95,6 +100,8 @@ class DataStoreSettingsRepositoryTest {
             colorTheme = ColorTheme.COCOA,
             darkMode = DarkMode.DARK,
             cyrillicAppName = true,
+            autoCheckUpdates = true,
+            skippedUpdateVersion = "0.10.0",
         )
         repository().update { changed }
         closeStores()
@@ -181,6 +188,39 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(DarkMode.SYSTEM, settings.darkMode)
         assertEquals(Format.EPUB, settings.preferredFormat)
         assertEquals(Settings.MAX_CONCURRENT_LIMIT, settings.maxConcurrent)
+    }
+
+    @Test
+    fun sourceRoutesRoundTrip() = runBlocking {
+        val repository = repository()
+        repository.update { it.copy(flibustaRoute = SourceRoute.SERVER) }
+
+        val settings = repository.settings.first()
+        assertEquals(SourceRoute.SERVER, settings.flibustaRoute)
+        assertEquals(SourceRoute.DIRECT, settings.rutrackerRoute)
+    }
+
+    @Test
+    fun approvedServerOfOlderVersionsKeepsSendingSourcesThroughIt() = runBlocking {
+        val store = openStore()
+        store.edit { it[SettingsKeys.SERVER_APPROVED_HOSTS] = setOf("rutracker.org") }
+
+        val settings = repository(store).settings.first()
+        assertEquals(SourceRoute.SERVER, settings.flibustaRoute)
+        assertEquals(SourceRoute.SERVER, settings.rutrackerRoute)
+    }
+
+    @Test
+    fun storedRouteWinsOverTheOldServerApproval() = runBlocking {
+        val store = openStore()
+        store.edit {
+            it[SettingsKeys.SERVER_APPROVED_HOSTS] = setOf("rutracker.org")
+            it[SettingsKeys.RUTRACKER_ROUTE] = SourceRoute.DIRECT.name
+        }
+
+        val settings = repository(store).settings.first()
+        assertEquals(SourceRoute.DIRECT, settings.rutrackerRoute)
+        assertEquals(SourceRoute.SERVER, settings.flibustaRoute)
     }
 
     @Test

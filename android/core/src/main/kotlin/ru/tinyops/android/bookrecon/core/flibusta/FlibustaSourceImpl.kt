@@ -38,6 +38,9 @@ import kotlin.time.Duration.Companion.seconds
  *
  * @param baseUrl reads the mirror from settings; called on every operation, so a changed
  *   mirror applies at once.
+ * @param fallbackUrls other mirrors to try, in order, when the one from [baseUrl] cannot be
+ *   reached (network failure, timeout, server error). The mirror that answered last is tried
+ *   first next time. Empty when the user pinned a mirror.
  * @param pageTimeout overall deadline of [search] and [details], including the book pages
  *   fetched for formats. [download] has none: a large file may take long, the caller limits it.
  * @param io dispatcher for blocking reads and file work.
@@ -45,48 +48,59 @@ import kotlin.time.Duration.Companion.seconds
 class FlibustaSourceImpl(
     private val http: HttpClient,
     private val baseUrl: suspend () -> String,
+    private val fallbackUrls: suspend () -> List<String> = { emptyList() },
     private val pageTimeout: Duration = DEFAULT_PAGE_TIMEOUT,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : FlibustaSource {
 
+    @Volatile
+    private var lastWorking: String? = null
+
     override suspend fun search(query: String, limit: Int): List<BookResult> {
         if (limit <= 0 || query.isBlank()) return emptyList()
 
-        return withDeadline("search") {
-            val base = base()
-            val searchUrl = "$base/booksearch?ask=" + URLEncoder.encode(query.trim(), Charsets.UTF_8)
-            val page = parseSearchPage(fetchPage(searchUrl, "search page"), limit)
+        return onMirrors { base -> withDeadline("search") { search(base, query, limit) } }
+    }
 
-            val entries = if (page.books.isEmpty() && page.authors.isNotEmpty()) {
-                booksByAuthors(base, page.authors, limit)
-            } else {
-                page.books
-            }
+    private suspend fun search(base: String, query: String, limit: Int): List<BookResult> {
+        val searchUrl = "$base/booksearch?ask=" + URLEncoder.encode(query.trim(), Charsets.UTF_8)
+        val page = parseSearchPage(fetchPage(searchUrl, "search page"), limit)
 
-            withFormats(base, entries).map { entry ->
-                BookResult(
-                    source = Source.FLIBUSTA,
-                    sourceId = entry.id,
-                    title = entry.title,
-                    author = entry.author,
-                    kind = MediaKind.BOOK,
-                    formats = entry.formats,
-                )
-            }
+        val entries = if (page.books.isEmpty() && page.authors.isNotEmpty()) {
+            booksByAuthors(base, page.authors, limit)
+        } else {
+            page.books
+        }
+
+        return withFormats(base, entries).map { entry ->
+            BookResult(
+                source = Source.FLIBUSTA,
+                sourceId = entry.id,
+                title = entry.title,
+                author = entry.author,
+                kind = MediaKind.BOOK,
+                formats = entry.formats,
+            )
         }
     }
 
     override suspend fun details(bookId: String): FlibustaBookDetails {
         requireBookId(bookId)
-        return withDeadline("book page") {
-            val doc = fetchPage("${base()}/b/$bookId", "book page")
-            parseBookPage(doc, bookId) ?: throw AppError.NotFound("flibusta book $bookId not found")
+        return onMirrors { base ->
+            withDeadline("book page") {
+                val doc = fetchPage("$base/b/$bookId", "book page")
+                parseBookPage(doc, bookId) ?: throw AppError.NotFound("flibusta book $bookId not found")
+            }
         }
     }
 
     override suspend fun download(bookId: String, format: Format, dir: File): DownloadedFile {
         requireBookId(bookId)
-        val url = "${base()}/b/$bookId/${formatPath(format)}"
+        return onMirrors { base -> download(base, bookId, format, dir) }
+    }
+
+    private suspend fun download(base: String, bookId: String, format: Format, dir: File): DownloadedFile {
+        val url = "$base/b/$bookId/${formatPath(format)}"
 
         val temp = createTempFile(dir, bookId)
         try {
@@ -267,7 +281,28 @@ class FlibustaSourceImpl(
         }
     }
 
-    private suspend fun base(): String = baseUrl().trim().trimEnd('/')
+    private suspend fun candidates(): List<String> {
+        val all = (listOf(baseUrl()) + fallbackUrls()).map { it.trim().trimEnd('/') }.filter { it.isNotEmpty() }.distinct()
+        val preferred = lastWorking?.takeIf { it in all } ?: return all
+        return listOf(preferred) + (all - preferred)
+    }
+
+    /**
+     * Runs [block] against the mirrors in turn until one answers. Only failures to reach a
+     * mirror move on to the next one; a missing book or bad markup would be the same everywhere.
+     */
+    private suspend fun <T> onMirrors(block: suspend (base: String) -> T): T {
+        var failure: AppError? = null
+        for (base in candidates()) {
+            try {
+                return block(base).also { lastWorking = base }
+            } catch (e: AppError) {
+                if (e !is AppError.Network && e !is AppError.ServiceDown && e !is AppError.Timeout) throw e
+                failure = e
+            }
+        }
+        throw failure ?: AppError.Network("no Flibusta mirror is configured")
+    }
 
     private suspend fun <T> withDeadline(stage: String, block: suspend () -> T): T = try {
         withTimeout(pageTimeout) { block() }

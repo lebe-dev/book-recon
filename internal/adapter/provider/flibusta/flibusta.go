@@ -3,12 +3,14 @@ package flibusta
 import (
 	"archive/zip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -21,8 +23,7 @@ import (
 )
 
 const (
-	defaultBaseURL = "https://flibusta.is"
-	providerName   = "Flibusta"
+	providerName = "Flibusta"
 
 	// maxAuthorsToFollow limits how many author pages are fetched when a query
 	// matches authors but no book titles.
@@ -88,22 +89,95 @@ var downloadFormats = map[string]domain.Format{
 // most flibusta books are converted to these three.
 var defaultFormats = []domain.Format{domain.FormatFB2, domain.FormatEPUB, domain.FormatMOBI}
 
-// Provider implements domain.BookProvider for flibusta.is.
-type Provider struct {
-	client    *http.Client
-	baseURL   string
-	userAgent string
-	logger    *log.Logger
+// knownMirrors are used when no mirror is configured, the most stable one first.
+var knownMirrors = []string{"https://flibusta.site", "https://flibusta.is"}
+
+// MirrorList returns the mirrors to try, in order: the configured addresses without
+// blanks, trailing slashes and duplicates, or the known mirrors when none is configured.
+func MirrorList(configured []string) []string {
+	var mirrors []string
+	for _, raw := range configured {
+		base := strings.TrimRight(strings.TrimSpace(raw), "/")
+		if base != "" && !slices.Contains(mirrors, base) {
+			mirrors = append(mirrors, base)
+		}
+	}
+	if len(mirrors) == 0 {
+		return slices.Clone(knownMirrors)
+	}
+	return mirrors
 }
 
-// New creates a new flibusta provider with default HTTP client.
-func New(baseURL, userAgent string, logger *log.Logger) *Provider {
-	if baseURL == "" {
-		baseURL = defaultBaseURL
+// unreachableError marks a failure to get an answer from a mirror (network error or
+// server error): the next mirror may do better. A missing page or bad markup is not one.
+type unreachableError struct{ err error }
+
+func (e *unreachableError) Error() string { return e.err.Error() }
+func (e *unreachableError) Unwrap() error { return e.err }
+
+// Provider implements domain.BookProvider for Flibusta.
+type Provider struct {
+	client    *http.Client
+	mirrors   []string
+	userAgent string
+	logger    *log.Logger
+
+	mu          sync.Mutex
+	lastWorking string
+}
+
+// candidates lists the mirrors in the order to try: the one that answered last goes first.
+func (p *Provider) candidates() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.lastWorking == "" || !slices.Contains(p.mirrors, p.lastWorking) {
+		return p.mirrors
 	}
+	ordered := []string{p.lastWorking}
+	for _, m := range p.mirrors {
+		if m != p.lastWorking {
+			ordered = append(ordered, m)
+		}
+	}
+	return ordered
+}
+
+func (p *Provider) remember(base string) {
+	p.mu.Lock()
+	p.lastWorking = base
+	p.mu.Unlock()
+}
+
+// onMirrors runs block against the mirrors in turn until one answers. Only an
+// unreachable mirror moves on to the next one.
+func onMirrors[T any](ctx context.Context, p *Provider, block func(base string) (T, error)) (T, error) {
+	var zero T
+	var lastErr error
+	for _, base := range p.candidates() {
+		result, err := block(base)
+		if err == nil {
+			p.remember(base)
+			return result, nil
+		}
+		var unreachable *unreachableError
+		if !errors.As(err, &unreachable) || ctx.Err() != nil {
+			return zero, err
+		}
+		p.logger.Warn("flibusta mirror is unreachable, trying the next one", "mirror", base, "error", err)
+		lastErr = err
+	}
+	if lastErr == nil {
+		lastErr = domain.NewError(domain.ErrCodeProviderError, "no flibusta mirror is configured")
+	}
+	return zero, lastErr
+}
+
+// New creates a new flibusta provider with default HTTP client. baseURLs are the mirrors
+// to try in order; empty means the known mirrors.
+func New(baseURLs []string, userAgent string, logger *log.Logger) *Provider {
 	return &Provider{
 		client:    newHTTPClient(),
-		baseURL:   baseURL,
+		mirrors:   MirrorList(baseURLs),
 		userAgent: userAgent,
 		logger:    logger,
 	}
@@ -111,7 +185,7 @@ func New(baseURL, userAgent string, logger *log.Logger) *Provider {
 
 // newWithBaseURL creates a provider pointing at a custom base URL (for tests).
 func newWithBaseURL(baseURL string, client *http.Client, logger *log.Logger) *Provider {
-	return &Provider{client: client, baseURL: baseURL, logger: logger}
+	return &Provider{client: client, mirrors: []string{baseURL}, logger: logger}
 }
 
 func (p *Provider) setHeaders(req *http.Request) {
@@ -134,7 +208,13 @@ func (p *Provider) Search(ctx context.Context, query string, limit int) ([]domai
 		return nil, nil
 	}
 
-	searchURL := p.baseURL + "/booksearch?ask=" + url.QueryEscape(query)
+	return onMirrors(ctx, p, func(base string) ([]domain.SearchResult, error) {
+		return p.search(ctx, base, query, limit)
+	})
+}
+
+func (p *Provider) search(ctx context.Context, base, query string, limit int) ([]domain.SearchResult, error) {
+	searchURL := base + "/booksearch?ask=" + url.QueryEscape(query)
 
 	body, err := p.fetch(ctx, searchURL, "search")
 	if err != nil {
@@ -148,10 +228,10 @@ func (p *Provider) Search(ctx context.Context, query string, limit int) ([]domai
 	}
 
 	if len(raw) == 0 && len(authors) > 0 {
-		raw = p.booksByAuthors(ctx, authors, limit)
+		raw = p.booksByAuthors(ctx, base, authors, limit)
 	}
 
-	p.fillMissingFormats(ctx, raw)
+	p.fillMissingFormats(ctx, base, raw)
 
 	results := make([]domain.SearchResult, 0, len(raw))
 	for _, r := range raw {
@@ -180,13 +260,17 @@ func (p *Provider) fetch(ctx context.Context, rawURL, stage string) (io.ReadClos
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, domain.WrapError(domain.ErrCodeProviderError, stage+" request", err)
+		return nil, &unreachableError{domain.WrapError(domain.ErrCodeProviderError, stage+" request", err)}
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
-		return nil, domain.NewError(domain.ErrCodeProviderError,
+		err := domain.NewError(domain.ErrCodeProviderError,
 			fmt.Sprintf("%s returned status %d", stage, resp.StatusCode))
+		if resp.StatusCode >= http.StatusInternalServerError {
+			return nil, &unreachableError{err}
+		}
+		return nil, err
 	}
 	return resp.Body, nil
 }
@@ -194,7 +278,7 @@ func (p *Provider) fetch(ctx context.Context, rawURL, stage string) (io.ReadClos
 // booksByAuthors fetches the pages of the first matched authors and collects
 // their books. A failing author page is logged and skipped: partial results
 // are better than none.
-func (p *Provider) booksByAuthors(ctx context.Context, authors []authorEntry, limit int) []searchEntry {
+func (p *Provider) booksByAuthors(ctx context.Context, base string, authors []authorEntry, limit int) []searchEntry {
 	var collected []searchEntry
 
 	for i, a := range authors {
@@ -204,7 +288,7 @@ func (p *Provider) booksByAuthors(ctx context.Context, authors []authorEntry, li
 
 		p.logger.Debug("following author page", "provider", providerName, "author", a.name, "url", a.url)
 
-		body, err := p.fetch(ctx, p.baseURL+a.url, "author page")
+		body, err := p.fetch(ctx, base+a.url, "author page")
 		if err != nil {
 			p.logger.Warn("author page fetch failed", "provider", providerName, "author", a.name, "error", err)
 			continue
@@ -231,7 +315,22 @@ func (p *Provider) Download(ctx context.Context, result domain.SearchResult, for
 		return nil, "", domain.NewError(domain.ErrCodeProviderError, "cannot extract book ID from URL")
 	}
 
-	downloadURL := fmt.Sprintf("%s/b/%s/%s", p.baseURL, bookID, formatPath(format))
+	type download struct {
+		body     io.ReadCloser
+		filename string
+	}
+	d, err := onMirrors(ctx, p, func(base string) (download, error) {
+		body, filename, err := p.download(ctx, base, bookID, result, format)
+		return download{body, filename}, err
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	return d.body, d.filename, nil
+}
+
+func (p *Provider) download(ctx context.Context, base, bookID string, result domain.SearchResult, format domain.Format) (io.ReadCloser, string, error) {
+	downloadURL := fmt.Sprintf("%s/b/%s/%s", base, bookID, formatPath(format))
 	p.logger.Debug("downloading book", "url", downloadURL, "format", format)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
@@ -242,13 +341,17 @@ func (p *Provider) Download(ctx context.Context, result domain.SearchResult, for
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, "", domain.WrapError(domain.ErrCodeProviderError, "download request", err)
+		return nil, "", &unreachableError{domain.WrapError(domain.ErrCodeProviderError, "download request", err)}
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", domain.NewError(domain.ErrCodeProviderError,
+		err := domain.NewError(domain.ErrCodeProviderError,
 			fmt.Sprintf("download returned status %d", resp.StatusCode))
+		if resp.StatusCode >= http.StatusInternalServerError {
+			return nil, "", &unreachableError{err}
+		}
+		return nil, "", err
 	}
 
 	// A request for a format the book does not have is answered with an HTML
@@ -469,7 +572,7 @@ func parseAuthorBooks(r io.Reader, author string, limit int) ([]searchEntry, err
 // fillMissingFormats resolves the formats of entries that came from the search
 // page, which lists titles without any download links. Book pages are fetched
 // in parallel, since a search may return up to twenty results.
-func (p *Provider) fillMissingFormats(ctx context.Context, entries []searchEntry) {
+func (p *Provider) fillMissingFormats(ctx context.Context, base string, entries []searchEntry) {
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, maxFormatFetchers)
 
@@ -484,7 +587,7 @@ func (p *Provider) fillMissingFormats(ctx context.Context, entries []searchEntry
 		go func(entry *searchEntry) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			entry.formats = p.bookFormats(ctx, entry.bookURL)
+			entry.formats = p.bookFormats(ctx, base, entry.bookURL)
 		}(&entries[i])
 	}
 
@@ -494,13 +597,13 @@ func (p *Provider) fillMissingFormats(ctx context.Context, entries []searchEntry
 // bookFormats returns the formats offered by one book page. A page that cannot
 // be fetched or parsed falls back to the formats most flibusta books have, so a
 // single failure never hides a result.
-func (p *Provider) bookFormats(ctx context.Context, bookURL string) []domain.Format {
+func (p *Provider) bookFormats(ctx context.Context, base, bookURL string) []domain.Format {
 	bookID := extractBookID(bookURL)
 	if bookID == "" {
 		return defaultFormats
 	}
 
-	body, err := p.fetch(ctx, p.baseURL+bookURL, "book page")
+	body, err := p.fetch(ctx, base+bookURL, "book page")
 	if err != nil {
 		p.logger.Warn("book page fetch failed", "provider", providerName, "url", bookURL, "error", err)
 		return defaultFormats
@@ -690,24 +793,36 @@ func extractBookID(bookURL string) string {
 	return ""
 }
 
-// CheckHealth checks Flibusta availability by issuing an HTTP HEAD request.
+// CheckHealth checks Flibusta availability by issuing an HTTP HEAD request to the
+// mirrors in turn: it is healthy when any of them answers.
 func (p *Provider) CheckHealth(ctx context.Context) []domain.HealthStatus {
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, p.baseURL, nil)
+	var last domain.HealthStatus
+	for _, base := range p.candidates() {
+		last = p.checkMirror(ctx, base)
+		if last.Healthy {
+			return []domain.HealthStatus{last}
+		}
+	}
+	return []domain.HealthStatus{last}
+}
+
+func (p *Provider) checkMirror(ctx context.Context, base string) domain.HealthStatus {
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, base, nil)
 	if err != nil {
-		return []domain.HealthStatus{{Name: providerName, Healthy: false, Detail: err.Error()}}
+		return domain.HealthStatus{Name: providerName, Healthy: false, Detail: err.Error()}
 	}
 	p.setHeaders(req)
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return []domain.HealthStatus{{Name: providerName, Healthy: false, Detail: err.Error()}}
+		return domain.HealthStatus{Name: providerName, Healthy: false, Detail: err.Error()}
 	}
 	_ = resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		return []domain.HealthStatus{{Name: providerName, Healthy: false, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}}
+		return domain.HealthStatus{Name: providerName, Healthy: false, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}
 	}
-	return []domain.HealthStatus{{Name: providerName, Healthy: true, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}}
+	return domain.HealthStatus{Name: providerName, Healthy: true, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}
 }
 
 // fallbackFilename builds a filename when no better name is available.

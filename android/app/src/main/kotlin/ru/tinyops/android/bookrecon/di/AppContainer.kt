@@ -22,6 +22,8 @@ class AppContainer(context: Context) {
     val log: LogModule by lazy { LogModule(this) }
     val reports: ReportsModule by lazy { ReportsModule(this) }
     val server: ServerModule by lazy { ServerModule(this) }
+    val diagnostics: DiagnosticsModule by lazy { DiagnosticsModule(this) }
+    val updates: UpdateModule by lazy { UpdateModule(this) }
 }
 
 val Context.appContainer: AppContainer

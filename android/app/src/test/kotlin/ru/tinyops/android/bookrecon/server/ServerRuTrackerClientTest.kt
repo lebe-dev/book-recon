@@ -97,9 +97,10 @@ class ServerRuTrackerClientTest {
     }
 
     @Test
-    fun `routing uses the server only while the tunnel is on`() = runBlocking {
+    fun `routing uses the server only while rutracker goes through it`() = runBlocking {
         val local = FakeRuTrackerClient().apply { credentialsSet = false }
-        val routing = RoutingRuTrackerClient(local, client) { route }
+        var throughServer = true
+        val routing = RoutingRuTrackerClient(local, client) { throughServer }
 
         assertFalse(routing.needsCredentials())
         assertTrue(routing.isLoggedIn())
@@ -108,7 +109,7 @@ class ServerRuTrackerClientTest {
         routing.search("дозор", MediaKind.BOOK, 5)
         assertEquals(1, server.requestCount)
 
-        route = null
+        throughServer = false
         assertTrue(routing.needsCredentials())
         assertThrows<AppError.RuTrackerAuthRequired> { routing.login() }
         Unit

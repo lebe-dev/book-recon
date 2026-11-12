@@ -30,7 +30,6 @@ class LoggingInterceptorTest {
 
     private fun logAndClient(): Pair<AppLog, OkHttpClient> {
         val log = AppLog(dir, Clock.System, ZoneOffset.UTC, executor = executor)
-        log.setLevels(info = true, debug = true)
         return log to OkHttpClient.Builder().addInterceptor(LoggingInterceptor(log)).build()
     }
 

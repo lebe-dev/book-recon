@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" />
     <!-- Persisted jobs: downloads and seeding continue after a reboot. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Updates: the app installs a new APK from GitHub Releases after the user confirms. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!--
         No storage permission on purpose: books and audiobooks go only to the two folders the
         user picks with the system folder picker, and nothing else on shared storage is
@@ -34,6 +36,17 @@
             android:name="io.sentry.android.core.SentryPerformanceProvider"
             android:authorities="${applicationId}.SentryPerformanceProvider"
             tools:node="remove" />
+
+        <!-- Hands the exported log file to the system share sheet. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.logfiles"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/log_file_paths" />
+        </provider>
 
         <activity
             android:name=".MainActivity"
@@ -71,6 +84,10 @@
             android:name=".download.DownloadJobService"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <receiver
+            android:name=".update.InstallResultReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".download.BootReceiver"

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +55,7 @@ enum class SettingsSection(
     DOWNLOADS(R.string.settings_section_downloads, R.string.settings_hub_downloads, Icons.Filled.Download),
     SOURCES(R.string.settings_hub_sources_title, R.string.settings_hub_sources, Icons.Filled.Search),
     SERVER(R.string.settings_section_server, R.string.settings_hub_server, Icons.Filled.Settings),
+    UPDATES(R.string.settings_hub_updates_title, R.string.settings_hub_updates, Icons.Filled.SystemUpdate),
     DIAGNOSTICS(R.string.settings_hub_diagnostics_title, R.string.settings_hub_diagnostics, Icons.Filled.Info),
 }
 

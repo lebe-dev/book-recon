@@ -8,7 +8,8 @@ class FlibustaModule(private val app: AppContainer) {
     val flibustaSource: FlibustaSource by lazy {
         FlibustaSourceImpl(
             http = app.network.httpClient,
-            baseUrl = { app.settings.settingsRepository.settings.first().flibustaBaseUrl },
+            baseUrl = { app.settings.settingsRepository.settings.first().flibustaEffectiveUrl },
+            fallbackUrls = { app.settings.settingsRepository.settings.first().flibustaFallbackUrls },
         )
     }
 }

@@ -119,15 +119,16 @@ class ServerRuTrackerClient(
 }
 
 /**
- * Uses [server] while the tunnel to the Book Recon server is on and [local] (credentials from
- * settings) otherwise. Read on every call, so connecting or disconnecting applies at once.
+ * Uses [server] while [throughServer] (RuTracker goes through the approved Book Recon server)
+ * and [local] (credentials from settings) otherwise. Read on every call, so connecting,
+ * disconnecting or switching the route applies at once.
  */
 class RoutingRuTrackerClient(
     private val local: RuTrackerClient,
     private val server: RuTrackerClient,
-    private val route: () -> TunnelRoute?,
+    private val throughServer: () -> Boolean,
 ) : RuTrackerClient {
-    private val current: RuTrackerClient get() = if (route() != null) server else local
+    private val current: RuTrackerClient get() = if (throughServer()) server else local
 
     override suspend fun login() = current.login()
 

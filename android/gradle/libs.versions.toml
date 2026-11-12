@@ -24,6 +24,10 @@ androidx-test-core = "1.7.0"
 turbine = "1.2.1"
 sentry = "8.63.0"
 sentry-gradle = "6.26.0"
+detekt = "2.0.0-alpha.6"
+compose-rules = "0.6.8"
+kover = "0.9.11"
+pmd = "7.29.0"
 
 [libraries]
 # Kotlin
@@ -81,6 +85,11 @@ libtorrent4j-linux = { module = "org.libtorrent4j:libtorrent4j-linux", version.r
 sentry-android-core = { module = "io.sentry:sentry-android-core", version.ref = "sentry" }
 sentry-android-ndk = { module = "io.sentry:sentry-android-ndk", version.ref = "sentry" }
 
+# Static analysis
+compose-rules-detekt = { module = "io.nlopez.compose.rules:detekt", version.ref = "compose-rules" }
+pmd-cli = { module = "net.sourceforge.pmd:pmd-cli", version.ref = "pmd" }
+pmd-kotlin = { module = "net.sourceforge.pmd:pmd-kotlin", version.ref = "pmd" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-lint = { id = "com.android.lint", version.ref = "agp" }
@@ -90,3 +99,5 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 room = { id = "androidx.room", version.ref = "room" }
 sentry = { id = "io.sentry.android.gradle", version.ref = "sentry-gradle" }
+detekt = { id = "dev.detekt", version.ref = "detekt" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

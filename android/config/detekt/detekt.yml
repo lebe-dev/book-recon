@@ -1,0 +1,39 @@
+# Overrides on top of the default detekt config (buildUponDefaultConfig = true).
+# Known issues of existing code live in baseline.xml; regenerate it with `just android-detekt-baseline`.
+
+complexity:
+  LongParameterList:
+    # Composables take state and callbacks as parameters by design.
+    ignoreAnnotated: ['Composable']
+  LongMethod:
+    ignoreAnnotated: ['Composable', 'Preview']
+  TooManyFunctions:
+    allowedFunctionsPerFile: 20
+    allowedFunctionsPerClass: 20
+    allowedFunctionsPerInterface: 20
+    allowedFunctionsPerObject: 20
+    ignorePrivate: true
+    excludes: ['**/test/**']
+
+naming:
+  FunctionNaming:
+    # Composables are named like types.
+    ignoreAnnotated: ['Composable']
+
+style:
+  MaxLineLength:
+    maxLineLength: 140
+    excludes: ['**/test/**']
+  ReturnCount:
+    # Early returns are the preferred style; guard clauses do not count.
+    max: 4
+    excludeGuardClauses: true
+  MagicNumber:
+    ignoreAnnotated: ['Composable', 'Preview']
+    excludes: ['**/test/**', '**/ui/theme/**']
+  UnusedPrivateFunction:
+    # Previews are only called by the IDE.
+    ignoreAnnotated: ['Preview']
+
+Compose:
+  active: true

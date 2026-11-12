@@ -89,8 +89,37 @@ android-build: android-check
 android-test: android-check
     cd android && ./gradlew :core:test :app:testDebugUnitTest
 
+# Android Lint, detekt (new issues only) and copy-paste check; fails on any of them
 android-lint: android-check
-    cd android && ./gradlew :app:lintDebug
+    cd android && ./gradlew --continue :app:lintDebug detekt cpdCheck
+
+alias lint-android := android-lint
+
+# detekt: complexity, code smells and Compose rules; only issues missing from the baseline fail
+android-detekt: android-check
+    cd android && ./gradlew detekt
+
+# Rewrites android/config/detekt/baseline.xml with every current detekt issue
+android-detekt-baseline: android-check
+    cd android && ./gradlew detektBaseline
+
+# Copy-paste in production code (PMD CPD); fails when duplicates are found. TOKENS is the minimum copy size
+android-cpd TOKENS='100': android-check
+    cd android && ./gradlew cpdCheck -PcpdMinimumTokens={{ TOKENS }}
+
+# Line and branch coverage of :core and :app unit tests in one report (Kover)
+android-coverage: android-check
+    cd android && ./gradlew :koverHtmlReportUnit :koverXmlReportUnit :koverLogUnit
+    @echo "Coverage report: android/build/reports/kover/htmlUnit/index.html"
+
+# Every analysis at once, reports only: detekt, duplicates, coverage and Android Lint
+android-quality: android-check
+    cd android && ./gradlew --continue detekt cpdReport :koverHtmlReportUnit :koverXmlReportUnit :koverLogUnit :app:lintDebug
+    @echo "Reports:"
+    @echo "  detekt:   android/build/reports/detekt/detekt.html"
+    @echo "  CPD:      android/build/reports/cpd/cpd.txt"
+    @echo "  coverage: android/build/reports/kover/htmlUnit/index.html"
+    @echo "  lint:     android/app/build/reports/lint-results-debug.html"
 
 android-install: android-build
     adb install -r android/app/build/outputs/apk/debug/app-debug.apk
@@ -100,8 +129,9 @@ deploy-android: android-build
     adb -d install -r android/app/build/outputs/apk/debug/app-debug.apk
     adb -d shell am start -n ru.tinyops.android.bookrecon/ru.tinyops.android.bookrecon.MainActivity
 
+# Tests, lints and coverage run first, so a release is never built from code that fails them.
 # Release APK in bin/book-recon-<VERSION>.apk, signed when ANDROID_* signing variables are set
-android-release: android-check
+android-release: android-test android-lint android-coverage
     #!/usr/bin/env bash
     set -euo pipefail
     out=android/app/build/outputs/apk/release

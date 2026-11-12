@@ -38,11 +38,20 @@ Go-код служит эталоном поведения, приложение
 ```bash
 just android-build    # debug APK в android/app/build/outputs/apk/debug
 just android-test     # тесты :core и unit-тесты :app
-just android-lint     # Android Lint
+just android-lint     # Android Lint, detekt и CPD; падает на любом (то же: just lint-android)
+just android-detekt   # detekt: сложность, code smells, правила Compose
+just android-cpd      # дублирование кода (PMD CPD)
+just android-coverage # покрытие тестами (Kover)
+just android-quality  # всё сразу и Android Lint, только отчёты (замена SonarQube)
 just android-install  # установить debug APK через adb
 just deploy-android   # debug APK на телефон по USB и запуск
-just android-release  # release APK в bin/book-recon-<VERSION>.apk
+just android-release  # тесты, android-lint и покрытие, затем release APK в bin/book-recon-<VERSION>.apk
 ```
+
+`just android-detekt` падает только на замечаниях, которых нет в
+`android/config/detekt/baseline.xml`: старые замечания записаны туда, новые нужно исправлять.
+`just android-detekt-baseline` переписывает baseline целиком. Отчёты лежат в
+`android/build/reports/` (`detekt/`, `cpd/`, `kover/htmlUnit/`).
 
 Версия приложения берётся из корневого файла `VERSION`, общего с ботом. Android не ставит
 APK с меньшим `versionCode`, поэтому `VERSION` повышается при каждом релизе.

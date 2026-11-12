@@ -1,0 +1,127 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:SearchScreen.kt:search.isComplete &amp;&amp; search.results.isEmpty() &amp;&amp; search.errors.isEmpty() &amp;&amp; search.verification == null</ID>
+    <ID>ComplexCondition:TunnelRouting.kt:TunnelProxySelector$current == null || host == null || uri.scheme != "https" || !current.serves(host)</ID>
+    <ID>CyclomaticComplexMethod:AppError.kt:AppError.Companion$fun restore: AppError</ID>
+    <ID>CyclomaticComplexMethod:DataStoreSettingsRepository.kt:private fun Preferences.toSettings: Settings</ID>
+    <ID>CyclomaticComplexMethod:DownloadNotifications.kt:@StringRes fun AppError.downloadMessage: Int</ID>
+    <ID>CyclomaticComplexMethod:FlibustaSourceImpl.kt:FlibustaSourceImpl$private suspend fun finishDownload: DownloadedFile</ID>
+    <ID>CyclomaticComplexMethod:RuTrackerTopicScreen.kt:@Composable private fun FailedBody</ID>
+    <ID>CyclomaticComplexMethod:TunnelProxy.kt:TunnelProxy$private fun readRequest: ProxyRequest?</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:TestPeer.kt:TestPeer.Companion$val (mode, torrentPath, dir, peerPort) = args</ID>
+    <ID>EmptyKotlinFile:package-info.kt:ru.tinyops.android.bookrecon.core.usecase.package-info.kt</ID>
+    <ID>LambdaParameterInRestartableEffect:FlibustaBookScreen.kt:onOpenVerification: (url: String, purpose: VerificationPurpose) -&gt; Unit</ID>
+    <ID>LambdaParameterInRestartableEffect:RuTrackerTopicScreen.kt:onOpenDownloads: () -&gt; Unit</ID>
+    <ID>LambdaParameterInRestartableEffect:RuTrackerTopicScreen.kt:onOpenVerification: (url: String, purpose: VerificationPurpose) -&gt; Unit</ID>
+    <ID>LambdaParameterInRestartableEffect:SearchScreen.kt:onOpenVerification: (url: String, purpose: VerificationPurpose) -&gt; Unit</ID>
+    <ID>LambdaParameterInRestartableEffect:SettingsScreen.kt:onOpenVerification: (url: String, purpose: VerificationPurpose) -&gt; Unit</ID>
+    <ID>LongMethod:TopicTitleTest.kt:TopicTitleTest.Companion$@JvmStatic fun titles</ID>
+    <ID>LoopWithTooManyJumpStatements:FlibustaParser.kt:for</ID>
+    <ID>LoopWithTooManyJumpStatements:FlibustaParser.kt:while</ID>
+    <ID>LoopWithTooManyJumpStatements:FlibustaSourceImpl.kt:FlibustaSourceImpl$for</ID>
+    <ID>LoopWithTooManyJumpStatements:SeedingManager.kt:SeedingManager$for</ID>
+    <ID>LoopWithTooManyJumpStatements:TunnelProxy.kt:TunnelProxy.Tunnel$while</ID>
+    <ID>MagicNumber:CloudflareInterceptor.kt:CloudflareDetector$403</ID>
+    <ID>MagicNumber:CloudflareInterceptor.kt:CloudflareDetector$503</ID>
+    <ID>MagicNumber:DownloadNotifications.kt:DownloadNotifications$0xFFFFFF</ID>
+    <ID>MagicNumber:DownloadQueueImpl.kt:DownloadQueueImpl$100</ID>
+    <ID>MagicNumber:FakeData.kt:FakeData$15</ID>
+    <ID>MagicNumber:FakeData.kt:FakeData$20</ID>
+    <ID>MagicNumber:FakeData.kt:FakeData$3</ID>
+    <ID>MagicNumber:FakeData.kt:FakeData$7</ID>
+    <ID>MagicNumber:FakeData.kt:FakeData$900</ID>
+    <ID>MagicNumber:FileNameDecoding.kt:0xFF</ID>
+    <ID>MagicNumber:FileNameDecoding.kt:3</ID>
+    <ID>MagicNumber:FlibustaSourceImpl.kt:FlibustaSourceImpl.Companion$200</ID>
+    <ID>MagicNumber:FlibustaSourceImpl.kt:FlibustaSourceImpl.Companion$404</ID>
+    <ID>MagicNumber:LogEntry.kt:5</ID>
+    <ID>MagicNumber:ProgressTracker.kt:ProgressTracker$1_000_000_000L</ID>
+    <ID>MagicNumber:RuTrackerClientImpl.kt:RuTrackerClientImpl$200</ID>
+    <ID>MagicNumber:RuTrackerClientImpl.kt:RuTrackerClientImpl$403</ID>
+    <ID>MagicNumber:RuTrackerClientImpl.kt:RuTrackerClientImpl$404</ID>
+    <ID>MagicNumber:SearchFormat.kt:1024</ID>
+    <ID>MagicNumber:SecretCipher.kt:AesGcmCipher$8</ID>
+    <ID>MagicNumber:ServerApi.kt:OkHttpServerApi$401</ID>
+    <ID>MagicNumber:ServerApi.kt:OkHttpServerApi$404</ID>
+    <ID>MagicNumber:ServerApi.kt:OkHttpServerApi$405</ID>
+    <ID>MagicNumber:ServerRuTrackerClient.kt:ServerRuTrackerClient$401</ID>
+    <ID>MagicNumber:ServerRuTrackerClient.kt:ServerRuTrackerClient$403</ID>
+    <ID>MagicNumber:TreeUris.kt:TreeUris$16</ID>
+    <ID>MagicNumber:TreeUris.kt:TreeUris$3</ID>
+    <ID>MagicNumber:TunnelProxy.kt:TunnelProxy$3</ID>
+    <ID>MagicNumber:TunnelProxy.kt:TunnelProxy$400</ID>
+    <ID>MagicNumber:TunnelProxy.kt:TunnelProxy$403</ID>
+    <ID>MagicNumber:TunnelProxy.kt:TunnelProxy$405</ID>
+    <ID>MagicNumber:TunnelProxy.kt:TunnelProxy$431</ID>
+    <ID>MagicNumber:TunnelProxy.kt:TunnelProxy.Companion$255</ID>
+    <ID>MagicNumber:TunnelProxy.kt:TunnelProxy.Target.Companion$65535</ID>
+    <ID>MatchingDeclarationName:DownloadsFormat.kt:SeedUntil</ID>
+    <ID>MatchingDeclarationName:HttpClientFactory.kt:NetworkConfig</ID>
+    <ID>MatchingDeclarationName:LibraryFiles.kt:OpenTarget</ID>
+    <ID>MatchingDeclarationName:ServerBlock.kt:ServerActions</ID>
+    <ID>MatchingDeclarationName:SettingsHub.kt:SettingsSection</ID>
+    <ID>MaxLineLength:DownloadQueueImpl.kt:DownloadQueueImpl$*</ID>
+    <ID>MaxLineLength:LibraryScreen.kt:Column</ID>
+    <ID>MaxLineLength:ServerBlock.kt:ServerBlock(ServerUiState(url = "https://books.example.com", storedUrl = "https://books.example.com", connection = connection), ServerActions())</ID>
+    <ID>MaxLineLength:ServerBlock.kt:ServerState.Connecting</ID>
+    <ID>MaxLineLength:SettingsScreen.kt:SourceSwitch(R.string.settings_source_enabled_flibusta, state.settings.flibustaEnabled, actions.onFlibustaEnabledChange)</ID>
+    <ID>MaxLineLength:SettingsScreen.kt:SourceSwitch(R.string.settings_source_enabled_rutracker, state.settings.rutrackerEnabled, actions.onRuTrackerEnabledChange)</ID>
+    <ID>MaxLineLength:SettingsScreen.kt:Text(stringResource(if (state.flibustaUrlError) R.string.settings_flibusta_url_error else R.string.settings_flibusta_url_hint))</ID>
+    <ID>MaxLineLength:SettingsScreen.kt:private</ID>
+    <ID>ModifierMissing:BookReconNavHost.kt:@Composable fun BookReconNavHost</ID>
+    <ID>ModifierMissing:PlaceholderContent.kt:@Composable fun PlaceholderContent</ID>
+    <ID>ModifierMissing:SettingsHub.kt:@Composable fun SettingsScreen</ID>
+    <ID>ModifierMissing:WebVerificationScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun WebVerificationScreen</ID>
+    <ID>ModifierWithoutDefault:AppearanceBlock.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:FlibustaBookScreen.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:RuTrackerTopicScreen.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:WebVerificationScreen.kt:modifier: Modifier</ID>
+    <ID>MultipleEmitters:AppearanceBlock.kt:@Composable internal fun AppearanceBlock</ID>
+    <ID>MultipleEmitters:SearchScreen.kt:@Composable private fun ResultDetails</ID>
+    <ID>MultipleEmitters:ServerBlock.kt:@Composable internal fun ServerBlock</ID>
+    <ID>MultipleEmitters:SettingsScreen.kt:@Composable private fun DownloadsBlock</ID>
+    <ID>MultipleEmitters:SettingsScreen.kt:@Composable private fun FlibustaBlock</ID>
+    <ID>MultipleEmitters:SettingsScreen.kt:@Composable private fun Section</ID>
+    <ID>ParameterNaming:DownloadsScreen.kt:onShown: () -&gt; Unit</ID>
+    <ID>ParameterNaming:FlibustaBookScreen.kt:onFormatSelected: (Format) -&gt; Unit</ID>
+    <ID>ParameterNaming:FlibustaBookScreen.kt:onShown: () -&gt; Unit</ID>
+    <ID>ParameterNaming:LibraryScreen.kt:onShown: () -&gt; Unit</ID>
+    <ID>ParameterNaming:RuTrackerTopicScreen.kt:onShown: () -&gt; Unit</ID>
+    <ID>ParameterNaming:RuTrackerTopicScreen.kt:onToggleExpanded: (String) -&gt; Unit</ID>
+    <ID>ReturnCount:TorrentParser.kt:TorrentParser$private fun fileOf: TorrentFile?</ID>
+    <ID>SwallowedException:ServerApi.kt:OkHttpServerApi$e: IllegalArgumentException</ID>
+    <ID>SwallowedException:ServerApi.kt:OkHttpServerApi$e: SerializationException</ID>
+    <ID>ThrowsCount:AndroidFileStorage.kt:AndroidFileStorage$override suspend fun copyInto</ID>
+    <ID>ThrowsCount:AndroidFileStorage.kt:AndroidFileStorage$override suspend fun requireRoot</ID>
+    <ID>ThrowsCount:Bencode.kt:BencodeDecoder$private fun value: BValue</ID>
+    <ID>ThrowsCount:DocumentsTree.kt:DocumentsTree$override fun copyInto</ID>
+    <ID>ThrowsCount:FakeStorage.kt:FakeFileStorage$override suspend fun copyInto</ID>
+    <ID>ThrowsCount:FlibustaSourceImpl.kt:FlibustaSourceImpl$private suspend fun finishDownload: DownloadedFile</ID>
+    <ID>ThrowsCount:LocalDocumentTree.kt:LocalDocumentTree$override fun copyInto</ID>
+    <ID>ThrowsCount:RuTrackerClientImpl.kt:RuTrackerClientImpl$private fun checkStatus</ID>
+    <ID>ThrowsCount:RuTrackerClientImpl.kt:RuTrackerClientImpl$private suspend fun loginLocked</ID>
+    <ID>ThrowsCount:TorrentParser.kt:TorrentParser$fun parse: TorrentInfo</ID>
+    <ID>ThrowsCount:TorrentParser.kt:TorrentParser$private fun fileOf: TorrentFile?</ID>
+    <ID>TooGenericExceptionCaught:BootResume.kt:BootResume$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:DocumentsTree.kt:DocumentsTree$e: RuntimeException</ID>
+    <ID>TooGenericExceptionCaught:DownloadQueueImpl.kt:DownloadQueueImpl$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ErrorReporting.kt:ErrorReporting$e: RuntimeException</ID>
+    <ID>TooGenericExceptionCaught:FlibustaSourceImpl.kt:FlibustaSourceImpl$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:SearchUseCase.kt:SearchUseCase$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:SeedingManager.kt:SeedingManager$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:TorrentLayout.kt:e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:WebViewChallengeSolver.kt:WebViewChallengeSolver.Attempt$e: RuntimeException</ID>
+    <ID>TooManyFunctions:SettingsViewModel.kt:SettingsViewModel : ViewModel</ID>
+    <ID>UnusedParameter:DownloadQueueImpl.kt:DownloadQueueImpl$staging: File</ID>
+    <ID>ViewModelInjection:DownloadsScreen.kt:val viewModel: DownloadsViewModel = viewModel(factory = factory)</ID>
+    <ID>ViewModelInjection:FlibustaBookScreen.kt:val viewModel: FlibustaBookViewModel = viewModel(factory = factory)</ID>
+    <ID>ViewModelInjection:LibraryScreen.kt:val viewModel: LibraryViewModel = viewModel(factory = factory)</ID>
+    <ID>ViewModelInjection:LogScreen.kt:val viewModel: LogViewModel = viewModel(factory = factory)</ID>
+    <ID>ViewModelInjection:RuTrackerTopicScreen.kt:val viewModel: RuTrackerTopicViewModel = viewModel(factory = factory)</ID>
+    <ID>ViewModelInjection:SearchScreen.kt:val viewModel: SearchViewModel = viewModel(factory = factory)</ID>
+    <ID>ViewModelInjection:SettingsScreen.kt:val serverViewModel: ServerViewModel = viewModel(factory = serverFactory)</ID>
+    <ID>ViewModelInjection:SettingsScreen.kt:val viewModel: SettingsViewModel = viewModel(factory = factory)</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.android.lint)
+    alias(libs.plugins.kover)
 }
 
 java {
@@ -37,4 +38,10 @@ tasks.test {
     useJUnitPlatform()
     systemProperty("testdata.dir", testdataDir.asFile.absolutePath)
     inputs.dir(testdataDir).withPathSensitivity(PathSensitivity.RELATIVE).optional()
+}
+
+kover {
+    currentProject {
+        createVariant("unit") { add("jvm") }
+    }
 }

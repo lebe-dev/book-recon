@@ -1,5 +1,6 @@
 package ru.tinyops.android.bookrecon.server
 
+import ru.tinyops.android.bookrecon.core.domain.normalizeBaseUrl
 import java.time.Instant
 import java.time.format.DateTimeParseException
 import kotlin.time.Duration
@@ -116,7 +117,7 @@ class ServerConnection(
 
     /** Sets the server URL; a different URL forgets the old registration. */
     suspend fun setUrl(url: String) = mutex.withLock {
-        val normalized = url.trim().trimEnd('/')
+        val normalized = normalizeBaseUrl(url)
         if (normalized == stored.url) return@withLock
         forgetRegistration()
         save(StoredServer(url = normalized, enabled = stored.enabled))

@@ -222,6 +222,11 @@ class SettingsViewModelTest {
         assertEquals("http://flibusta.lib", settings.settings.first().flibustaBaseUrl)
         assertEquals("http://flibusta.lib", vm.state.value.flibustaUrl)
 
+        vm.onFlibustaUrlChange("flibusta.site")
+        vm.onSaveFlibustaUrl()
+        advanceUntilIdle()
+        assertEquals("https://flibusta.site", settings.settings.first().flibustaBaseUrl)
+
         vm.onFlibustaUrlChange("")
         vm.onSaveFlibustaUrl()
         advanceUntilIdle()

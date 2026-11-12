@@ -1,5 +1,6 @@
 package ru.tinyops.android.bookrecon.ui.settings
 
+import ru.tinyops.android.bookrecon.core.domain.normalizeBaseUrl
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,7 +81,7 @@ data class SettingsUiState(
 
     /** The URL field differs from the stored URL. */
     val flibustaUrlChanged: Boolean
-        get() = flibustaUrl.trim().trimEnd('/') != settings.flibustaBaseUrl
+        get() = normalizeBaseUrl(flibustaUrl) != settings.flibustaBaseUrl
 }
 
 /**
@@ -200,7 +201,7 @@ class SettingsViewModel(
 
     /** Saves the Flibusta URL; an empty field means automatic: the known mirrors. */
     fun onSaveFlibustaUrl() {
-        val url = mutableState.value.flibustaUrl.trim().trimEnd('/')
+        val url = normalizeBaseUrl(mutableState.value.flibustaUrl)
         if (url.isNotEmpty() && !isValidBaseUrl(url)) {
             mutableState.update { it.copy(flibustaUrlError = true) }
             return

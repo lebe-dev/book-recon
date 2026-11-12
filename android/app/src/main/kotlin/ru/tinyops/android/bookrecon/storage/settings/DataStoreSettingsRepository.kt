@@ -1,5 +1,6 @@
 package ru.tinyops.android.bookrecon.storage.settings
 
+import ru.tinyops.android.bookrecon.core.domain.normalizeBaseUrl
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
@@ -207,7 +208,7 @@ internal fun Settings.normalized(): Settings = copy(
     audioRoot = normalizeRoot(audioRoot),
     booksRoot = normalizeRoot(booksRoot),
     rutrackerLogin = rutrackerLogin.trim(),
-    flibustaBaseUrl = flibustaBaseUrl.trim().trimEnd('/').ifEmpty { Settings.DEFAULT_FLIBUSTA_BASE_URL },
+    flibustaBaseUrl = normalizeBaseUrl(flibustaBaseUrl).ifEmpty { Settings.DEFAULT_FLIBUSTA_BASE_URL },
     flibustaTimeoutSeconds = flibustaTimeoutSeconds.coerceIn(
         Settings.MIN_FLIBUSTA_TIMEOUT_SECONDS,
         Settings.MAX_FLIBUSTA_TIMEOUT_SECONDS,

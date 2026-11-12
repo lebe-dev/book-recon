@@ -49,7 +49,7 @@
     <string name="settings_server_next_step">Сама интеграция трафик не меняет. Дальше в разделе «Источники» выберите для RuTracker и Flibusta, как передавать трафик: как есть или через сервер</string>
     <string name="settings_server_url">Адрес сервера</string>
     <string name="settings_server_url_hint">Пустое поле — без сервера</string>
-    <string name="settings_server_url_error">Введите адрес вида https://books.example.com</string>
+    <string name="settings_server_url_error">Введите адрес, например books.example.com</string>
     <string name="settings_server_connect">Подключить</string>
     <string name="settings_server_retry">Повторить</string>
     <string name="settings_server_open_telegram">Открыть Telegram</string>
@@ -91,11 +91,11 @@
 
     <string name="settings_section_flibusta">Flibusta</string>
     <string name="settings_flibusta_url">Адрес сайта</string>
-    <string name="settings_flibusta_url_hint">Оставьте пустым: приложение само выберет из известных зеркал (flibusta.site, flibusta.is)</string>
+    <string name="settings_flibusta_url_hint">Оставьте пустым: приложение само выберет из известных зеркал (flibusta.site, flibusta.is). https:// писать не нужно</string>
     <string name="settings_flibusta_timeout">Время ожидания ответа</string>
     <string name="settings_flibusta_timeout_text">Сколько ждать ответа сайта, прежде чем считать запрос неудавшимся. Если Flibusta часто не отвечает, увеличьте</string>
     <string name="settings_flibusta_timeout_seconds">%1$d с</string>
-    <string name="settings_flibusta_url_error">Введите адрес вида https://flibusta.is</string>
+    <string name="settings_flibusta_url_error">Введите адрес, например flibusta.is</string>
     <string name="settings_save">Сохранить</string>
 
     <string name="settings_section_downloads">Загрузки</string>

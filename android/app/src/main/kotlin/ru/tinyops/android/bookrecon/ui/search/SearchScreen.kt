@@ -191,7 +191,7 @@ fun SearchContent(
                     onRemove = onHistoryRemove,
                 )
             }
-            KindSelector(state.kind, state.chosenKinds, onKindChange)
+            KindSelector(state.kind, onKindChange)
         }
 
         if (search?.isLoading == true) {
@@ -313,14 +313,13 @@ private fun SearchField(
 }
 
 @Composable
-private fun KindSelector(kind: MediaKind, chosen: Set<MediaKind>, onKindChange: (MediaKind) -> Unit) {
+private fun KindSelector(kind: MediaKind, onKindChange: (MediaKind) -> Unit) {
     val options = listOf(MediaKind.BOOK to R.string.search_kind_books, MediaKind.AUDIO to R.string.search_kind_audio)
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         options.forEachIndexed { index, (option, label) ->
             SegmentedButton(
                 selected = option == kind,
                 onClick = { onKindChange(option) },
-                enabled = option in chosen,
                 shape = SegmentedButtonDefaults.itemShape(index, options.size),
             ) {
                 Text(stringResource(label))

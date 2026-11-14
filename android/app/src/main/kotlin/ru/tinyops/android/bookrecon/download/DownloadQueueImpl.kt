@@ -230,7 +230,7 @@ class DownloadQueueImpl(
     override suspend fun dismiss(id: String) {
         mutex.withLock {
             val download = repository.get(id) ?: return
-            if (download.status != DownloadStatus.FAILED && download.status != DownloadStatus.CANCELLED) return
+            if (download.status !in DISMISSIBLE) return
             repository.delete(id)
         }
         deleteTorrent(id)
@@ -534,6 +534,7 @@ class DownloadQueueImpl(
     }
 
     private companion object {
+        val DISMISSIBLE = setOf(DownloadStatus.FAILED, DownloadStatus.CANCELLED, DownloadStatus.COMPLETED)
         const val EVENT_BUFFER = 64
         const val PROGRESS_STEPS = 10
     }

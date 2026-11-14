@@ -32,8 +32,8 @@ interface SettingsRepository {
 interface DownloadRepository {
     /**
      * Downloads shown on the downloads screen: DOWNLOADING, then SEEDING, then QUEUED by
-     * queue position, then FAILED, then CANCELLED; ties are ordered by creation time, oldest
-     * first.
+     * queue position, then FAILED, then CANCELLED, then COMPLETED (newest first; they stay
+     * until the user removes them); other ties are ordered by creation time, oldest first.
      */
     fun observeQueue(): Flow<List<Download>>
 
@@ -87,7 +87,10 @@ interface DownloadQueue {
     /** Stops seeding: the torrent leaves the session and the download becomes COMPLETED. */
     suspend fun stopSeeding(id: String)
 
-    /** Removes a FAILED or CANCELLED download from the queue screen. */
+    /**
+     * Removes a FAILED, CANCELLED or COMPLETED download from the queue screen. A completed
+     * one loses its record only: the files stay where they were placed.
+     */
     suspend fun dismiss(id: String)
 
     /** Same as [DownloadRepository.observeQueue], with live progress. */

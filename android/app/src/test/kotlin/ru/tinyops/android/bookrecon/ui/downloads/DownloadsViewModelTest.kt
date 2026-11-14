@@ -116,7 +116,8 @@ class DownloadsViewModelTest {
 
         advanceTimeBy(10.seconds)
         runCurrent()
-        assertTrue(vm.state.value.isEmpty)
+        assertTrue(vm.state.value.active.isEmpty())
+        assertEquals(1, vm.state.value.completed.size)
     }
 
     @Test
@@ -254,7 +255,7 @@ class DownloadsViewModelTest {
     }
 
     @Test
-    fun `stop seeding completes the download and removes it from the screen`() = runVmTest {
+    fun `stop seeding completes the download and moves it to the completed section`() = runVmTest {
         val repository = FakeDownloadRepository(
             listOf(record("seed", DownloadStatus.SEEDING, seedUntil = Instant.parse("2026-11-09T18:00:00Z"))),
         )
@@ -264,8 +265,25 @@ class DownloadsViewModelTest {
         vm.onStopSeeding("seed")
         runCurrent()
 
-        assertTrue(vm.state.value.isEmpty)
+        assertTrue(vm.state.value.seeding.isEmpty())
+        assertEquals(listOf("seed"), vm.state.value.completed.map { it.id })
         assertEquals(DownloadStatus.COMPLETED, repository.all.single().status)
+    }
+
+    @Test
+    fun `a completed download stays on the screen until the user removes it`() = runVmTest {
+        val repository = FakeDownloadRepository(listOf(record("done", DownloadStatus.COMPLETED)))
+        val vm = DownloadsViewModel(queue(repository))
+        runCurrent()
+
+        assertEquals(listOf("done"), vm.state.value.completed.map { it.id })
+        assertFalse(vm.state.value.isEmpty)
+
+        vm.onDismiss("done")
+        runCurrent()
+
+        assertTrue(vm.state.value.isEmpty)
+        assertTrue(repository.all.isEmpty())
     }
 
     @Test

@@ -32,6 +32,8 @@ data class DownloadsMessage(val action: DownloadAction, val error: AppError)
  * @property seeding finished torrents that are still shared.
  * @property failed failed downloads, newest first.
  * @property cancelled downloads the user cancelled, newest first; they can be started again.
+ * @property completed finished downloads, newest first; they stay until the user removes them
+ *   (the files stay too).
  * @property cancelCandidate the download whose cancellation waits for confirmation.
  * @property chosenKinds kinds whose download folder is chosen; a failed or cancelled download of
  *   another kind cannot be started again.
@@ -45,13 +47,14 @@ data class DownloadsUiState(
     val seeding: List<Download> = emptyList(),
     val failed: List<Download> = emptyList(),
     val cancelled: List<Download> = emptyList(),
+    val completed: List<Download> = emptyList(),
     val cancelCandidate: Download? = null,
     val chosenKinds: Set<MediaKind> = MediaKind.entries.toSet(),
     val busy: Set<String> = emptySet(),
     val message: DownloadsMessage? = null,
 ) {
     val isEmpty: Boolean
-        get() = active.isEmpty() && queued.isEmpty() && seeding.isEmpty() && failed.isEmpty() && cancelled.isEmpty()
+        get() = active.isEmpty() && queued.isEmpty() && seeding.isEmpty() && failed.isEmpty() && cancelled.isEmpty() && completed.isEmpty()
 }
 
 /** Shows the download queue with live progress and runs cancel, retry, stop seeding and dismiss. */
@@ -123,6 +126,8 @@ class DownloadsViewModel(
                 seeding = downloads.filter { it.status == DownloadStatus.SEEDING },
                 failed = downloads.filter { it.status == DownloadStatus.FAILED }.sortedByDescending { it.createdAt },
                 cancelled = downloads.filter { it.status == DownloadStatus.CANCELLED }.sortedByDescending { it.createdAt },
+                completed = downloads.filter { it.status == DownloadStatus.COMPLETED }
+                    .sortedByDescending { it.completedAt ?: it.createdAt },
             )
             next.copy(cancelCandidate = cancelId?.let { cancellable(next, it) })
         }

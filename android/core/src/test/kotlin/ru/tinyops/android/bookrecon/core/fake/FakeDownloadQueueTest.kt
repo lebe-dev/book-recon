@@ -73,7 +73,7 @@ class FakeDownloadQueueTest {
 
         drain()
         assertTrue(ids.all { status(it) == DownloadStatus.COMPLETED })
-        assertTrue(queue.observe().first().isEmpty())
+        assertTrue(queue.observe().first().all { it.status == DownloadStatus.COMPLETED })
     }
 
     @Test
@@ -144,6 +144,18 @@ class FakeDownloadQueueTest {
         queue.failNextDownload = AppError.Stalled()
         val id = queue.enqueue(audio())
         drain()
+
+        queue.dismiss(id)
+
+        assertNull(repository.get(id))
+    }
+
+    @Test
+    fun `dismiss removes a completed download`() = runTest {
+        val queue = queue()
+        val id = queue.enqueue(audio())
+        drain()
+        assertEquals(DownloadStatus.COMPLETED, repository.get(id)?.status)
 
         queue.dismiss(id)
 

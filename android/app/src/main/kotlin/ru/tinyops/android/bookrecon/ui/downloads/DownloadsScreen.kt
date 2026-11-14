@@ -213,6 +213,9 @@ private fun DownloadsList(state: DownloadsUiState, actions: DownloadsActions, no
         section(R.string.downloads_section_cancelled, state.cancelled) { download ->
             CancelledItem(download, download.id in state.busy, download.kind in state.chosenKinds, actions)
         }
+        section(R.string.downloads_section_completed, state.completed) { download ->
+            CompletedItem(download, download.id in state.busy, actions)
+        }
     }
 }
 
@@ -358,6 +361,18 @@ private fun SeedingItem(download: Download, busy: Boolean, actions: DownloadsAct
         ActionRow {
             TextButton(onClick = { actions.onStopSeeding(download.id) }, enabled = !busy) {
                 Text(stringResource(R.string.downloads_stop_seeding))
+            }
+        }
+    }
+}
+
+/** A finished download stays until the user removes it; removing it keeps the files. */
+@Composable
+private fun CompletedItem(download: Download, busy: Boolean, actions: DownloadsActions) {
+    DownloadCard(download) {
+        ActionRow {
+            TextButton(onClick = { actions.onDismiss(download.id) }, enabled = !busy) {
+                Text(stringResource(R.string.downloads_dismiss))
             }
         }
     }
@@ -509,6 +524,9 @@ private val previewFull = DownloadsUiState(
     ),
     cancelled = listOf(
         previewDownload("c1", DownloadStatus.CANCELLED),
+    ),
+    completed = listOf(
+        previewDownload("d1", DownloadStatus.COMPLETED, kind = MediaKind.BOOK),
     ),
 )
 

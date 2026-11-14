@@ -64,16 +64,22 @@ class SearchViewModelTest {
     private fun runVmTest(block: suspend TestScope.() -> Unit) = runTest(dispatcher) { block() }
 
     @Test
-    fun `a kind without a chosen folder cannot be selected or searched`() = runVmTest {
+    fun `a kind without a chosen folder can be opened to see why, but is not searched`() = runVmTest {
         chosen.value = setOf(MediaKind.BOOK)
         val vm = viewModel()
+        runCurrent()
+        vm.onQueryChange("Булгаков")
+        vm.onSearch()
         runCurrent()
 
         vm.onKindChange(MediaKind.AUDIO)
         runCurrent()
+        vm.onSearch()
+        runCurrent()
 
-        assertEquals(MediaKind.BOOK, vm.state.value.kind)
+        assertEquals(MediaKind.AUDIO, vm.state.value.kind)
         assertEquals(setOf(MediaKind.BOOK), vm.state.value.chosenKinds)
+        assertNull(vm.state.value.search)
     }
 
     @Test

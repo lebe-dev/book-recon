@@ -5,6 +5,7 @@
     <string name="downloads_section_seeding">Раздаются</string>
     <string name="downloads_section_failed">Не удалось загрузить</string>
     <string name="downloads_section_cancelled">Отменены</string>
+    <string name="downloads_section_completed">Загружены</string>
 
     <string name="downloads_kind_book">Книга</string>
     <string name="downloads_kind_audio">Аудиокнига</string>
@@ -41,7 +42,7 @@
     <string name="downloads_cancel_keep">Не отменять</string>
 
     <string name="downloads_empty_title">Загрузок нет</string>
-    <string name="downloads_empty_text">Найдите книгу или аудиокнигу в поиске — она появится здесь, пока загружается.</string>
+    <string name="downloads_empty_text">Найдите книгу или аудиокнигу в поиске — она появится здесь и останется, пока вы её не уберёте.</string>
     <string name="downloads_load_failed">Не удалось прочитать список загрузок: %1$s</string>
 
     <string name="downloads_action_failed_cancel">Не удалось отменить: %1$s</string>

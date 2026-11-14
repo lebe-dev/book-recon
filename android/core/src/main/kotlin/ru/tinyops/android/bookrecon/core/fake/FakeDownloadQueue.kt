@@ -112,7 +112,7 @@ class FakeDownloadQueue(
 
     override suspend fun dismiss(id: String) = mutex.withLock {
         val download = repository.get(id) ?: return@withLock
-        if (download.status != DownloadStatus.FAILED && download.status != DownloadStatus.CANCELLED) return@withLock
+        if (download.status !in DISMISSIBLE) return@withLock
         repository.delete(id)
     }
 
@@ -193,6 +193,7 @@ class FakeDownloadQueue(
     }
 
     private companion object {
+        val DISMISSIBLE = setOf(DownloadStatus.FAILED, DownloadStatus.CANCELLED, DownloadStatus.COMPLETED)
         const val FLIBUSTA_BOOK_SIZE = 1_500_000L
         const val FAKE_BOOKS_ROOT = "/storage/emulated/0/Books"
         const val FAKE_AUDIO_ROOT = "/storage/emulated/0/Audiobooks"

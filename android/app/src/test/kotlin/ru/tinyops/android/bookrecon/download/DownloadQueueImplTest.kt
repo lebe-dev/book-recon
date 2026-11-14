@@ -483,6 +483,21 @@ class DownloadQueueImplTest {
         assertFalse(File(dir, "torrents/$id.torrent").exists())
     }
 
+    @Test
+    fun dismissRemovesCompletedDownloadRecordOnly() = runTest {
+        val queue = queue(backgroundScope)
+        queue.start()
+        val id = queue.enqueue(torrent(FakeData.AUDIO_TOPIC_FLAT, MediaKind.AUDIO))
+        advance(TORRENT_SECONDS)
+        assertEquals(DownloadStatus.COMPLETED, status(id))
+        val placed = repository.get(id)!!.paths
+
+        queue.dismiss(id)
+
+        assertNull(repository.get(id))
+        assertTrue(placed.all { storage.exists(MediaKind.AUDIO, it) })
+    }
+
     private companion object {
         val BOOK_TIME = 10.seconds
         const val BOOK_SECONDS = 10

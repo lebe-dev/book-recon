@@ -14,16 +14,19 @@ import ru.tinyops.android.bookrecon.core.domain.Source
 @Dao
 abstract class DownloadDao {
     /**
-     * Queue screen: DOWNLOADING, SEEDING, QUEUED by position, then FAILED, then CANCELLED;
-     * ties by creation time, oldest first.
+     * Queue screen: DOWNLOADING, SEEDING, QUEUED by position, then FAILED, then CANCELLED, then
+     * COMPLETED (newest first, they stay until the user removes them); other ties by creation
+     * time, oldest first.
      */
     @Transaction
     @Query(
         """
         SELECT * FROM downloads
-        WHERE status IN ('DOWNLOADING', 'SEEDING', 'QUEUED', 'FAILED', 'CANCELLED')
+        WHERE status IN ('DOWNLOADING', 'SEEDING', 'QUEUED', 'FAILED', 'CANCELLED', 'COMPLETED')
         ORDER BY
-            CASE status WHEN 'DOWNLOADING' THEN 0 WHEN 'SEEDING' THEN 1 WHEN 'QUEUED' THEN 2 WHEN 'FAILED' THEN 3 ELSE 4 END,
+            CASE status WHEN 'DOWNLOADING' THEN 0 WHEN 'SEEDING' THEN 1 WHEN 'QUEUED' THEN 2 WHEN 'FAILED' THEN 3
+                WHEN 'CANCELLED' THEN 4 ELSE 5 END,
+            CASE WHEN status = 'COMPLETED' THEN -COALESCE(completedAt, createdAt) END,
             queuePosition IS NULL, queuePosition, createdAt, id
         """,
     )

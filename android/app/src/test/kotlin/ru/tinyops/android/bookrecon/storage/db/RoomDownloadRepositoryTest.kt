@@ -159,11 +159,12 @@ class RoomDownloadRepositoryTest {
         repository.insert(download(id = "down2", status = DownloadStatus.DOWNLOADING, created = 6))
         repository.insert(download(id = "down1", status = DownloadStatus.DOWNLOADING, created = 5))
         repository.insert(download(id = "done", status = DownloadStatus.COMPLETED, created = 7))
+        repository.insert(download(id = "done-new", status = DownloadStatus.COMPLETED, created = 9))
         repository.insert(download(id = "cancelled", status = DownloadStatus.CANCELLED, created = 8))
 
         val ids = repository.observeQueue().first().map { it.id }
 
-        assertEquals(listOf("down1", "down2", "seed", "q1", "q2", "q0", "failed", "cancelled"), ids)
+        assertEquals(listOf("down1", "down2", "seed", "q1", "q2", "q0", "failed", "cancelled", "done-new", "done"), ids)
     }
 
     @Test

@@ -51,8 +51,9 @@ data class SearchUiState(
  * in [savedState], so they survive rotation and process death; a restored submitted query is
  * searched again. Every accepted query goes to [history].
  *
- * Only kinds in [chosenKinds] (those with a chosen download folder) are offered: the tab
- * moves to another kind when its folder is gone, and without any folder nothing is searched.
+ * Only kinds in [chosenKinds] (those with a chosen download folder) are searched. A kind
+ * without a folder can still be opened, so the screen explains what is missing; the tab moves
+ * to another kind when its folder is gone, and without any folder nothing is searched.
  */
 class SearchViewModel(
     private val searchUseCase: SearchUseCase,
@@ -89,7 +90,7 @@ class SearchViewModel(
     }
 
     fun onKindChange(kind: MediaKind) {
-        if (kind == mutableState.value.kind || kind !in mutableState.value.chosenKinds) return
+        if (kind == mutableState.value.kind) return
         savedState[KEY_KIND] = kind.name
         mutableState.update { it.copy(kind = kind) }
         val submitted = mutableState.value.submittedQuery ?: return

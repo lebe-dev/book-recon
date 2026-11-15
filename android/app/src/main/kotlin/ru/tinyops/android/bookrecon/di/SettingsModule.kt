@@ -42,14 +42,14 @@ class SettingsModule(private val app: AppContainer) {
 
     /**
      * The real storage, with the root check the settings screen needs. Downloads are staged
-     * in the app's private folder on external storage, which needs no permission, and fall
-     * back to internal storage where there is none.
+     * in the app's private internal folder: external app folders go through the FUSE daemon of
+     * MediaProvider, which aborts on a torrent opening many files and takes the app down with it.
      */
     val storage: AndroidFileStorage by lazy {
         AndroidFileStorage(
             settings = settingsRepository,
             tree = DocumentsTree(app.context.contentResolver),
-            stagingBase = File(app.context.getExternalFilesDir(null) ?: app.context.filesDir, STAGING_FOLDER),
+            stagingBase = File(app.context.filesDir, STAGING_FOLDER),
             primaryRoot = Environment.getExternalStorageDirectory().path,
         )
     }
